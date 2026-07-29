@@ -1,36 +1,32 @@
 # SmartShopPOS
 
-Modular Point of Sale (POS) system.
+## Smart and Simple POS for everyone
 
-## Tech Stack
+A scalable SaaS-ready Point of Sale platform designed for Kenyan businesses.
 
-- **API:** Node.js, Express/Fastify, Prisma
-- **Web:** React, TypeScript, Tailwind CSS
-- **Desktop:** Electron, React
-- **AI:** OpenAI-compatible interfaces
+## Technology Stack
 
-## Quick Start
+Backend:
+- Fastify
+- TypeScript
+- Prisma
+- PostgreSQL
 
-```bash
-git clone <repo-url> smartshoppos
-cd smartshoppos
-pnpm install
-cp .env.example .env.local
-pnpm dev
-```
+Frontend:
+- React
+- TypeScript
+- Vite
 
-## Branching
+Infrastructure:
+- Docker
+- Redis
+- Nginx
 
-- `main` - Production
-- `develop` - Integration
-- `feature/*` - Features
-- `fix/*` - Bugfixes
-- `release/*` - Releases
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## License
-
-See [LICENSE](LICENSE).
+Features:
+- Inventory management
+- POS sales
+- M-Pesa integration
+- Paystack integration
+- KRA eTIMS support
+- Offline-first POS
+- AI-powered business insights
