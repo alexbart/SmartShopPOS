@@ -1,0 +1,30 @@
+[*.{js,ts,jsx,tsx,json,md,yaml,yml}]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{env,env.*,secret}]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{py,proto}]
+indent_style = space
+indent_size = 4
+
+[*.{md}]
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
+
+[*.{yml,yaml,json}]
+indent_style = space
+indent_size = 2
+
+[LICENSE]
+insert_final_newline = true

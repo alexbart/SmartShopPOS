@@ -1,0 +1,38 @@
+* text=auto eol=lf
+
+# Set default behavior to automatically normalize line endings.
+* text=auto eol=lf
+
+# Treat as text files even if they look binary
+*.json text
+*.md text
+*.yaml text
+*.yml text
+*.js text
+*.ts text
+*.tsx text
+*.css text
+*.scss text
+*.html text
+*.env text
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+
+# Archives
+*.zip binary
+*.tar binary
+*.gz binary
+*.bz2 binary
+*.7z binary
+
+# Executables
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
