@@ -1,23 +1,17 @@
-export interface RegisteredOrganization {
-  id: string;
-  code: string;
-  name: string;
-}
-
-export interface RegisteredUser {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-}
-
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-}
-
 export interface RegisterResponse {
-  organization: RegisteredOrganization;
-  user: RegisteredUser;
-  tokens: AuthTokens;
+  organization: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+  };
 }

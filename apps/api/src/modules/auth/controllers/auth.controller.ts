@@ -1,37 +1,21 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { IAuthService } from "../types/auth.types.js";
 import { RegisterMapper } from "../mappers/register.mapper.js";
-import type { RegisterDTO } from "../dto/register.dto.js";
+import type { RegisterDto } from "../dto/register.dto.js";
 import type { RegisterResponse } from "../responses/register.response.js";
 
 export class AuthController {
   constructor(private readonly _authService: IAuthService) {}
 
   async register(request: FastifyRequest, reply: FastifyReply) {
-    const body = request.body as RegisterDTO;
-    const command = RegisterMapper.toCommand(body);
+    const body = request.body as RegisterDto;
+    const command = RegisterMapper.toRegisterCommand(body);
     const result = await this._authService.register(command) as RegisterResponse;
 
     return reply.status(201).send({
       success: true,
       message: "Organization registered successfully.",
-      data: {
-        organization: {
-          id: result.organization.id,
-          code: result.organization.code,
-          name: result.organization.name,
-        },
-        user: {
-          id: result.user.id,
-          firstName: result.user.firstName,
-          lastName: result.user.lastName,
-          email: result.user.email,
-        },
-        tokens: {
-          accessToken: result.tokens.accessToken,
-          refreshToken: result.tokens.refreshToken,
-        },
-      },
+      data: result,
     });
   }
 

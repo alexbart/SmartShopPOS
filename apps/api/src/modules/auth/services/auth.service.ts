@@ -21,14 +21,9 @@ export class AuthService {
 
     const organizationCode = await this._organizationCodeService.generate(command.organizationName);
 
-    const existingOrganization = await this._repository.findOrganizationByCode({
-      code: organizationCode,
-    });
+    const existingOrganization = await this._repository.findOrganizationByCode({ code: organizationCode });
     if (existingOrganization) {
-      const error = new Error('Organization already exists.') as Error & {
-        code: string;
-        statusCode: number;
-      };
+      const error = new Error('Organization already exists.') as Error & { code: string; statusCode: number };
       error.code = 'ORGANIZATION_ALREADY_EXISTS';
       error.statusCode = 409;
       throw error;
@@ -43,9 +38,6 @@ export class AuthService {
       organizationId = await this._repository.createOrganization({
         name: command.organizationName,
         code: organizationCode,
-        email: command.organizationEmail,
-        phone: command.organizationPhone,
-        kraPin: command.kraPin,
       });
 
       const branchId = await this._repository.createBranch({

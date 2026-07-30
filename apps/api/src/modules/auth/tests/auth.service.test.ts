@@ -43,9 +43,6 @@ const createMockUnitOfWork = (): IUnitOfWork => ({
 
 const createCommand = (): RegisterCommand => ({
   organizationName: "SmartShop Demo Ltd.",
-  organizationEmail: "info@smartshop.test",
-  organizationPhone: "+254700000000",
-  kraPin: "P051234567A",
   ownerFirstName: "Alex",
   ownerLastName: "Kiprop",
   ownerEmail: "alex@smartshop.test",

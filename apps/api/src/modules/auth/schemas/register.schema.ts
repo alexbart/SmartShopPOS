@@ -1,43 +1,10 @@
 import { z } from "zod";
-import { passwordSchema } from "../../../shared/validators/password.validator.js";
-
-export const organizationSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(3, "Organization name must be at least 3 characters")
-    .max(120),
-  email: z.string().email().optional(),
-  phone: z.string().min(10).max(20).optional(),
-  kraPin: z.string().max(20).optional(),
-});
-
-export const ownerSchema = z.object({
-  firstName: z
-    .string()
-    .trim()
-    .min(2)
-    .max(50),
-  lastName: z
-    .string()
-    .trim()
-    .min(2)
-    .max(50),
-  email: z
-    .string()
-    .trim()
-    .email(),
-  phone: z
-    .string()
-    .min(10)
-    .max(20)
-    .optional(),
-  password: passwordSchema,
-});
 
 export const registerSchema = z.object({
-  organization: organizationSchema,
-  owner: ownerSchema,
+  organizationName: z.string().min(3, "Organization name must be at least 3 characters").max(255, "Organization name must not exceed 255 characters"),
+  ownerFirstName: z.string().min(2, "First name must be at least 2 characters"),
+  ownerLastName: z.string().min(2, "Last name must be at least 2 characters"),
+  ownerEmail: z.string().email("Invalid email address"),
+  ownerPhone: z.string().optional(),
+  password: z.string().min(12, "Password must be at least 12 characters").regex(/[A-Z]/, "Password must contain at least one uppercase letter").regex(/[a-z]/, "Password must contain at least one lowercase letter").regex(/[0-9]/, "Password must contain at least one number").regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
 });
-
-export type RegisterInput = z.infer<typeof registerSchema>;

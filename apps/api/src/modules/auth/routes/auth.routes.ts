@@ -33,29 +33,14 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         body: {
           type: "object",
-          required: ["organization", "owner"],
+          required: ["organizationName", "ownerFirstName", "ownerLastName", "ownerEmail", "password"],
           properties: {
-            organization: {
-              type: "object",
-              required: ["name"],
-              properties: {
-                name: { type: "string", minLength: 3, maxLength: 120 },
-                email: { type: "string", format: "email" },
-                phone: { type: "string", minLength: 10, maxLength: 20 },
-                kraPin: { type: "string", maxLength: 20 },
-              },
-            },
-            owner: {
-              type: "object",
-              required: ["firstName", "lastName", "email", "password"],
-              properties: {
-                firstName: { type: "string", minLength: 2, maxLength: 50 },
-                lastName: { type: "string", minLength: 2, maxLength: 50 },
-                email: { type: "string", format: "email" },
-                phone: { type: "string", minLength: 10, maxLength: 20 },
-                password: { type: "string", minLength: 8 },
-              },
-            },
+            organizationName: { type: "string", minLength: 3, maxLength: 255 },
+            ownerFirstName: { type: "string", minLength: 2 },
+            ownerLastName: { type: "string", minLength: 2 },
+            ownerEmail: { type: "string", format: "email" },
+            ownerPhone: { type: "string" },
+            password: { type: "string", minLength: 12 },
           },
         },
       },
