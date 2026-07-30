@@ -15,6 +15,7 @@
     "@fastify/cors": "^9.0.0",
     "@fastify/swagger": "^8.8.0",
     "@fastify/swagger-ui": "^1.9.0",
+    "@prisma/client": "5.22.0",
     "dotenv": "^17.4.2",
     "fastify": "^4.26.0",
     "fastify-plugin": "^6.0.0",
