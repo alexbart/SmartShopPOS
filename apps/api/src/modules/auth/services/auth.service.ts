@@ -1,140 +1,160 @@
-import type { IAuthService } from '../types/auth.types.js';
-import type { IAuthRepository } from '../types/auth.types.js';
-import { hashPassword } from '../utils/password.js';
-import { generateAccessToken, generateRefreshToken } from './jwt.js';
+import type { RegisterCommand } from '../commands/register.command.js';
+import type { RegisterResponse } from '../responses/register.response.js';
+import type { IAuthRepository } from '../repositories/auth.repository.js';
+import type { IPasswordService } from '../../../shared/services/password/password.interface.js';
+import type { IJwtService } from '../../../shared/services/jwt/jwt.interface.js';
+import type { IOrganizationCodeService } from '../../../shared/services/organization-code/organization-code.interface.js';
+import type { IUnitOfWork } from '../../../shared/database/unit-of-work.js';
 import { generateRequestId } from '../utils/request.js';
 
-export class AuthService implements IAuthService {
-  constructor(private readonly _repository: IAuthRepository) {}
+export class AuthService {
+  constructor(
+    private readonly _repository: IAuthRepository,
+    private readonly _passwordService: IPasswordService,
+    private readonly _jwtService: IJwtService,
+    private readonly _organizationCodeService: IOrganizationCodeService,
+    private readonly _unitOfWork: IUnitOfWork,
+  ) {}
 
-  async register(data: {
-    organization: { name: string; code: string; email?: string; phone?: string; kraPin?: string };
-    owner: { firstName: string; lastName: string; email: string; phone?: string; password: string };
-  }) {
+  async register(command: RegisterCommand): Promise<RegisterResponse> {
     const requestId = generateRequestId();
 
-    const existingOrganization = await this._repository.findOrganizationByCode(
-      data.organization.code,
-    );
+    const organizationCode = await this._organizationCodeService.generate(command.organizationName);
+
+    const existingOrganization = await this._repository.findOrganizationByCode({
+      code: organizationCode,
+    });
     if (existingOrganization) {
-      throw new Error('ORGANIZATION_EXISTS');
+      const error = new Error('Organization already exists.') as Error & {
+        code: string;
+        statusCode: number;
+      };
+      error.code = 'ORGANIZATION_ALREADY_EXISTS';
+      error.statusCode = 409;
+      throw error;
     }
 
-    const organizationId = await this._repository.createOrganization(data.organization);
+    const passwordHash = await this._passwordService.hash(command.plainPassword);
 
-    const existingUser = await this._repository.findUserByEmail(organizationId, data.owner.email);
-    if (existingUser) {
-      throw new Error('EMAIL_EXISTS');
-    }
+    let organizationId!: string;
+    let userId!: string;
 
-    const passwordHash = await hashPassword(data.owner.password);
-    const userId = await this._repository.createUser({
-      organizationId,
-      firstName: data.owner.firstName,
-      lastName: data.owner.lastName,
-      email: data.owner.email,
-      phone: data.owner.phone,
-      passwordHash,
+    await this._unitOfWork.execute(async (_tx: unknown) => {
+      organizationId = await this._repository.createOrganization({
+        name: command.organizationName,
+        code: organizationCode,
+        email: command.organizationEmail,
+        phone: command.organizationPhone,
+        kraPin: command.kraPin,
+      });
+
+      const branchId = await this._repository.createBranch({
+        organizationId,
+        name: 'Head Office',
+        code: 'HO-001',
+        isHeadOffice: true,
+      });
+
+      const existingUser = await this._repository.findUserByEmail({
+        organizationId,
+        email: command.ownerEmail,
+      });
+      if (existingUser) {
+        const error = new Error('Email already exists.') as Error & {
+          code: string;
+          statusCode: number;
+        };
+        error.code = 'EMAIL_EXISTS';
+        error.statusCode = 409;
+        throw error;
+      }
+
+      userId = await this._repository.createUser({
+        organizationId,
+        branchId,
+        firstName: command.ownerFirstName,
+        lastName: command.ownerLastName,
+        email: command.ownerEmail,
+        phone: command.ownerPhone,
+        passwordHash,
+        isActive: true,
+      });
+
+      const role = await this._repository.findRoleByName({ name: 'OWNER' });
+      if (!role) {
+        const error = new Error('OWNER role not found.') as Error & {
+          code: string;
+          statusCode: number;
+        };
+        error.code = 'ROLE_NOT_FOUND';
+        error.statusCode = 500;
+        throw error;
+      }
+
+      await this._repository.assignRole({
+        userId,
+        roleId: role.id,
+      });
+
+      const refreshToken = await this._jwtService.generateRefreshToken({
+        userId,
+        sessionId: 'temp',
+      });
+      const refreshTokenHash = await this._passwordService.hash(refreshToken);
+
+      await this._repository.createSession({
+        organizationId,
+        userId,
+        branchId,
+        refreshTokenHash,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      });
+
+      await this._repository.createAuditLog({
+        organizationId,
+        actorId: userId,
+        action: 'CREATE',
+        entity: 'Organization',
+        entityId: organizationId,
+        requestId,
+      });
     });
 
-    await this._repository.createAuditLog({
-      organizationId,
+    const accessToken = await this._jwtService.generateAccessToken({
       userId,
-      action: 'CREATE',
-      entity: 'User',
-      entityId: userId,
-      requestId,
+      organizationId,
+      roles: ['OWNER'],
     });
-
-    const accessToken = generateAccessToken({ userId, organizationId, roles: ['OWNER'] });
-    const refreshToken = generateRefreshToken({ userId, sessionId: 'temp' });
-
-    await this._repository.createSession({
-      userId,
-      refreshTokenHash: refreshToken,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    });
-
-    return { userId, organizationId, accessToken, refreshToken };
-  }
-
-  async login(data: { email: string; password: string }) {
-    const requestId = generateRequestId();
-
-    const user = await this._repository.findUserByEmail('global', data.email);
-    if (!user) {
-      throw new Error('INVALID_CREDENTIALS');
-    }
-
-    const accessToken = generateAccessToken({
-      userId: user.id,
-      organizationId: 'global',
-      roles: [],
-    });
-    const refreshToken = generateRefreshToken({ userId: user.id, sessionId: 'temp' });
-
-    await this._repository.createSession({
-      userId: user.id,
-      refreshTokenHash: refreshToken,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    });
-
-    await this._repository.createAuditLog({
-      organizationId: 'global',
-      userId: user.id,
-      action: 'LOGIN',
-      entity: 'Session',
-      entityId: user.id,
-      requestId,
-    });
-
-    return { userId: user.id, organizationId: 'global', accessToken, refreshToken };
-  }
-
-  async refresh(_refreshToken: string) {
-    void _refreshToken;
-    const requestId = generateRequestId();
-
-    const payload = generateRefreshToken({ userId: 'temp', sessionId: 'temp' });
-
-    const accessToken = generateAccessToken({
-      userId: payload.userId,
-      organizationId: 'global',
-      roles: [],
-    });
-    const newRefreshToken = generateRefreshToken({ userId: payload.userId, sessionId: 'temp' });
-
-    await this._repository.createSession({
-      userId: payload.userId,
-      refreshTokenHash: newRefreshToken,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    });
-
-    await this._repository.createAuditLog({
-      organizationId: 'global',
-      userId: payload.userId,
-      action: 'LOGIN',
-      entity: 'Session',
-      entityId: payload.userId,
-      requestId,
-    });
+    const refreshToken = await this._jwtService.generateRefreshToken({ userId, sessionId: 'temp' });
 
     return {
-      userId: payload.userId,
-      organizationId: 'global',
-      accessToken,
-      refreshToken: newRefreshToken,
-    };
+      organization: {
+        id: organizationId,
+        code: organizationCode,
+        name: command.organizationName,
+      },
+      user: {
+        id: userId,
+        firstName: command.ownerFirstName,
+        lastName: command.ownerLastName,
+        email: command.ownerEmail,
+      },
+      tokens: {
+        accessToken,
+        refreshToken,
+      },
+    } as const;
   }
 
-  async logout(userId: string, _sessionId: string) {
-    await this._repository.createAuditLog({
-      organizationId: 'global',
-      userId,
-      action: 'LOGOUT',
-      entity: 'Session',
-      entityId: _sessionId,
-      requestId: generateRequestId(),
-    });
+  async login(_data: { email: string; password: string }): Promise<never> {
+    throw new Error('Not implemented');
+  }
+
+  async refresh(_refreshToken: string): Promise<never> {
+    throw new Error('Not implemented');
+  }
+
+  async logout(_userId: string, _sessionId: string): Promise<void> {
+    throw new Error('Not implemented');
   }
 }
