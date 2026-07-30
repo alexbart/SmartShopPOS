@@ -1,4 +1,9 @@
 import { PrismaClient } from '@prisma/client';
+import { seedCategories } from './03-categories.seed.js';
+import { seedBrands } from './04-brands.seed.js';
+import { seedUnits } from './05-units.seed.js';
+import { seedTaxes } from './06-taxes.seed.js';
+import { seedProducts } from './07-products.seed.js';
 
 const prisma = new PrismaClient();
 
@@ -84,6 +89,25 @@ async function main() {
       }
     }
   }
+
+  let organization = await prisma.organization.findFirst();
+  if (!organization) {
+    organization = await prisma.organization.create({
+      data: {
+        name: 'Demo Organization',
+        code: 'DEMO',
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  const organizationId = organization.id;
+
+  await seedCategories(prisma, organizationId);
+  await seedBrands(prisma, organizationId);
+  await seedUnits(prisma, organizationId);
+  await seedTaxes(prisma, organizationId);
+  await seedProducts(prisma, organizationId);
 
   console.log('Seed completed successfully');
 }

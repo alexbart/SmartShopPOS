@@ -204,6 +204,15 @@ export class AuthService {
       throw error;
     }
 
+    const tempHash = crypto.randomUUID();
+    const sessionId = await this._repository.createSession({
+      organizationId: organization.id,
+      userId: user.id,
+      branchId: user.branchId,
+      refreshTokenHash: tempHash,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+
     const refreshToken = await this._jwtService.generateRefreshToken({
       userId: user.id,
       sessionId,
@@ -212,10 +221,13 @@ export class AuthService {
     const refreshTokenHash = await this._passwordService.hash(refreshToken);
     await this._repository.updateSessionRefreshToken(sessionId, refreshTokenHash);
 
+    const userWithRoles = await this._repository.findUserWithRolesById(user.id);
+    const roles = userWithRoles?.roles ?? [];
+
     const accessToken = await this._jwtService.generateAccessToken({
       userId: user.id,
       organizationId: organization.id,
-      roles: [],
+      roles,
     });
 
     return {

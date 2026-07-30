@@ -58,6 +58,11 @@ model Organization {
   sessions  Session[]
   auditLogs AuditLog[]
   roles     Role[]
+  categories Category[]
+  brands     Brand[]
+  units      Unit[]
+  taxes      Tax[]
+  products   Product[]
 
   @@index([code], map: "organizations_code_idx")
   @@index([status], map: "organizations_status_idx")
@@ -229,4 +234,127 @@ model AuditLog {
   @@index([action], map: "audit_logs_action_idx")
   @@index([createdAt], map: "audit_logs_created_at_idx")
   @@map("audit_logs")
+}
+
+model Category {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String    @db.VarChar(150)
+  code           String    @db.VarChar(50)
+  description    String?
+  color          String?   @db.VarChar(20)
+  isActive       Boolean   @default(true)
+  createdBy      String?   @db.Uuid
+  updatedBy      String?   @db.Uuid
+  createdAt      DateTime  @default(now()) @db.Timestamp
+  updatedAt      DateTime  @updatedAt @db.Timestamp
+  deletedAt      DateTime? @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("categories")
+}
+
+model Brand {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String    @db.VarChar(150)
+  code           String    @db.VarChar(50)
+  description    String?
+  logoUrl        String?
+  website        String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.Timestamp
+  updatedAt      DateTime  @updatedAt @db.Timestamp
+  deletedAt      DateTime? @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("brands")
+}
+
+model Unit {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String    @db.VarChar(150)
+  code           String    @db.VarChar(50)
+  description    String?
+  abbreviation   String?   @db.VarChar(20)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.Timestamp
+  updatedAt      DateTime  @updatedAt @db.Timestamp
+  deletedAt      DateTime? @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("units")
+}
+
+model Tax {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String    @db.VarChar(150)
+  code           String    @db.VarChar(50)
+  description    String?
+  rate           Decimal   @db.Decimal(10, 4)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.Timestamp
+  updatedAt      DateTime  @updatedAt @db.Timestamp
+  deletedAt      DateTime? @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("taxes")
+}
+
+model Product {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String    @db.VarChar(150)
+  code           String    @db.VarChar(50)
+  description    String?
+  sku            String?   @db.VarChar(100)
+  barcode        String?   @db.VarChar(100)
+  categoryId     String?   @db.Uuid
+  brandId        String?   @db.Uuid
+  unitId         String    @db.Uuid
+  taxId          String?   @db.Uuid
+  costPrice      Decimal   @db.Decimal(10, 2)
+  sellingPrice   Decimal   @db.Decimal(10, 2)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.Timestamp
+  updatedAt      DateTime  @updatedAt @db.Timestamp
+  deletedAt      DateTime? @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     Category?    @relation(fields: [categoryId], references: [id])
+  brand        Brand?       @relation(fields: [brandId], references: [id])
+  unit         Unit         @relation(fields: [unitId], references: [id])
+  tax          Tax?         @relation(fields: [taxId], references: [id])
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@unique([organizationId, sku])
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("products")
 }

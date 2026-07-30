@@ -7,6 +7,11 @@ import { errorHandlerPlugin } from './plugins/errorHandler.js';
 import { swaggerConfig } from './config/swagger.js';
 import { healthRoute } from './routes/health.js';
 import { AuthRoutes } from './modules/auth/index.js';
+import { CategoryRoutes } from './modules/category/index.js';
+import { brandRoutes } from './modules/brand/index.js';
+import { unitRoutes } from './modules/unit/index.js';
+import { taxRoutes } from './modules/tax/index.js';
+import { productRoutes } from './modules/product/index.js';
 import { getPrisma } from './shared/database/prisma.js';
 
 export async function buildApp() {
@@ -23,6 +28,11 @@ export async function buildApp() {
   await app.register(errorHandlerPlugin);
   await app.register(healthRoute, { prefix: '/api/v1' });
   await app.register(AuthRoutes, { prefix: '/api/v1/auth' });
+  await app.register(CategoryRoutes, { prefix: '/api/v1/categories' });
+  await app.register(brandRoutes, { prefix: '/api/v1/brands' });
+  await app.register(unitRoutes, { prefix: '/api/v1/units' });
+  await app.register(taxRoutes, { prefix: '/api/v1/taxes' });
+  await app.register(productRoutes, { prefix: '/api/v1/products' });
 
   try {
     const prisma = getPrisma();
