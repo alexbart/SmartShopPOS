@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import type { IAuthRepository } from "../repositories/auth.repository.js";
+import { describe, expect, it, vi } from 'vitest';
+import type { IAuthRepository } from '../repositories/auth.repository.js';
 import type {
   FindOrganizationByNameQuery,
   FindOrganizationByCodeQuery,
@@ -9,9 +9,8 @@ import type {
   CreateBranchModel,
   CreateUserModel,
   AssignRoleModel,
-  CreateSessionModel,
-  CreateAuditLogModel,
-} from "../repositories/models/index.js";
+} from '../repositories/models/index.js';
+import { AuthRepositoryImpl } from '../repositories/auth.repository.impl.js';
 
 type MockPrisma = {
   organization: {
@@ -32,7 +31,9 @@ type MockPrisma = {
     create: ReturnType<typeof vi.fn>;
   };
   session: {
+    findFirst: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
   auditLog: {
     create: ReturnType<typeof vi.fn>;
@@ -58,7 +59,9 @@ const createMockPrisma = (): MockPrisma => ({
     create: vi.fn(),
   },
   session: {
+    findFirst: vi.fn(),
     create: vi.fn(),
+    update: vi.fn(),
   },
   auditLog: {
     create: vi.fn(),
@@ -66,116 +69,122 @@ const createMockPrisma = (): MockPrisma => ({
 });
 
 const createMockRepository = (prisma: MockPrisma): IAuthRepository => {
-  const { AuthRepositoryImpl } = require("../repositories/auth.repository.impl.js");
   return new AuthRepositoryImpl(prisma as unknown as Parameters<typeof AuthRepositoryImpl>[0]);
 };
 
-describe("AuthRepository", () => {
-  describe("findOrganizationByName", () => {
-    it("should return organization when found", async () => {
+describe('AuthRepository', () => {
+  describe('findOrganizationByName', () => {
+    it('should return organization when found', async () => {
       const prisma = createMockPrisma();
-      prisma.organization.findFirst.mockResolvedValue({ id: "org-123", code: "ORG001" });
+      prisma.organization.findFirst.mockResolvedValue({ id: 'org-123', code: 'ORG001' });
 
       const repository = createMockRepository(prisma);
-      const result = await repository.findOrganizationByName({ name: "SmartShop" } as FindOrganizationByNameQuery);
+      const result = await repository.findOrganizationByName({
+        name: 'SmartShop',
+      } as FindOrganizationByNameQuery);
 
-      expect(result).toEqual({ id: "org-123", code: "ORG001" });
+      expect(result).toEqual({ id: 'org-123', code: 'ORG001' });
       expect(prisma.organization.findFirst).toHaveBeenCalledWith({
-        where: { name: "SmartShop", deletedAt: null },
+        where: { name: 'SmartShop', deletedAt: null },
         select: { id: true, code: true },
       });
     });
   });
 
-  describe("findOrganizationByCode", () => {
-    it("should return organization when found", async () => {
+  describe('findOrganizationByCode', () => {
+    it('should return organization when found', async () => {
       const prisma = createMockPrisma();
-      prisma.organization.findFirst.mockResolvedValue({ id: "org-123", status: "ACTIVE" });
+      prisma.organization.findFirst.mockResolvedValue({ id: 'org-123', status: 'ACTIVE' });
 
       const repository = createMockRepository(prisma);
-      const result = await repository.findOrganizationByCode({ code: "ORG001" } as FindOrganizationByCodeQuery);
+      const result = await repository.findOrganizationByCode({
+        code: 'ORG001',
+      } as FindOrganizationByCodeQuery);
 
-      expect(result).toEqual({ id: "org-123", status: "ACTIVE" });
+      expect(result).toEqual({ id: 'org-123', status: 'ACTIVE' });
       expect(prisma.organization.findFirst).toHaveBeenCalledWith({
-        where: { code: "ORG001", deletedAt: null },
+        where: { code: 'ORG001', deletedAt: null },
         select: { id: true, status: true },
       });
     });
   });
 
-  describe("findUserByEmail", () => {
-    it("should return user when found", async () => {
+  describe('findUserByEmail', () => {
+    it('should return user when found', async () => {
       const prisma = createMockPrisma();
-      prisma.user.findFirst.mockResolvedValue({ id: "user-123" });
+      prisma.user.findFirst.mockResolvedValue({ id: 'user-123' });
 
       const repository = createMockRepository(prisma);
-      const result = await repository.findUserByEmail({ organizationId: "org-123", email: "test@example.com" } as FindUserByEmailQuery);
+      const result = await repository.findUserByEmail({
+        organizationId: 'org-123',
+        email: 'test@example.com',
+      } as FindUserByEmailQuery);
 
-      expect(result).toEqual({ id: "user-123" });
+      expect(result).toEqual({ id: 'user-123' });
       expect(prisma.user.findFirst).toHaveBeenCalledWith({
-        where: { organizationId: "org-123", email: "test@example.com", deletedAt: null },
+        where: { organizationId: 'org-123', email: 'test@example.com', deletedAt: null },
         select: { id: true },
       });
     });
   });
 
-  describe("findRoleByName", () => {
-    it("should return role when found", async () => {
+  describe('findRoleByName', () => {
+    it('should return role when found', async () => {
       const prisma = createMockPrisma();
-      prisma.role.findFirst.mockResolvedValue({ id: "role-123" });
+      prisma.role.findFirst.mockResolvedValue({ id: 'role-123' });
 
       const repository = createMockRepository(prisma);
-      const result = await repository.findRoleByName({ name: "OWNER" } as FindRoleByNameQuery);
+      const result = await repository.findRoleByName({ name: 'OWNER' } as FindRoleByNameQuery);
 
-      expect(result).toEqual({ id: "role-123" });
+      expect(result).toEqual({ id: 'role-123' });
       expect(prisma.role.findFirst).toHaveBeenCalledWith({
-        where: { name: "OWNER", deletedAt: null },
+        where: { name: 'OWNER', deletedAt: null },
         select: { id: true },
       });
     });
   });
 
-  describe("createOrganization", () => {
-    it("should create organization and return id", async () => {
+  describe('createOrganization', () => {
+    it('should create organization and return id', async () => {
       const prisma = createMockPrisma();
-      prisma.organization.create.mockResolvedValue({ id: "org-123" });
+      prisma.organization.create.mockResolvedValue({ id: 'org-123' });
 
       const repository = createMockRepository(prisma);
       const result = await repository.createOrganization({
-        name: "SmartShop",
-        code: "SMART",
+        name: 'SmartShop',
+        code: 'SMART',
       } as CreateOrganizationModel);
 
-      expect(result).toBe("org-123");
+      expect(result).toBe('org-123');
       expect(prisma.organization.create).toHaveBeenCalledWith({
         data: {
-          name: "SmartShop",
-          code: "SMART",
+          name: 'SmartShop',
+          code: 'SMART',
         },
         select: { id: true },
       });
     });
   });
 
-  describe("createBranch", () => {
-    it("should create branch and return id", async () => {
+  describe('createBranch', () => {
+    it('should create branch and return id', async () => {
       const prisma = createMockPrisma();
-      prisma.branch.create.mockResolvedValue({ id: "branch-123" });
+      prisma.branch.create.mockResolvedValue({ id: 'branch-123' });
 
       const repository = createMockRepository(prisma);
       const result = await repository.createBranch({
-        organizationId: "org-123",
-        name: "Head Office",
-        code: "HO-001",
+        organizationId: 'org-123',
+        name: 'Head Office',
+        code: 'HO-001',
         isHeadOffice: true,
       } as CreateBranchModel);
 
-      expect(result).toBe("branch-123");
+      expect(result).toBe('branch-123');
       expect(prisma.branch.create).toHaveBeenCalledWith({
         data: {
-          organizationId: "org-123",
-          name: "Head Office",
-          code: "HO-001",
+          organizationId: 'org-123',
+          name: 'Head Office',
+          code: 'HO-001',
           isHeadOffice: true,
         },
         select: { id: true },
@@ -183,48 +192,48 @@ describe("AuthRepository", () => {
     });
   });
 
-  describe("createUser", () => {
-    it("should create user and return id", async () => {
+  describe('createUser', () => {
+    it('should create user and return id', async () => {
       const prisma = createMockPrisma();
-      prisma.user.create.mockResolvedValue({ id: "user-123" });
+      prisma.user.create.mockResolvedValue({ id: 'user-123' });
 
       const repository = createMockRepository(prisma);
       const result = await repository.createUser({
-        organizationId: "org-123",
-        branchId: "branch-123",
-        firstName: "Alex",
-        lastName: "Kiprop",
-        email: "alex@example.com",
-        passwordHash: "hashed-password",
+        organizationId: 'org-123',
+        branchId: 'branch-123',
+        firstName: 'Alex',
+        lastName: 'Kiprop',
+        email: 'alex@example.com',
+        passwordHash: 'hashed-password',
         isActive: true,
       } as CreateUserModel);
 
-      expect(result).toBe("user-123");
+      expect(result).toBe('user-123');
       expect(prisma.user.create).toHaveBeenCalledWith({
         data: {
-          organizationId: "org-123",
-          branchId: "branch-123",
-          firstName: "Alex",
-          lastName: "Kiprop",
-          email: "alex@example.com",
-          passwordHash: "hashed-password",
-          status: "ACTIVE",
+          organizationId: 'org-123',
+          branchId: 'branch-123',
+          firstName: 'Alex',
+          lastName: 'Kiprop',
+          email: 'alex@example.com',
+          passwordHash: 'hashed-password',
+          status: 'ACTIVE',
         },
         select: { id: true },
       });
     });
   });
 
-  describe("assignRole", () => {
-    it("should assign role to user", async () => {
+  describe('assignRole', () => {
+    it('should assign role to user', async () => {
       const prisma = createMockPrisma();
       prisma.userRole.create.mockResolvedValue(undefined);
 
       const repository = createMockRepository(prisma);
-      await repository.assignRole({ userId: "user-123", roleId: "role-123" } as AssignRoleModel);
+      await repository.assignRole({ userId: 'user-123', roleId: 'role-123' } as AssignRoleModel);
 
       expect(prisma.userRole.create).toHaveBeenCalledWith({
-        data: { userId: "user-123", roleId: "role-123" },
+        data: { userId: 'user-123', roleId: 'role-123' },
       });
     });
   });

@@ -1,14 +1,13 @@
 import type { RegisterCommand } from '../commands/register.command.js';
-import type { LoginRequest } from '../dto/login.dto.js';
+import type { LoginCommand } from '../commands/login.command.js';
 import type { RegisterResponse } from '../responses/register.response.js';
+import type { RefreshResponse } from '../responses/refresh.response.js';
+import type { MeResponse } from '../responses/me.response.js';
 
 export interface IAuthService {
   register(_data: RegisterCommand): Promise<RegisterResponse>;
-  login(
-    _data: LoginRequest,
-  ): Promise<{ userId: string; organizationId: string; accessToken: string; refreshToken: string }>;
-  refresh(
-    _refreshToken: string,
-  ): Promise<{ userId: string; organizationId: string; accessToken: string; refreshToken: string }>;
-  logout(_userId: string, _sessionId: string): Promise<void>;
+  login(_data: LoginCommand): Promise<RegisterResponse>;
+  refresh(_refreshToken: string): Promise<RefreshResponse>;
+  me(_userId: string): Promise<MeResponse>;
+  logout(_refreshToken: string): Promise<void>;
 }

@@ -26,7 +26,7 @@ export class AuthRepositoryImpl implements IAuthRepository {
   async findOrganizationByCode(_query: FindOrganizationByCodeQuery) {
     const organization = await this._prisma.organization.findFirst({
       where: { code: _query.code.toUpperCase(), deletedAt: null },
-      select: { id: true, status: true },
+      select: { id: true, code: true, name: true, status: true },
     });
 
     return organization;
@@ -134,8 +134,8 @@ export class AuthRepositoryImpl implements IAuthRepository {
         action: _model.action as AuditAction,
         entity: _model.entity,
         entityId: _model.entityId,
-        oldValues: _model.oldValues as any,
-        newValues: _model.newValues as any,
+        oldValues: _model.oldValues as Record<string, unknown>,
+        newValues: _model.newValues as Record<string, unknown>,
         ipAddress: _model.ipAddress,
         userAgent: _model.userAgent,
         requestId: _model.requestId,
@@ -143,5 +143,104 @@ export class AuthRepositoryImpl implements IAuthRepository {
         roleId: _model.roleId,
       },
     });
+  }
+
+  async updateLastLogin(_userId: string) {
+    await this._prisma.user.update({
+      where: { id: _userId },
+      data: { lastLoginAt: new Date() },
+    });
+  }
+
+  async findUserByOrganizationAndEmail(_organizationId: string, _email: string) {
+    const user = await this._prisma.user.findFirst({
+      where: { organizationId: _organizationId, email: _email.toLowerCase(), deletedAt: null },
+      select: { id: true, passwordHash: true, status: true, branchId: true },
+    });
+
+    return user;
+  }
+
+  async findSessionById(_sessionId: string) {
+    const session = await this._prisma.session.findFirst({
+      where: { id: _sessionId },
+      select: {
+        id: true,
+        userId: true,
+        organizationId: true,
+        branchId: true,
+        refreshTokenHash: true,
+        status: true,
+        expiresAt: true,
+      },
+    });
+
+    return session;
+  }
+
+  async updateSessionRefreshToken(_sessionId: string, _refreshTokenHash: string) {
+    await this._prisma.session.update({
+      where: { id: _sessionId },
+      data: { refreshTokenHash: _refreshTokenHash, lastActivityAt: new Date() },
+    });
+  }
+
+  async revokeSession(_sessionId: string) {
+    await this._prisma.session.update({
+      where: { id: _sessionId },
+      data: { status: SessionStatus.LOGGED_OUT, lastActivityAt: new Date() },
+    });
+  }
+
+  async findUserById(_userId: string) {
+    const user = await this._prisma.user.findFirst({
+      where: { id: _userId, deletedAt: null },
+      include: {
+        organization: {
+          select: { id: true, name: true, code: true },
+        },
+        branch: {
+          select: { id: true, name: true, code: true },
+        },
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      organizationId: user.organization.id,
+      branchId: user.branch.id,
+    };
+  }
+
+  async findUserWithRolesById(_userId: string) {
+    const user = await this._prisma.user.findFirst({
+      where: { id: _userId, deletedAt: null },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    const roles = user.roles.map((userRole) => userRole.role.name);
+
+    return {
+      id: user.id,
+      email: user.email,
+      roles,
+    };
   }
 }
