@@ -43,9 +43,91 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
             password: { type: "string", minLength: 12 },
           },
         },
+        tags: ["auth"],
+        description: "Register a new organization",
+        summary: "Register organization",
+        consumes: ["application/json"],
+        produces: ["application/json"],
+        response: {
+          201: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: true },
+              message: { type: "string", example: "Organization registered successfully." },
+              data: {
+                type: "object",
+                properties: {
+                  organization: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string" },
+                      code: { type: "string" },
+                      name: { type: "string" },
+                    },
+                  },
+                  user: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string" },
+                      firstName: { type: "string" },
+                      lastName: { type: "string" },
+                      email: { type: "string" },
+                    },
+                  },
+                  tokens: {
+                    type: "object",
+                    properties: {
+                      accessToken: { type: "string" },
+                      refreshToken: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: false },
+              error: {
+                type: "object",
+                properties: {
+                  code: { type: "string" },
+                  message: { type: "string" },
+                },
+              },
+            },
+          },
+          409: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: false },
+              error: {
+                type: "object",
+                properties: {
+                  code: { type: "string" },
+                  message: { type: "string" },
+                },
+              },
+            },
+          },
+          500: {
+            type: "object",
+            properties: {
+              success: { type: "boolean", example: false },
+              error: {
+                type: "object",
+                properties: {
+                  code: { type: "string" },
+                  message: { type: "string" },
+                },
+              },
+            },
+          },
+        },
       },
-    },
-    async (request, reply) => authController.register(request, reply)
+      handler: async (request, reply) => authController.register(request, reply),
+    }
   );
 
   fastify.post("/login", async (request, reply) => authController.login(request, reply));
