@@ -14,9 +14,9 @@ export const swaggerConfig = {
     components: {
       securitySchemes: {
         bearerAuth: {
-          type: "http" as const,
-          scheme: "bearer" as const,
-          bearerFormat: "JWT" as const,
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
         },
       },
     },

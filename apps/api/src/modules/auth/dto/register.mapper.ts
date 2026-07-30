@@ -1,6 +1,6 @@
-import type { RegisterDTO, RegisterCommand } from './register.dto.js';
+import type { RegisterDTO } from './register.dto.js';
 
-export function toRegisterCommand(dto: RegisterDTO): RegisterCommand {
+export function toRegisterCommand(dto: RegisterDTO): import('../commands/register.command.js').RegisterCommand {
   return {
     organizationName: dto.organization.name.trim(),
     organizationEmail: dto.organization.email?.trim(),
