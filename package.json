@@ -8,6 +8,21 @@
     "dev": "pnpm --parallel --filter ./apps/* dev",
     "build": "pnpm --recursive build",
     "test": "pnpm --recursive test",
-    "lint": "pnpm --recursive lint"
+    "lint": "pnpm --recursive lint",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.2.0",
+    "prettier": "^3.9.6"
   }
 }
