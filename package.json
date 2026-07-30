@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "SmartShopPOS - Smart and Simple POS for everyone",
+  "packageManager": "pnpm@9.0.0",
   "scripts": {
     "dev": "pnpm --parallel --filter ./apps/* dev",
     "build": "pnpm --recursive build",
