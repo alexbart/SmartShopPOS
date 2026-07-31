@@ -18,6 +18,15 @@ export class ValidationError extends BusinessError {
   }
 }
 
+export class BadRequestError extends BusinessError {
+  readonly statusCode = 400;
+  readonly code = 'BAD_REQUEST';
+
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export class NotFoundError extends BusinessError {
   readonly statusCode = 404;
   readonly code = 'NOT_FOUND';
