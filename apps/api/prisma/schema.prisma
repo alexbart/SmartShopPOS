@@ -77,7 +77,15 @@ model Organization {
   receipts   Receipt[]
   purchaseOrders PurchaseOrder[]
   goodsReceipts  GoodsReceipt[]
+  cashDrawers    CashDrawer[]
+  cashDrawerSessions CashDrawerSession[]
+  cashMovements  CashMovement[]
+  expenses       Expense[]
+  expenseCategories ExpenseCategory_[]
   numberSequences NumberSequence[]
+  bankAccounts   BankAccount[]
+  bankTransfers  BankTransfer[]
+  deposits       Deposit[]
 
   @@index([code], map: "organizations_code_idx")
   @@index([status], map: "organizations_status_idx")
@@ -783,4 +791,216 @@ model GoodsReceiptItem {
   @@index([goodsReceiptId])
   @@index([productId])
   @@map("goods_receipt_items")
+}
+
+enum CashMovementType {
+  OPENING_FLOAT
+  SALE
+  REFUND
+  CASH_IN
+  CASH_OUT
+  CLOSING
+}
+
+enum CashDrawerSessionStatus {
+  OPEN
+  CLOSED
+}
+
+model CashDrawer {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @db.Uuid
+  branchId        String    @db.Uuid
+  name            String    @db.VarChar(100)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now()) @db.Timestamp
+  updatedAt       DateTime  @updatedAt @db.Timestamp
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sessions     CashDrawerSession[]
+
+  @@index([organizationId])
+  @@map("cash_drawers")
+}
+
+model CashDrawerSession {
+  id              String                @id @default(uuid()) @db.Uuid
+  organizationId  String                @db.Uuid
+  cashDrawerId    String                @db.Uuid
+  openedBy        String                @db.Uuid
+  status          CashDrawerSessionStatus @default(OPEN)
+  openingFloat    Decimal               @db.Decimal(12, 2)
+  closingFloat    Decimal?              @db.Decimal(12, 2)
+  totalSales      Decimal               @db.Decimal(12, 2) @default(0)
+  totalRefunds    Decimal               @db.Decimal(12, 2) @default(0)
+  totalCashIn     Decimal               @db.Decimal(12, 2) @default(0)
+  totalCashOut    Decimal               @db.Decimal(12, 2) @default(0)
+  expectedCash    Decimal               @db.Decimal(12, 2) @default(0)
+  countedCash     Decimal?              @db.Decimal(12, 2)
+  variance        Decimal?              @db.Decimal(12, 2)
+  openedAt        DateTime              @default(now()) @db.Timestamp
+  closedAt        DateTime?             @db.Timestamp
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cashDrawer   CashDrawer         @relation(fields: [cashDrawerId], references: [id])
+  movements    CashMovement[]
+
+  @@index([organizationId])
+  @@index([cashDrawerId])
+  @@index([status])
+  @@map("cash_drawer_sessions")
+}
+
+model CashMovement {
+  id              String            @id @default(uuid()) @db.Uuid
+  organizationId  String            @db.Uuid
+  sessionId       String            @db.Uuid
+  type            CashMovementType
+  amount          Decimal           @db.Decimal(12, 2)
+  referenceType   String?           @db.VarChar(50)
+  referenceId     String?           @db.Uuid
+  notes           String?
+  performedBy     String            @db.Uuid
+  createdAt       DateTime          @default(now()) @db.Timestamp
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  session      CashDrawerSession @relation(fields: [sessionId], references: [id])
+
+  @@index([organizationId])
+  @@index([sessionId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("cash_movements")
+}
+
+enum ExpenseCategory {
+  RENT
+  UTILITIES
+  SALARIES
+  SUPPLIES
+  TRANSPORT
+  MARKETING
+  INSURANCE
+  TAXES
+  OTHER
+}
+
+model Expense {
+  id              String            @id @default(uuid()) @db.Uuid
+  organizationId  String            @db.Uuid
+  categoryId      String            @db.Uuid
+  amount          Decimal           @db.Decimal(12, 2)
+  description     String?
+  expenseDate     DateTime          @default(now()) @db.Timestamp
+  paidById        String?           @db.Uuid
+  paymentReference String?          @db.VarChar(100)
+  createdAt       DateTime          @default(now()) @db.Timestamp
+  updatedAt       DateTime          @updatedAt @db.Timestamp
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     ExpenseCategory_ @relation(fields: [categoryId], references: [id])
+
+  @@index([organizationId])
+  @@index([categoryId])
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+model ExpenseCategory_ {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @db.Uuid
+  name            String    @db.VarChar(100)
+  code            String    @db.VarChar(50)
+  description     String?
+  budget          Decimal?  @db.Decimal(12, 2)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now()) @db.Timestamp
+  updatedAt       DateTime  @updatedAt @db.Timestamp
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expenses       Expense[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("expense_categories")
+}
+
+enum BankAccountType {
+  CHECKING
+  SAVINGS
+}
+
+enum TransferStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model BankAccount {
+  id              String           @id @default(uuid()) @db.Uuid
+  organizationId  String           @db.Uuid
+  bankName        String           @db.VarChar(100)
+  accountNumber   String           @db.VarChar(50)
+  accountType     BankAccountType
+  balance         Decimal          @db.Decimal(12, 2) @default(0)
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now()) @db.Timestamp
+  updatedAt       DateTime         @updatedAt @db.Timestamp
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fromTransfers BankTransfer[] @relation("FromAccount")
+  toTransfers   BankTransfer[] @relation("ToAccount")
+  deposits      Deposit[]
+
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("bank_accounts")
+}
+
+model BankTransfer {
+  id              String           @id @default(uuid()) @db.Uuid
+  organizationId  String           @db.Uuid
+  fromAccountId   String           @db.Uuid
+  toAccountId     String           @db.Uuid
+  amount          Decimal          @db.Decimal(12, 2)
+  referenceType   String?          @db.VarChar(50)
+  referenceId     String?          @db.Uuid
+  notes           String?
+  status          TransferStatus  @default(PENDING)
+  transferredAt   DateTime         @default(now()) @db.Timestamp
+  completedAt     DateTime?        @db.Timestamp
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fromAccount  BankAccount     @relation("FromAccount", fields: [fromAccountId], references: [id])
+  toAccount    BankAccount     @relation("ToAccount", fields: [toAccountId], references: [id])
+
+  @@index([organizationId])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+  @@index([status])
+  @@index([transferredAt])
+  @@map("bank_transfers")
+}
+
+model Deposit {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @db.Uuid
+  fromCashDrawerSessionId String  @db.Uuid
+  toAccountId     String    @db.Uuid
+  amount          Decimal   @db.Decimal(12, 2)
+  referenceNumber String    @db.VarChar(50)
+  depositedAt     DateTime  @default(now()) @db.Timestamp
+  createdBy       String    @db.Uuid
+  createdAt       DateTime  @default(now()) @db.Timestamp
+  updatedAt       DateTime  @updatedAt @db.Timestamp
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccount  BankAccount       @relation(fields: [toAccountId], references: [id])
+
+  @@index([organizationId])
+  @@index([fromCashDrawerSessionId])
+  @@index([toAccountId])
+  @@index([depositedAt])
+  @@map("deposits")
 }

@@ -29,6 +29,10 @@ import { inventoryReportRoutes } from './modules/reports/inventory/index.js';
 import { customerReportRoutes } from './modules/reports/customer/index.js';
 import { exportRoutes } from './modules/export/index.js';
 import { purchaseOrderRoutes } from './modules/purchase-order/index.js';
+import { cashDrawerRoutes } from './modules/cash/index.js';
+import { expenseRoutes } from './modules/expense/index.js';
+import { financeReportRoutes } from './modules/reports/finance/index.js';
+import { bankingRoutes } from './modules/banking/index.js';
 import { getPrisma } from './shared/database/prisma.js';
 
 export async function buildApp() {
@@ -73,6 +77,10 @@ export async function buildApp() {
   await app.register(customerReportRoutes, { prefix: '/api/v1/reports' });
   await app.register(exportRoutes, { prefix: '/api/v1/reports' });
   await app.register(purchaseOrderRoutes, { prefix: '/api/v1/purchase-orders' });
+  await app.register(cashDrawerRoutes, { prefix: '/api/v1/cash-drawers' });
+  await app.register(expenseRoutes, { prefix: '/api/v1/finance' });
+  await app.register(financeReportRoutes, { prefix: '/api/v1/reports/finance' });
+  await app.register(bankingRoutes, { prefix: '/api/v1/banking' });
 
   try {
     const prisma = getPrisma();

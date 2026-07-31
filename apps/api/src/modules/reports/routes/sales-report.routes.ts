@@ -9,11 +9,14 @@ import { PrismaClient } from '@prisma/client';
 import { registerSalesReport } from '../sales-report.registration.js';
 import { registerPurchaseReports } from '../purchase/purchase-report.registration.js';
 import { PurchaseReportRepositoryImpl } from '../purchase/repository/purchase-report.repository.impl.js';
+import { registerFinanceReports } from '../finance/finance-report-definitions.js';
+import { FinanceReportRepositoryImpl } from '../finance/repository/finance-report.repository.impl.js';
 
 const prisma = new PrismaClient();
 
 registerSalesReport(new SalesReportRepositoryImpl(prisma));
 registerPurchaseReports(new PurchaseReportRepositoryImpl(prisma));
+registerFinanceReports(new FinanceReportRepositoryImpl(prisma));
 
 export const salesReportRoutes: FastifyPluginAsync = async (fastify) => {
   const salesReportRepository = new SalesReportRepositoryImpl(prisma);

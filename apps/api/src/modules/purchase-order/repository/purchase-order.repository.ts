@@ -131,11 +131,7 @@ export interface IPurchaseOrderRepository {
   // eslint-disable-next-line no-unused-vars
   updateStatus(id: string, status: string): Promise<void>;
   // eslint-disable-next-line no-unused-vars
-  updateReceivedQuantity(
-    id: string,
-    receivedQuantity: number,
-    totalQuantity: number,
-  ): Promise<void>;
+  updateReceivedQuantity(id: string, receivedQuantity: number, totalQuantity: number): Promise<void>;
 }
 
 export interface UpdatePurchaseOrderModel {
