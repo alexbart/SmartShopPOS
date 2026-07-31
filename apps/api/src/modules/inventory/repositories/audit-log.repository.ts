@@ -5,7 +5,8 @@ export interface IAuditLogRepository {
 export interface CreateAuditLogModel {
   organizationId: string;
   actorId?: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT';
+  action:
+    'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'SUBMIT' | 'CANCEL' | 'RECEIVE_GOODS';
   entity: string;
   entityId: string;
   oldValues?: Record<string, unknown>;

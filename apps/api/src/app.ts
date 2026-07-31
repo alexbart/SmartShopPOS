@@ -28,6 +28,7 @@ import { salesReportRoutes } from './modules/reports/index.js';
 import { inventoryReportRoutes } from './modules/reports/inventory/index.js';
 import { customerReportRoutes } from './modules/reports/customer/index.js';
 import { exportRoutes } from './modules/export/index.js';
+import { purchaseOrderRoutes } from './modules/purchase-order/index.js';
 import { getPrisma } from './shared/database/prisma.js';
 
 export async function buildApp() {
@@ -71,6 +72,7 @@ export async function buildApp() {
   await app.register(inventoryReportRoutes, { prefix: '/api/v1/reports' });
   await app.register(customerReportRoutes, { prefix: '/api/v1/reports' });
   await app.register(exportRoutes, { prefix: '/api/v1/reports' });
+  await app.register(purchaseOrderRoutes, { prefix: '/api/v1/purchase-orders' });
 
   try {
     const prisma = getPrisma();

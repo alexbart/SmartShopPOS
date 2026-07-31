@@ -36,6 +36,9 @@ enum AuditAction {
   DELETE
   LOGIN
   LOGOUT
+  SUBMIT
+  CANCEL
+  RECEIVE_GOODS
 }
 
 model Organization {
@@ -72,6 +75,8 @@ model Organization {
   sales      Sale[]
   payments   Payment[]
   receipts   Receipt[]
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts  GoodsReceipt[]
   numberSequences NumberSequence[]
 
   @@index([code], map: "organizations_code_idx")
@@ -364,10 +369,12 @@ model Product {
   brand        Brand?       @relation(fields: [brandId], references: [id])
   unit         Unit         @relation(fields: [unitId], references: [id])
   tax          Tax?         @relation(fields: [taxId], references: [id])
-  stocks       Stock[]
-  stockMovements StockMovement[]
-  cartItems    CartItem[]
-  saleItems    SaleItem[]
+   stocks       Stock[]
+   stockMovements StockMovement[]
+   cartItems    CartItem[]
+   saleItems    SaleItem[]
+   purchaseOrderItems PurchaseOrderItem[]
+   goodsReceiptItems  GoodsReceiptItem[]
 
   @@unique([organizationId, code])
   @@unique([organizationId, name])
@@ -392,10 +399,12 @@ model Warehouse {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch       Branch       @relation(fields: [branchId], references: [id])
-  stocks       Stock[]
-  stockMovements StockMovement[]
-  carts        Cart[]
-  sales        Sale[]
+   stocks       Stock[]
+   stockMovements StockMovement[]
+   carts        Cart[]
+   sales        Sale[]
+   purchaseOrders PurchaseOrder[]
+   goodsReceipts  GoodsReceipt[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -482,6 +491,7 @@ model Supplier {
   deletedAt      DateTime? @db.Timestamp
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
 
   @@unique([organizationId, code])
   @@unique([organizationId, name])
@@ -676,4 +686,101 @@ model NumberSequence {
   @@unique([organizationId, entityType])
   @@index([organizationId])
   @@map("number_sequences")
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id                  String                @id @default(uuid()) @db.Uuid
+  organizationId      String                @db.Uuid
+  branchId            String                @db.Uuid
+  warehouseId         String                @db.Uuid
+  supplierId          String                @db.Uuid
+  orderNumber         String                @db.VarChar(50)
+  status              PurchaseOrderStatus   @default(DRAFT)
+  expectedDeliveryDate DateTime?             @db.Timestamp
+  receivedQuantity    Decimal               @db.Decimal(12, 3) @default(0)
+  totalQuantity       Decimal               @db.Decimal(12, 3) @default(0)
+  subtotal            Decimal               @db.Decimal(12, 2)
+  tax                 Decimal               @db.Decimal(12, 2) @default(0)
+  discount            Decimal               @db.Decimal(12, 2) @default(0)
+  total               Decimal               @db.Decimal(12, 2)
+  notes               String?
+  createdBy           String                @db.Uuid
+  approvedBy          String?               @db.Uuid
+  createdAt           DateTime              @default(now()) @db.Timestamp
+  updatedAt           DateTime              @updatedAt @db.Timestamp
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier     Supplier         @relation(fields: [supplierId], references: [id])
+  warehouse    Warehouse        @relation(fields: [warehouseId], references: [id])
+   items         PurchaseOrderItem[]
+   goodsReceipts GoodsReceipt[]
+
+  @@index([organizationId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([organizationId, status, createdAt], map: "purchase_orders_report_idx")
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  purchaseOrderId String   @db.Uuid
+  productId       String   @db.Uuid
+  quantity        Decimal  @db.Decimal(12, 3)
+  unitCost        Decimal  @db.Decimal(10, 2)
+  discount        Decimal  @db.Decimal(12, 2) @default(0)
+  tax             Decimal  @db.Decimal(12, 2) @default(0)
+  subtotal        Decimal  @db.Decimal(12, 2)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product      Product         @relation(fields: [productId], references: [id])
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@map("purchase_order_items")
+}
+
+model GoodsReceipt {
+  id                  String            @id @default(uuid()) @db.Uuid
+  organizationId      String            @db.Uuid
+  purchaseOrderId     String            @db.Uuid
+  warehouseId         String            @db.Uuid
+  receiptNumber       String            @db.VarChar(50)
+  receivedDate        DateTime          @default(now()) @db.Timestamp
+  createdBy           String            @db.Uuid
+  notes               String?
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrder  PurchaseOrder    @relation(fields: [purchaseOrderId], references: [id])
+  warehouse      Warehouse        @relation(fields: [warehouseId], references: [id])
+  items          GoodsReceiptItem[]
+
+  @@index([organizationId])
+  @@index([purchaseOrderId])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  goodsReceiptId  String   @db.Uuid
+  productId       String   @db.Uuid
+  quantity        Decimal  @db.Decimal(12, 3)
+  unitCost        Decimal  @db.Decimal(10, 2)
+
+  goodsReceipt GoodsReceipt @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  product      Product       @relation(fields: [productId], references: [id])
+
+  @@index([goodsReceiptId])
+  @@index([productId])
+  @@map("goods_receipt_items")
 }

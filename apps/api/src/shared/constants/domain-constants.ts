@@ -51,6 +51,15 @@ export const SaleStatuses = {
   REFUNDED: 'REFUNDED',
 } as const;
 
+export const PurchaseOrderStatuses = {
+  DRAFT: 'DRAFT',
+  SUBMITTED: 'SUBMITTED',
+  APPROVED: 'APPROVED',
+  PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED',
+  RECEIVED: 'RECEIVED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
 export const NumberSequenceTypes = {
   SALE: 'SALE',
   PURCHASE: 'PURCHASE',
