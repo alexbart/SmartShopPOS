@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
-import { GoodsReceivingController } from './controllers/goods-receiving.controller.js';
-import { InventoryController } from './controllers/inventory.controller.js';
+import { GoodsReceivingController } from '../controllers/goods-receiving.controller.js';
+import { InventoryController } from '../controllers/inventory.controller.js';
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';

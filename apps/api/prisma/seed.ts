@@ -24,12 +24,20 @@ async function main() {
     { name: 'USER.READ', module: 'USER', description: 'Read users' },
     { name: 'USER.CREATE', module: 'USER', description: 'Create users' },
     { name: 'USER.UPDATE', module: 'USER', description: 'Update users' },
+    { name: 'CUSTOMER.VIEW', module: 'CUSTOMER', description: 'View customers' },
+    { name: 'CUSTOMER.CREATE', module: 'CUSTOMER', description: 'Create customers' },
+    { name: 'CUSTOMER.UPDATE', module: 'CUSTOMER', description: 'Update customers' },
+    { name: 'SALE.CREATE', module: 'SALE', description: 'Create sales' },
+    { name: 'SALE.VIEW', module: 'SALE', description: 'View sales' },
+    { name: 'SALE.VOID', module: 'SALE', description: 'Void sales' },
+    { name: 'PAYMENT.CREATE', module: 'PAYMENT', description: 'Process payments' },
+    { name: 'RECEIPT.PRINT', module: 'RECEIPT', description: 'Print receipts' },
   ];
 
   const rolePermissions: Record<string, string[]> = {
     OWNER: permissions.map((p) => p.name),
-    MANAGER: ['USER.READ', 'USER.UPDATE'],
-    CASHIER: ['AUTH.LOGIN', 'AUTH.LOGOUT'],
+    MANAGER: ['USER.READ', 'USER.UPDATE', 'SALE.CREATE', 'SALE.VIEW', 'PAYMENT.CREATE'],
+    CASHIER: ['AUTH.LOGIN', 'AUTH.LOGOUT', 'SALE.CREATE', 'SALE.VIEW', 'PAYMENT.CREATE', 'RECEIPT.PRINT'],
   };
 
   for (const role of roles) {

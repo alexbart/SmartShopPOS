@@ -67,6 +67,12 @@ model Organization {
   stocks     Stock[]
   stockMovements StockMovement[]
   suppliers  Supplier[]
+  customers  Customer[]
+  carts      Cart[]
+  sales      Sale[]
+  payments   Payment[]
+  receipts   Receipt[]
+  numberSequences NumberSequence[]
 
   @@index([code], map: "organizations_code_idx")
   @@index([status], map: "organizations_status_idx")
@@ -357,6 +363,8 @@ model Product {
   tax          Tax?         @relation(fields: [taxId], references: [id])
   stocks       Stock[]
   stockMovements StockMovement[]
+  cartItems    CartItem[]
+  saleItems    SaleItem[]
 
   @@unique([organizationId, code])
   @@unique([organizationId, name])
@@ -383,6 +391,8 @@ model Warehouse {
   branch       Branch       @relation(fields: [branchId], references: [id])
   stocks       Stock[]
   stockMovements StockMovement[]
+  carts        Cart[]
+  sales        Sale[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -473,4 +483,187 @@ model Supplier {
   @@index([organizationId])
   @@index([isActive])
   @@map("suppliers")
+}
+
+model Customer {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  code           String    @db.VarChar(50)
+  name           String    @db.VarChar(255)
+  phone          String?   @db.VarChar(50)
+  email          String?   @db.VarChar(255)
+  taxPin         String?   @db.VarChar(50)
+  address        String?
+  loyaltyPoints  Decimal   @db.Decimal(12, 2) @default(0)
+  creditLimit    Decimal?  @db.Decimal(12, 2)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.Timestamp
+  updatedAt      DateTime  @updatedAt @db.Timestamp
+  deletedAt      DateTime? @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sales        Sale[]
+  carts        Cart[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("customers")
+}
+
+model Cart {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @db.Uuid
+  customerId     String?    @db.Uuid
+  warehouseId    String     @db.Uuid
+  createdAt      DateTime   @default(now()) @db.Timestamp
+  updatedAt      DateTime   @updatedAt @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+  warehouse    Warehouse    @relation(fields: [warehouseId], references: [id])
+  items        CartItem[]
+
+  @@index([organizationId])
+  @@index([customerId])
+  @@map("carts")
+}
+
+model CartItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  cartId         String   @db.Uuid
+  productId      String   @db.Uuid
+  quantity       Decimal  @db.Decimal(12, 3)
+  price          Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now()) @db.Timestamp
+
+  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([cartId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+enum SaleStatus {
+  PENDING
+  COMPLETED
+  VOIDED
+  REFUNDED
+}
+
+model Sale {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @db.Uuid
+  number         String     @db.VarChar(50)
+  customerId     String?    @db.Uuid
+  warehouseId    String     @db.Uuid
+  cashierId      String     @db.Uuid
+  subtotal       Decimal    @db.Decimal(12, 2)
+  discount       Decimal    @db.Decimal(12, 2) @default(0)
+  tax            Decimal    @db.Decimal(12, 2) @default(0)
+  total          Decimal    @db.Decimal(12, 2)
+  status         SaleStatus @default(PENDING)
+  createdAt      DateTime   @default(now()) @db.Timestamp
+  updatedAt      DateTime   @updatedAt @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+  warehouse    Warehouse    @relation(fields: [warehouseId], references: [id])
+  items        SaleItem[]
+  payments     Payment[]
+  receipts     Receipt[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("sales")
+}
+
+model SaleItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  saleId         String   @db.Uuid
+  productId      String   @db.Uuid
+  quantity       Decimal  @db.Decimal(12, 3)
+  price          Decimal  @db.Decimal(10, 2)
+  discount       Decimal  @db.Decimal(10, 2) @default(0)
+  tax            Decimal  @db.Decimal(10, 2) @default(0)
+  subtotal       Decimal  @db.Decimal(12, 2)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+  @@index([productId])
+  @@map("sale_items")
+}
+
+enum PaymentMethod {
+  CASH
+  MPESA
+  CARD
+  BANK
+  CREDIT
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  saleId         String        @db.Uuid
+  method         PaymentMethod
+  amount         Decimal       @db.Decimal(12, 2)
+  reference      String?       @db.VarChar(100)
+  status         PaymentStatus @default(PENDING)
+  paidAt         DateTime?     @db.Timestamp
+  createdAt      DateTime      @default(now()) @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sale         Sale         @relation(fields: [saleId], references: [id])
+
+  @@index([organizationId])
+  @@index([saleId])
+  @@index([status])
+  @@map("payments")
+}
+
+model Receipt {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  saleId         String   @db.Uuid
+  number         String   @db.VarChar(50)
+  issuedAt       DateTime @default(now()) @db.Timestamp
+  createdAt      DateTime @default(now()) @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sale         Sale         @relation(fields: [saleId], references: [id])
+
+  @@unique([organizationId, number])
+  @@index([organizationId])
+  @@index([saleId])
+  @@map("receipts")
+}
+
+model NumberSequence {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  entityType     String   @db.VarChar(50)
+  prefix         String   @db.VarChar(20)
+  lastNumber     Int      @default(0)
+  createdAt      DateTime @default(now()) @db.Timestamp
+  updatedAt      DateTime @updatedAt @db.Timestamp
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, entityType])
+  @@index([organizationId])
+  @@map("number_sequences")
 }
