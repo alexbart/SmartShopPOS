@@ -6,8 +6,11 @@ import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
 import { PrismaClient } from '@prisma/client';
+import { registerSalesReport } from '../sales-report.registration.js';
 
 const prisma = new PrismaClient();
+
+registerSalesReport(new SalesReportRepositoryImpl(prisma));
 
 export const salesReportRoutes: FastifyPluginAsync = async (fastify) => {
   const salesReportRepository = new SalesReportRepositoryImpl(prisma);

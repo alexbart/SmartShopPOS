@@ -1,5 +1,12 @@
+export interface ReportColumn {
+  key: string;
+  label: string;
+}
+
 export interface ReportDefinition<TFilter, TResult> {
   name: string;
+  title: string;
+  columns: ReportColumn[];
   // eslint-disable-next-line no-unused-vars
   execute(filters: TFilter): Promise<TResult>;
 }
@@ -19,7 +26,6 @@ export class ReportRegistry {
     this._reports.set(report.name, report as unknown as ReportDefinition<unknown, unknown>);
   }
 
-  // eslint-disable-next-line no-unused-vars
   get(name: string): ReportDefinition<unknown, unknown> | undefined {
     return this._reports.get(name);
   }
@@ -28,12 +34,17 @@ export class ReportRegistry {
     return Array.from(this._reports.keys());
   }
 
+  // eslint-disable-next-line no-unused-vars
   async execute<TFilter, TResult>(name: string, filters: TFilter): Promise<TResult> {
     const report = this._reports.get(name);
     if (!report) {
-      throw new Error(`Report '${name}' not found`);
+      return null as unknown as TResult;
     }
     return report.execute(filters) as Promise<TResult>;
+  }
+
+  getReport(name: string): ReportDefinition<unknown, unknown> | null {
+    return this._reports.get(name) ?? null;
   }
 }
 
