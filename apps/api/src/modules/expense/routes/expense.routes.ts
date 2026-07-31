@@ -24,37 +24,37 @@ export const expenseRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post(
     '/expenses',
-    { preHandler },
+    { preHandler, schema: { description: 'Create a new expense', tags: ['Finance'], summary: 'Create Expense' } },
     async (request, reply) => controller.create(request, reply),
   );
 
   fastify.get(
     '/expenses',
-    { preHandler },
+    { preHandler, schema: { description: 'List expenses', tags: ['Finance'], summary: 'List Expenses' } },
     async (request, reply) => controller.list(request, reply),
   );
 
   fastify.get(
     '/expenses/:id',
-    { preHandler },
+    { preHandler, schema: { description: 'Get a single expense', tags: ['Finance'], summary: 'Get Expense' } },
     async (request, reply) => controller.getOne(request, reply),
   );
 
   fastify.post(
     '/categories',
-    { preHandler },
+    { preHandler, schema: { description: 'Create expense category', tags: ['Finance'], summary: 'Create Category' } },
     async (request, reply) => controller.createCategory(request, reply),
   );
 
   fastify.get(
     '/categories',
-    { preHandler },
+    { preHandler, schema: { description: 'List expense categories', tags: ['Finance'], summary: 'List Categories' } },
     async (request, reply) => controller.listCategories(request, reply),
   );
 
   fastify.get(
     '/categories/:id',
-    { preHandler },
+    { preHandler, schema: { description: 'Get an expense category', tags: ['Finance'], summary: 'Get Category' } },
     async (request, reply) => controller.getCategory(request, reply),
   );
 };

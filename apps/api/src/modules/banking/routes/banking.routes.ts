@@ -21,19 +21,19 @@ export const bankingRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get(
     '/bank-accounts',
-    { preHandler },
+    { preHandler, schema: { description: 'List bank accounts', tags: ['Banking'], summary: 'List Accounts' } },
     async (request, reply) => controller.listAccounts(request, reply),
   );
 
   fastify.post(
     '/bank-accounts',
-    { preHandler },
+    { preHandler, schema: { description: 'Create a bank account', tags: ['Banking'], summary: 'Create Account' } },
     async (request, reply) => controller.createAccount(request, reply),
   );
 
   fastify.post(
     '/deposits',
-    { preHandler },
+    { preHandler, schema: { description: 'Record a deposit from cash drawer', tags: ['Banking'], summary: 'Create Deposit' } },
     async (request, reply) => controller.deposit(request, reply),
   );
 };

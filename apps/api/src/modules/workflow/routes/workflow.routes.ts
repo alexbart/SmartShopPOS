@@ -21,31 +21,31 @@ export const workflowRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post(
     '/request',
-    { preHandler },
+    { preHandler, schema: { description: 'Create an approval request', tags: ['Workflow'], summary: 'Request Approval' } },
     async (request, reply) => controller.requestApproval(request, reply),
   );
 
   fastify.get(
     '/pending',
-    { preHandler },
+    { preHandler, schema: { description: 'List pending approvals for current user role', tags: ['Workflow'], summary: 'Pending Approvals' } },
     async (request, reply) => controller.pending(request, reply),
   );
 
   fastify.get(
     '/history',
-    { preHandler },
+    { preHandler, schema: { description: 'Get approval request history for an entity', tags: ['Workflow'], summary: 'Request History' } },
     async (request, reply) => controller.history(request, reply),
   );
 
   fastify.post(
     '/:id/approve',
-    { preHandler },
+    { preHandler, schema: { description: 'Approve an approval request', tags: ['Workflow'], summary: 'Approve Request' } },
     async (request, reply) => controller.approve(request, reply),
   );
 
   fastify.post(
     '/:id/reject',
-    { preHandler },
+    { preHandler, schema: { description: 'Reject an approval request', tags: ['Workflow'], summary: 'Reject Request' } },
     async (request, reply) => controller.reject(request, reply),
   );
 };
