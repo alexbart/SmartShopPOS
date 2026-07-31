@@ -23,6 +23,7 @@ import { receiptRoutes } from './modules/receipt/index.js';
 import { dashboardRoutes } from './modules/dashboard/index.js';
 import { salesReportRoutes } from './modules/reports/index.js';
 import { inventoryReportRoutes } from './modules/reports/inventory/index.js';
+import { customerReportRoutes } from './modules/reports/customer/index.js';
 import { getPrisma } from './shared/database/prisma.js';
 
 export async function buildApp() {
@@ -55,6 +56,7 @@ export async function buildApp() {
   await app.register(dashboardRoutes, { prefix: '/api/v1/dashboard' });
   await app.register(salesReportRoutes, { prefix: '/api/v1/reports' });
   await app.register(inventoryReportRoutes, { prefix: '/api/v1/reports' });
+  await app.register(customerReportRoutes, { prefix: '/api/v1/reports' });
 
   try {
     const prisma = getPrisma();

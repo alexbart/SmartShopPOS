@@ -72,7 +72,7 @@ export interface OutOfStockItem {
 export interface IInventoryReportRepository {
   // eslint-disable-next-line no-unused-vars
   getCurrentStock(filters: StockReportFilters): Promise<ReportPaginatedResponse<StockReportItem>>;
-  // eslint-disable-next-line no-unused-vars
+  // eslint-disable-next-line no-unused-vars, max-len
   getStockMovements(
     filters: StockMovementFilters,
   ): Promise<ReportPaginatedResponse<StockMovementReportItem>>;
