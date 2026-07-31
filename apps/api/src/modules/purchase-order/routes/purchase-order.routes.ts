@@ -7,12 +7,15 @@ import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl
 import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
 import { NumberSequenceService } from '../../../shared/services/number-sequence/number-sequence.service.js';
 import { StockService } from '../../inventory/services/stock.service.js';
+import { WorkflowService } from '../../workflow/service/workflow.service.js';
+import { WorkflowRepositoryImpl } from '../../workflow/repository/workflow.repository.impl.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const unitOfWork = new UnitOfWork();
 const numberSequenceService = new NumberSequenceService(prisma);
 const stockService = new StockService(unitOfWork, prisma);
+const workflowService = new WorkflowService(new WorkflowRepositoryImpl(prisma));
 
 export const purchaseOrderRoutes: FastifyPluginAsync = async (fastify) => {
   const purchaseOrderService = new PurchaseOrderService(
@@ -20,6 +23,7 @@ export const purchaseOrderRoutes: FastifyPluginAsync = async (fastify) => {
     numberSequenceService,
     prisma,
     stockService,
+    workflowService,
   );
   const purchaseOrderController = new PurchaseOrderController(purchaseOrderService);
   const jwtService = new JwtService();

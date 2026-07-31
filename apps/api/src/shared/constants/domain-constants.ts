@@ -53,6 +53,7 @@ export const SaleStatuses = {
 
 export const PurchaseOrderStatuses = {
   DRAFT: 'DRAFT',
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
   SUBMITTED: 'SUBMITTED',
   APPROVED: 'APPROVED',
   PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED',
@@ -70,3 +71,24 @@ export const NumberSequenceTypes = {
   PURCHASE_ORDER: 'PURCHASE_ORDER',
   GOODS_RECEIPT: 'GOODS_RECEIPT',
 } as const;
+
+/* eslint-disable no-unused-vars */
+export enum WorkflowAction {
+  PURCHASE_ORDER = 'PURCHASE_ORDER',
+  EXPENSE = 'EXPENSE',
+  SALE_VOID = 'SALE_VOID',
+  SALE_DISCOUNT = 'SALE_DISCOUNT',
+  STOCK_ADJUSTMENT = 'STOCK_ADJUSTMENT',
+  PRICE_CHANGE = 'PRICE_CHANGE',
+  CASH_DRAWER_CORRECTION = 'CASH_DRAWER_CORRECTION',
+}
+
+export const ApprovalRequestStatuses = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  EXPIRED: 'EXPIRED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type ApprovalRequestStatus = (typeof ApprovalRequestStatuses)[keyof typeof ApprovalRequestStatuses];

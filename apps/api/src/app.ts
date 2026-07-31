@@ -33,6 +33,7 @@ import { cashDrawerRoutes } from './modules/cash/index.js';
 import { expenseRoutes } from './modules/expense/index.js';
 import { financeReportRoutes } from './modules/reports/finance/index.js';
 import { bankingRoutes } from './modules/banking/index.js';
+import { workflowRoutes } from './modules/workflow/index.js';
 import { getPrisma } from './shared/database/prisma.js';
 
 export async function buildApp() {
@@ -81,6 +82,7 @@ export async function buildApp() {
   await app.register(expenseRoutes, { prefix: '/api/v1/finance' });
   await app.register(financeReportRoutes, { prefix: '/api/v1/reports/finance' });
   await app.register(bankingRoutes, { prefix: '/api/v1/banking' });
+  await app.register(workflowRoutes, { prefix: '/api/v1/workflow' });
 
   try {
     const prisma = getPrisma();

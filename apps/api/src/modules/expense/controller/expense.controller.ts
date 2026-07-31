@@ -15,7 +15,7 @@ export class ExpenseController {
     };
     const orgId = request.requestContext.organizationId;
 
-    const id = await this._expenseService.createExpense({
+    const result = await this._expenseService.createExpense({
       organizationId: orgId,
       categoryId: body.categoryId,
       amount: body.amount,
@@ -28,8 +28,10 @@ export class ExpenseController {
 
     return reply.status(201).send({
       success: true,
-      message: 'Expense recorded successfully.',
-      data: { id },
+      message: result.needsApproval
+        ? 'Expense recorded. Approval required before processing.'
+        : 'Expense recorded successfully.',
+      data: { id: result.id, needsApproval: result.needsApproval },
     });
   }
 

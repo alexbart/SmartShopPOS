@@ -96,7 +96,12 @@ export class PurchaseOrderController {
   async submit(request: FastifyRequest, reply: FastifyReply) {
     const { id } = request.params as { id: string };
 
-    const po = await this._purchaseOrderService.submit(id, request.requestContext.organizationId);
+    const po = await this._purchaseOrderService.submit(
+      id,
+      request.requestContext.organizationId,
+      request.requestContext.branchId,
+      request.requestContext.userId,
+    );
 
     return reply.status(200).send({
       success: true,

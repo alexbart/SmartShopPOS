@@ -10,9 +10,10 @@ import type {
 import type { StockService } from '../../inventory/services/stock.service.js';
 import type { NumberSequenceService } from '../../../shared/services/number-sequence/number-sequence.service.js';
 import { PurchaseOrderStatuses } from '../repository/purchase-order.repository.js';
-import { NumberSequenceTypes } from '../../../shared/constants/domain-constants.js';
+import { NumberSequenceTypes, WorkflowAction } from '../../../shared/constants/domain-constants.js';
 import { NotFoundError, ConflictError } from '../../../shared/errors/business-error.js';
 import { AuditLogRepositoryImpl } from '../../inventory/repositories/audit-log.repository.impl.js';
+import type { WorkflowService } from '../../workflow/service/workflow.service.js';
 
 export class PurchaseOrderService {
   constructor(
@@ -20,6 +21,7 @@ export class PurchaseOrderService {
     private readonly _numberSequenceService: NumberSequenceService,
     private readonly _prisma: PrismaClient,
     private readonly _stockService: StockService,
+    private readonly _workflowService?: WorkflowService,
   ) {}
 
   async create(command: CreatePurchaseOrderCommand): Promise<PurchaseOrderEntity> {
@@ -165,7 +167,7 @@ export class PurchaseOrderService {
     });
   }
 
-  async submit(id: string, organizationId: string): Promise<PurchaseOrderEntity> {
+  async submit(id: string, organizationId: string, branchId?: string, requestedBy?: string): Promise<PurchaseOrderEntity> {
     const poRepo = new PurchaseOrderRepositoryImpl(this._prisma);
     const existing = await poRepo.findById(id, organizationId);
     if (!existing) {
@@ -176,20 +178,41 @@ export class PurchaseOrderService {
       throw new ConflictError('Only draft purchase orders can be submitted.');
     }
 
+    const totalAmount = Number(existing.total ?? 0);
+
     return this._unitOfWork.execute(async (tx) => {
       const updateRepo = new PurchaseOrderRepositoryImpl(tx);
       const auditRepo = new AuditLogRepositoryImpl(tx);
 
-      await updateRepo.updateStatus(id, PurchaseOrderStatuses.SUBMITTED);
+      let newStatus = PurchaseOrderStatuses.SUBMITTED;
+
+      if (this._workflowService) {
+        const approval = await this._workflowService.requestApproval({
+          organizationId,
+          action: WorkflowAction.PURCHASE_ORDER,
+          entityType: 'PurchaseOrder',
+          entityId: id,
+          amount: totalAmount,
+          branchId: branchId ?? existing.branchId ?? undefined,
+          requestedBy: requestedBy ?? existing.createdBy,
+          requesterRoleId: '',
+        });
+
+        if (approval.status === 'PENDING') {
+          newStatus = 'PENDING_APPROVAL';
+        }
+      }
+
+      await updateRepo.updateStatus(id, newStatus);
 
       await auditRepo.create({
         organizationId,
-        actorId: existing.createdBy,
+        actorId: requestedBy ?? existing.createdBy,
         action: 'SUBMIT',
         entity: 'PurchaseOrder',
         entityId: id,
         oldValues: { status: existing.status },
-        newValues: { status: PurchaseOrderStatuses.SUBMITTED },
+        newValues: { status: newStatus, totalAmount },
       });
 
       const updated = await updateRepo.findById(id, organizationId);

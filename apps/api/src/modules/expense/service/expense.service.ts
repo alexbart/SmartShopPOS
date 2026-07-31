@@ -6,16 +6,21 @@ import type {
   ExpenseCategoryEntity,
   ExpenseFilters,
 } from '../repository/expense.repository.js';
+import type { WorkflowService } from '../../workflow/service/workflow.service.js';
+import { WorkflowAction } from '../../../shared/constants/domain-constants.js';
 
 export class ExpenseService {
-  constructor(private readonly _repository: IExpenseRepository) {}
+  constructor(
+    private readonly _repository: IExpenseRepository,
+    private readonly _workflowService?: WorkflowService,
+  ) {}
 
-  async createExpense(command: CreateExpenseCommand): Promise<string> {
+  async createExpense(command: CreateExpenseCommand): Promise<{ id: string; needsApproval: boolean }> {
     if (Number(command.amount) <= 0) {
       throw new Error('Expense amount must be greater than zero.');
     }
 
-    return this._repository.create({
+    const id = await this._repository.create({
       organizationId: command.organizationId,
       categoryId: command.categoryId,
       amount: command.amount,
@@ -25,6 +30,25 @@ export class ExpenseService {
       paymentReference: command.paymentReference,
       createdBy: command.createdBy,
     });
+
+    let needsApproval = false;
+
+    if (this._workflowService) {
+      const approval = await this._workflowService.requestApproval({
+        organizationId: command.organizationId,
+        action: WorkflowAction.EXPENSE,
+        entityType: 'Expense',
+        entityId: id,
+        amount: Number(command.amount),
+        branchId: undefined,
+        requestedBy: command.createdBy,
+        requesterRoleId: '',
+      });
+
+      needsApproval = approval.status === 'PENDING';
+    }
+
+    return { id, needsApproval };
   }
 
   async getExpense(id: string, organizationId: string): Promise<ExpenseEntity | null> {

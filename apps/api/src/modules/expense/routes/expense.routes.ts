@@ -5,13 +5,16 @@ import { ExpenseRepositoryImpl } from '../repository/expense.repository.impl.js'
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
+import { WorkflowService } from '../../workflow/service/workflow.service.js';
+import { WorkflowRepositoryImpl } from '../../workflow/repository/workflow.repository.impl.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 export const expenseRoutes: FastifyPluginAsync = async (fastify) => {
   const repository = new ExpenseRepositoryImpl(prisma);
-  const service = new ExpenseService(repository);
+  const workflowService = new WorkflowService(new WorkflowRepositoryImpl(prisma));
+  const service = new ExpenseService(repository, workflowService);
   const controller = new ExpenseController(service);
   const jwtService = new JwtService();
   const authRepository = new AuthRepositoryImpl(prisma);
