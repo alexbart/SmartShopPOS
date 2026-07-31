@@ -128,6 +128,7 @@ model User {
    sessions     Session[]
    auditLogs    AuditLog[]
    sales        Sale[]
+   stockMovements StockMovement[]
 
   @@unique([organizationId, email], map: "users_org_email_unique")
   @@index([organizationId], map: "users_org_id_idx")
@@ -449,10 +450,11 @@ model StockMovement {
   remarks        String?
   createdAt      DateTime          @default(now()) @db.Timestamp
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  warehouse    Warehouse    @relation(fields: [warehouseId], references: [id])
-  product      Product      @relation(fields: [productId], references: [id])
-  stock        Stock        @relation(fields: [stockId], references: [id])
+   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+   warehouse    Warehouse    @relation(fields: [warehouseId], references: [id])
+   product      Product      @relation(fields: [productId], references: [id])
+   stock        Stock        @relation(fields: [stockId], references: [id])
+   user         User?        @relation(fields: [performedBy], references: [id])
 
   @@index([organizationId])
   @@index([warehouseId])
