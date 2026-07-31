@@ -1,5 +1,5 @@
-import { reportRegistry } from '../../../../shared/report-registry.js';
-import type { ReportDefinition, ReportColumn } from '../../../../shared/report-registry.js';
+import { reportRegistry } from '../../../shared/report-registry.js';
+import type { ReportDefinition, ReportColumn } from '../../../shared/report-registry.js';
 import type {
   ICustomerReportRepository,
   CustomerSummaryFilters,

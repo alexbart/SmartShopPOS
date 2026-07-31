@@ -8,4 +8,4 @@ export {
   reportRegistry,
   type ReportDefinition,
   type ReportColumn,
-} from '../../../shared/report-registry.js';
+} from '../../shared/report-registry.js';
