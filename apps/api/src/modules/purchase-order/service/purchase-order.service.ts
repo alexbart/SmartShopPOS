@@ -7,20 +7,19 @@ import type {
   ReceiveGoodsCommand,
   PurchaseOrderEntity,
 } from '../repository/purchase-order.repository.js';
+import type { StockService } from '../../inventory/services/stock.service.js';
 import type { NumberSequenceService } from '../../../shared/services/number-sequence/number-sequence.service.js';
 import { PurchaseOrderStatuses } from '../repository/purchase-order.repository.js';
-import { NumberSequenceTypes, MovementTypes } from '../../../shared/constants/domain-constants.js';
+import { NumberSequenceTypes } from '../../../shared/constants/domain-constants.js';
 import { NotFoundError, ConflictError } from '../../../shared/errors/business-error.js';
 import { AuditLogRepositoryImpl } from '../../inventory/repositories/audit-log.repository.impl.js';
-import { StockRepositoryImpl } from '../../inventory/repositories/stock.repository.impl.js';
-import { StockMovementRepositoryImpl } from '../../inventory/repositories/stock-movement.repository.impl.js';
-import { MovementTypes } from '../../../shared/constants/domain-constants.js';
 
 export class PurchaseOrderService {
   constructor(
     private readonly _unitOfWork: IUnitOfWork,
     private readonly _numberSequenceService: NumberSequenceService,
     private readonly _prisma: PrismaClient,
+    private readonly _stockService: StockService,
   ) {}
 
   async create(command: CreatePurchaseOrderCommand): Promise<PurchaseOrderEntity> {
@@ -289,8 +288,6 @@ export class PurchaseOrderService {
     return this._unitOfWork.execute(async (tx) => {
       const txRepo = new PurchaseOrderRepositoryImpl(tx);
       const auditRepo = new AuditLogRepositoryImpl(tx);
-      const stockRepo = new StockRepositoryImpl(tx);
-      const movementRepo = new StockMovementRepositoryImpl(tx);
       const receiptNumber = await this._numberSequenceService.next(
         NumberSequenceTypes.GOODS_RECEIPT,
         command.organizationId,
@@ -321,41 +318,15 @@ export class PurchaseOrderService {
       });
 
       for (const receiveItem of command.items) {
-        const stockId = await stockRepo.createOrGet({
+        await this._stockService.increase({
           organizationId: command.organizationId,
           warehouseId: command.warehouseId,
           productId: receiveItem.productId,
-        });
-
-        const stock = await stockRepo.findById(stockId, command.organizationId);
-        if (!stock) {
-          throw new NotFoundError('Stock not found after creation.');
-        }
-
-        const newQuantity = Number(stock.quantity) + Number(receiveItem.quantity);
-
-        await movementRepo.create({
-          organizationId: command.organizationId,
-          warehouseId: command.warehouseId,
-          productId: receiveItem.productId,
-          stockId,
-          type: MovementTypes.PURCHASE,
           quantity: Number(receiveItem.quantity),
+          type: 'PURCHASE',
           referenceType: 'PURCHASE_ORDER',
           referenceId: command.purchaseOrderId,
           performedBy: command.createdBy,
-        });
-
-        await stockRepo.updateQuantity(stockId, newQuantity, Number(stock.reservedQuantity));
-
-        await auditRepo.create({
-          organizationId: command.organizationId,
-          actorId: command.createdBy,
-          action: 'RECEIVE_GOODS',
-          entity: 'Stock',
-          entityId: stockId,
-          oldValues: { quantity: Number(stock.quantity) },
-          newValues: { quantity: newQuantity },
         });
       }
 
