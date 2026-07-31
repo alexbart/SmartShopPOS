@@ -3,11 +3,16 @@ import type { IUnitOfWork } from '../../../shared/database/unit-of-work.js';
 import { PaymentRepositoryImpl } from '../repositories/payment.repository.impl.js';
 import type { CreatePaymentCommand } from '../commands/create-payment.command.js';
 import type { PaymentResponse } from '../responses/payment.response.js';
+import { PaymentStatuses } from '../../../shared/constants/domain-constants.js';
+import { NotFoundError, ConflictError } from '../../../shared/errors/business-error.js';
+import type { EventBus } from '../../../shared/events/event-bus.js';
+import { PaymentReceivedEvent } from '../../../shared/events/domain-events.js';
 
 export class PaymentService {
   constructor(
     private readonly _unitOfWork: IUnitOfWork,
     private readonly _prisma: PrismaClient,
+    private readonly _eventBus: EventBus,
   ) {}
 
   async create(command: CreatePaymentCommand): Promise<PaymentResponse> {
@@ -21,13 +26,10 @@ export class PaymentService {
           select: { total: true },
         });
         if (!sale) {
-          throw new Error('Sale not found.') as Error & { code: string; statusCode: number };
+          throw new NotFoundError('Sale not found.');
         }
         if (totalPaid + command.amount > Number(sale.total)) {
-          throw new Error('Payment amount exceeds sale total.') as Error & {
-            code: string;
-            statusCode: number;
-          };
+          throw new ConflictError('Payment amount exceeds sale total.');
         }
       }
 
@@ -37,17 +39,24 @@ export class PaymentService {
         method: command.method,
         amount: command.amount,
         reference: command.reference,
-        status: 'PAID',
+        status: PaymentStatuses.PAID,
         paidAt: new Date(),
       });
 
       const payment = await paymentRepo.findById(paymentId, command.organizationId);
       if (!payment) {
-        throw new Error('Payment not found after creation.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new NotFoundError('Payment not found after creation.');
       }
+
+      await this._eventBus.publish(
+        new PaymentReceivedEvent(
+          paymentId,
+          command.saleId,
+          command.organizationId,
+          command.amount,
+          command.method,
+        ),
+      );
 
       return this.toResponse(payment);
     });

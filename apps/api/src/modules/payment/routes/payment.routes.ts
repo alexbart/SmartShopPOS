@@ -6,12 +6,14 @@ import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
 import { PrismaClient } from '@prisma/client';
 import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
+import { InMemoryEventBus } from '../../../shared/events/event-bus.js';
 
 const prisma = new PrismaClient();
 const unitOfWork = new UnitOfWork();
+const eventBus = new InMemoryEventBus();
 
 export const paymentRoutes: FastifyPluginAsync = async (fastify) => {
-  const paymentService = new PaymentService(unitOfWork, prisma);
+  const paymentService = new PaymentService(unitOfWork, prisma, eventBus);
   const paymentController = new PaymentController(paymentService);
   const jwtService = new JwtService();
   const authRepository = new AuthRepositoryImpl(prisma);

@@ -5,6 +5,10 @@ import type { CreateSaleCommand } from '../commands/create-sale.command.js';
 import type { SaleResponse } from '../responses/sale.response.js';
 import type { NumberSequenceService } from '../../../shared/services/number-sequence/number-sequence.service.js';
 import type { StockService } from '../../inventory/services/stock.service.js';
+import type { EventBus } from '../../../shared/events/event-bus.js';
+import { SaleCreatedEvent, SaleVoidedEvent } from '../../../shared/events/domain-events.js';
+import { NumberSequenceTypes, SaleStatuses } from '../../../shared/constants/domain-constants.js';
+import { NotFoundError, ConflictError } from '../../../shared/errors/business-error.js';
 
 export class SaleService {
   constructor(
@@ -12,10 +16,14 @@ export class SaleService {
     private readonly _numberSequenceService: NumberSequenceService,
     private readonly _stockService: StockService,
     private readonly _prisma: PrismaClient,
+    private readonly _eventBus: EventBus,
   ) {}
 
   async create(command: CreateSaleCommand): Promise<SaleResponse> {
-    const invoiceNumber = await this._numberSequenceService.next('SALE', command.organizationId);
+    const invoiceNumber = await this._numberSequenceService.next(
+      NumberSequenceTypes.SALE,
+      command.organizationId,
+    );
 
     return this._unitOfWork.execute(async (tx) => {
       const saleRepo = new SaleRepositoryImpl(tx);
@@ -48,7 +56,7 @@ export class SaleService {
         discount,
         tax,
         total,
-        status: 'PENDING',
+        status: SaleStatuses.PENDING,
       });
 
       await saleRepo.createItems(saleId, items);
@@ -66,15 +74,16 @@ export class SaleService {
         });
       }
 
-      await saleRepo.updateStatus(saleId, 'COMPLETED');
+      await saleRepo.updateStatus(saleId, SaleStatuses.COMPLETED);
 
       const sale = await saleRepo.findById(saleId, command.organizationId);
       if (!sale) {
-        throw new Error('Sale not found after creation.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new NotFoundError('Sale not found after creation.');
       }
+
+      await this._eventBus.publish(
+        new SaleCreatedEvent(saleId, command.organizationId, total, items),
+      );
 
       return this.toResponse(sale);
     });
@@ -84,7 +93,7 @@ export class SaleService {
     const saleRepo = new SaleRepositoryImpl(this._prisma);
     const sale = await saleRepo.findById(id, organizationId);
     if (!sale) {
-      throw new Error('Sale not found.') as Error & { code: string; statusCode: number };
+      throw new NotFoundError('Sale not found.');
     }
     return this.toResponse(sale);
   }
@@ -93,15 +102,15 @@ export class SaleService {
     const saleRepo = new SaleRepositoryImpl(this._prisma);
     const sale = await saleRepo.findById(id, organizationId);
     if (!sale) {
-      throw new Error('Sale not found.') as Error & { code: string; statusCode: number };
+      throw new NotFoundError('Sale not found.');
     }
 
-    if (sale.status === 'VOIDED') {
-      throw new Error('Sale is already voided.') as Error & { code: string; statusCode: number };
+    if (sale.status === SaleStatuses.VOIDED) {
+      throw new ConflictError('Sale is already voided.');
     }
 
-    if (sale.status === 'REFUNDED') {
-      throw new Error('Cannot void a refunded sale.') as Error & { code: string; statusCode: number };
+    if (sale.status === SaleStatuses.REFUNDED) {
+      throw new ConflictError('Cannot void a refunded sale.');
     }
 
     await this._unitOfWork.execute(async (tx) => {
@@ -121,6 +130,14 @@ export class SaleService {
       }
 
       await txSaleRepo.void(sale.id);
+
+      await this._eventBus.publish(
+        new SaleVoidedEvent(
+          sale.id,
+          sale.organizationId,
+          sale.items.map((i) => ({ productId: i.productId, quantity: Number(i.quantity) })),
+        ),
+      );
     });
   }
 

@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { StockService } from '../services/stock.service.js';
 import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
 import { PrismaClient } from '@prisma/client';
+import { MovementTypes } from '../../../shared/constants/domain-constants.js';
 
 const prisma = new PrismaClient();
 
@@ -26,7 +27,7 @@ export class GoodsReceivingController {
       warehouseId: body.warehouseId,
       productId: body.productId,
       quantity: body.quantity,
-      type: 'PURCHASE',
+      type: MovementTypes.PURCHASE,
       performedBy: request.requestContext.userId,
       referenceType: 'GOODS_RECEIVING',
       remarks: body.remarks,
@@ -51,7 +52,7 @@ export class GoodsReceivingController {
       warehouseId: body.warehouseId,
       productId: body.productId,
       quantity: body.quantity,
-      type: 'SALE',
+      type: MovementTypes.SALE,
       performedBy: request.requestContext.userId,
       referenceType: 'SALE',
       remarks: body.remarks,
@@ -76,7 +77,7 @@ export class GoodsReceivingController {
       warehouseId: body.warehouseId,
       productId: body.productId,
       quantity: body.quantity,
-      type: 'RETURN',
+      type: MovementTypes.RETURN,
       performedBy: request.requestContext.userId,
       referenceType: 'RETURN',
       remarks: body.remarks,

@@ -155,7 +155,7 @@ describe('Sales integration tests', () => {
       },
     });
 
-    expect(saleResponse.statusCode).toBe(500);
+    expect(saleResponse.statusCode).toBe(409);
     const saleBody = JSON.parse(saleResponse.body);
     expect(saleBody.success).toBe(false);
   });

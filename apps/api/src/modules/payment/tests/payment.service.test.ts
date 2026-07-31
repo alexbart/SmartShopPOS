@@ -26,7 +26,10 @@ describe('PaymentService', () => {
     const mockUnitOfWork = {
       execute: vi.fn().mockImplementation(async (fn: (_tx: unknown) => Promise<unknown>) => fn(mockPrisma)),
     } as unknown as ConstructorParameters<typeof PaymentService>[0];
-    const service = new PaymentService(mockUnitOfWork, mockPrisma);
+    const mockEventBus = {
+      publish: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ConstructorParameters<typeof PaymentService>[2];
+    const service = new PaymentService(mockUnitOfWork, mockPrisma, mockEventBus);
 
     const result = await service.create({
       organizationId: 'org-123',

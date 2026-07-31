@@ -4,6 +4,8 @@ import { StockRepositoryImpl } from '../repositories/stock.repository.impl.js';
 import { StockMovementRepositoryImpl } from '../repositories/stock-movement.repository.impl.js';
 import { AuditLogRepositoryImpl } from '../repositories/audit-log.repository.impl.js';
 import type { StockMovementType } from '../repositories/stock-movement.repository.js';
+import { InsufficientStockError, NotFoundError } from '../../../shared/errors/business-error.js';
+import { MovementTypes } from '../../../shared/constants/domain-constants.js';
 
 export class StockService {
   constructor(
@@ -35,10 +37,7 @@ export class StockService {
 
       const stock = await stockRepo.findById(stockId, params.organizationId);
       if (!stock) {
-        throw new Error('Stock not found after creation.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new NotFoundError('Stock not found after creation.');
       }
 
       const newQuantity = Number(stock.quantity) + params.quantity;
@@ -93,15 +92,12 @@ export class StockService {
       );
 
       if (!stock) {
-        throw new Error('Stock not found for warehouse and product.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new NotFoundError('Stock not found for warehouse and product.');
       }
 
       const newQuantity = Number(stock.quantity) - params.quantity;
       if (newQuantity < 0) {
-        throw new Error('Insufficient stock.') as Error & { code: string; statusCode: number };
+        throw new InsufficientStockError('Insufficient stock.');
       }
 
       await movementRepo.create({
@@ -152,10 +148,7 @@ export class StockService {
       );
 
       if (!stock) {
-        throw new Error('Stock not found for warehouse and product.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new NotFoundError('Stock not found for warehouse and product.');
       }
 
       const newQuantity = Number(stock.quantity) + params.quantity;
@@ -206,17 +199,11 @@ export class StockService {
       );
 
       if (!fromStock) {
-        throw new Error('Stock not found in source warehouse.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new NotFoundError('Stock not found in source warehouse.');
       }
 
       if (Number(fromStock.quantity) < params.quantity) {
-        throw new Error('Insufficient stock in source warehouse.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new InsufficientStockError('Insufficient stock in source warehouse.');
       }
 
       const toStockId = await stockRepo.createOrGet({
@@ -227,10 +214,7 @@ export class StockService {
 
       const toStock = await stockRepo.findById(toStockId, params.organizationId);
       if (!toStock) {
-        throw new Error('Stock not found in destination warehouse.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new NotFoundError('Stock not found in destination warehouse.');
       }
 
       await movementRepo.create({
@@ -238,7 +222,7 @@ export class StockService {
         warehouseId: params.fromWarehouseId,
         productId: params.productId,
         stockId: fromStock.id,
-        type: 'TRANSFER_OUT',
+        type: MovementTypes.TRANSFER_OUT,
         quantity: params.quantity,
         performedBy: params.performedBy,
         remarks: params.remarks,
@@ -249,7 +233,7 @@ export class StockService {
         warehouseId: params.toWarehouseId,
         productId: params.productId,
         stockId: toStockId,
-        type: 'TRANSFER_IN',
+        type: MovementTypes.TRANSFER_IN,
         quantity: params.quantity,
         performedBy: params.performedBy,
         remarks: params.remarks,

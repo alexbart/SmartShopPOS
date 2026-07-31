@@ -4,6 +4,8 @@ import { ReceiptRepositoryImpl } from '../repositories/receipt.repository.impl.j
 import type { CreateReceiptCommand } from '../commands/create-receipt.command.js';
 import type { ReceiptResponse } from '../responses/receipt.response.js';
 import type { NumberSequenceService } from '../../../shared/services/number-sequence/number-sequence.service.js';
+import { NumberSequenceTypes } from '../../../shared/constants/domain-constants.js';
+import { NotFoundError, ConflictError } from '../../../shared/errors/business-error.js';
 
 export class ReceiptService {
   constructor(
@@ -15,14 +17,14 @@ export class ReceiptService {
   async create(command: CreateReceiptCommand): Promise<ReceiptResponse> {
     return this._unitOfWork.execute(async (tx) => {
       const receiptRepo = new ReceiptRepositoryImpl(tx);
-      const receiptNumber = await this._numberSequenceService.next('RECEIPT', command.organizationId);
+      const receiptNumber = await this._numberSequenceService.next(
+        NumberSequenceTypes.RECEIPT,
+        command.organizationId,
+      );
 
       const existing = await receiptRepo.findBySaleId(command.saleId, command.organizationId);
       if (existing) {
-        throw new Error('Receipt already exists for this sale.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new ConflictError('Receipt already exists for this sale.');
       }
 
       const receiptId = await receiptRepo.create({
@@ -34,10 +36,7 @@ export class ReceiptService {
 
       const receipt = await receiptRepo.findById(receiptId, command.organizationId);
       if (!receipt) {
-        throw new Error('Receipt not found after creation.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new NotFoundError('Receipt not found after creation.');
       }
 
       return this.toResponse(receipt);
@@ -48,7 +47,7 @@ export class ReceiptService {
     const receiptRepo = new ReceiptRepositoryImpl(this._prisma);
     const receipt = await receiptRepo.findByNumber(number, organizationId);
     if (!receipt) {
-      throw new Error('Receipt not found.') as Error & { code: string; statusCode: number };
+      throw new NotFoundError('Receipt not found.');
     }
     return this.toResponse(receipt);
   }
