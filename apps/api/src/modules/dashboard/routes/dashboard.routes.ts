@@ -5,13 +5,16 @@ import { DashboardRepositoryImpl } from '../repository/dashboard.repository.impl
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
+import { createCacheService } from '../../../shared/services/cache/cache.factory.js';
+import { env } from '../../../config/env.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
   const dashboardRepository = new DashboardRepositoryImpl(prisma);
-  const dashboardService = new DashboardService(dashboardRepository);
+  const cacheService = createCacheService(env, fastify.log);
+  const dashboardService = new DashboardService(dashboardRepository, cacheService);
   const dashboardController = new DashboardController(dashboardService);
   const jwtService = new JwtService();
   const authRepository = new AuthRepositoryImpl(prisma);

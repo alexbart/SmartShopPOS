@@ -456,12 +456,13 @@ model StockMovement {
    stock        Stock        @relation(fields: [stockId], references: [id])
    user         User?        @relation(fields: [performedBy], references: [id])
 
-  @@index([organizationId])
-  @@index([warehouseId])
-  @@index([productId])
-  @@index([type])
-  @@index([createdAt])
-  @@map("stock_movements")
+   @@index([organizationId])
+   @@index([warehouseId])
+   @@index([productId])
+   @@index([type])
+   @@index([createdAt])
+   @@index([organizationId, createdAt], map: "stock_movements_report_idx")
+   @@map("stock_movements")
 }
 
 model Supplier {
@@ -584,6 +585,9 @@ model Sale {
   @@index([customerId])
   @@index([status])
   @@index([createdAt])
+  @@index([organizationId, status, createdAt], map: "sales_report_dashboard_idx")
+  @@index([organizationId, status, customerId, createdAt], map: "sales_report_customer_idx")
+  @@index([organizationId, status, warehouseId, createdAt], map: "sales_report_branch_idx")
   @@map("sales")
 }
 
@@ -634,10 +638,11 @@ model Payment {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sale         Sale         @relation(fields: [saleId], references: [id])
 
-  @@index([organizationId])
-  @@index([saleId])
-  @@index([status])
-  @@map("payments")
+   @@index([organizationId])
+   @@index([saleId])
+   @@index([status])
+   @@index([organizationId, saleId], map: "payments_org_sale_idx")
+   @@map("payments")
 }
 
 model Receipt {

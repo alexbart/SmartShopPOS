@@ -2,10 +2,13 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { loggerPlugin } from './plugins/logger.js';
+import { loggerPlugin, requestLoggerPlugin } from './plugins/logger.js';
+import { requestIdPlugin } from './plugins/requestId.js';
 import { errorHandlerPlugin } from './plugins/errorHandler.js';
 import { swaggerConfig } from './config/swagger.js';
 import { healthRoute } from './routes/health.js';
+import { env } from './config/env.js';
+import { createCacheService } from './shared/services/cache/cache.factory.js';
 import { AuthRoutes } from './modules/auth/index.js';
 import { CategoryRoutes } from './modules/category/index.js';
 import { brandRoutes } from './modules/brand/index.js';
@@ -31,14 +34,23 @@ export async function buildApp() {
   const app = Fastify({
     logger: {
       level: process.env.NODE_ENV === 'development' ? 'info' : 'warn',
+      redact: ['req.headers.authorization'],
     },
+    requestIdLogName: 'requestId',
+    requestIdHeader: 'x-request-id',
   });
 
   await app.register(cors, { origin: true });
   await app.register(swagger, swaggerConfig);
   await app.register(swaggerUi, { routePrefix: '/docs' });
   await app.register(loggerPlugin);
+  await app.register(requestIdPlugin);
+  await app.register(requestLoggerPlugin);
   await app.register(errorHandlerPlugin);
+
+  const cacheService = createCacheService(env, app.log);
+  app.decorate('cacheService', cacheService);
+
   await app.register(healthRoute, { prefix: '/api/v1' });
   await app.register(AuthRoutes, { prefix: '/api/v1/auth' });
   await app.register(CategoryRoutes, { prefix: '/api/v1/categories' });
