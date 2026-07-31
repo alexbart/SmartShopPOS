@@ -4,6 +4,7 @@ import { seedBrands } from './04-brands.seed.js';
 import { seedUnits } from './05-units.seed.js';
 import { seedTaxes } from './06-taxes.seed.js';
 import { seedProducts } from './07-products.seed.js';
+import { seedWarehouses, seedSuppliers } from './08-warehouses.seed.js';
 
 const prisma = new PrismaClient();
 
@@ -108,6 +109,16 @@ async function main() {
   await seedUnits(prisma, organizationId);
   await seedTaxes(prisma, organizationId);
   await seedProducts(prisma, organizationId);
+
+  const branch = await prisma.branch.findFirst({
+    where: { organizationId },
+    select: { id: true },
+  });
+
+  if (branch) {
+    await seedWarehouses(prisma, organizationId, branch.id);
+  }
+  await seedSuppliers(prisma, organizationId);
 
   console.log('Seed completed successfully');
 }
