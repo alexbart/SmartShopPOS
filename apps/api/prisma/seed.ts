@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import argon2 from 'argon2';
 import { seedCategories } from './03-categories.seed.js';
 import { seedBrands } from './04-brands.seed.js';
 import { seedUnits } from './05-units.seed.js';
@@ -127,6 +128,36 @@ async function main() {
     await seedWarehouses(prisma, organizationId, branch.id);
   }
   await seedSuppliers(prisma, organizationId);
+
+  const ownerRoleId = roleMap.get('OWNER');
+  const ownerEmail = 'owner@demo.com';
+  const passwordHash = await argon2.hash('SmartShop123!');
+
+  const existingUser = await prisma.user.findFirst({
+    where: { organizationId, email: ownerEmail },
+  });
+
+  if (!existingUser) {
+    const branch = await prisma.branch.findFirst({
+      where: { organizationId },
+      select: { id: true },
+    });
+
+    await prisma.user.create({
+      data: {
+        organizationId,
+        branchId: branch?.id,
+        email: ownerEmail,
+        firstName: 'Demo',
+        lastName: 'Owner',
+        passwordHash,
+        status: 'ACTIVE',
+        roles: {
+          create: ownerRoleId ? [{ roleId: ownerRoleId }] : [],
+        },
+      },
+    });
+  }
 
   console.log('Seed completed successfully');
 }
