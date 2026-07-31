@@ -124,9 +124,10 @@ model User {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch       Branch       @relation(fields: [branchId], references: [id])
   branchId     String      @db.Uuid
-  roles        UserRole[]
-  sessions     Session[]
-  auditLogs    AuditLog[]
+   roles        UserRole[]
+   sessions     Session[]
+   auditLogs    AuditLog[]
+   sales        Sale[]
 
   @@unique([organizationId, email], map: "users_org_email_unique")
   @@index([organizationId], map: "users_org_id_idx")
@@ -568,10 +569,11 @@ model Sale {
   createdAt      DateTime   @default(now()) @db.Timestamp
   updatedAt      DateTime   @updatedAt @db.Timestamp
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  customer     Customer?    @relation(fields: [customerId], references: [id])
-  warehouse    Warehouse    @relation(fields: [warehouseId], references: [id])
-  items        SaleItem[]
+   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+   customer     Customer?    @relation(fields: [customerId], references: [id])
+   warehouse    Warehouse    @relation(fields: [warehouseId], references: [id])
+   cashier      User         @relation(fields: [cashierId], references: [id])
+   items        SaleItem[]
   payments     Payment[]
   receipts     Receipt[]
 
