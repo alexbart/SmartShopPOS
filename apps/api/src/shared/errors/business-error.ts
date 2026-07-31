@@ -62,3 +62,12 @@ export class PermissionDeniedError extends BusinessError {
     super(message);
   }
 }
+
+export class ForbiddenError extends BusinessError {
+  readonly statusCode = 403;
+  readonly code = 'FORBIDDEN';
+
+  constructor(message: string) {
+    super(message);
+  }
+}
