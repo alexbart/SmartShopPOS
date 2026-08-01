@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { notification } from '@/stores/notification';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -19,9 +20,10 @@ async function handleLogin() {
   error.value = '';
   try {
     await auth.login(form.value.email, form.value.password, form.value.organizationCode);
+    notification.success('Login successful');
     router.push('/');
   } catch (e: any) {
-    error.value = e.response?.data?.message || 'Login failed';
+    error.value = e.response?.data?.error?.message || 'Login failed';
   } finally {
     loading.value = false;
   }

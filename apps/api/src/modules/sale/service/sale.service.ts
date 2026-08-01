@@ -98,6 +98,11 @@ export class SaleService {
     return this.toResponse(sale);
   }
 
+  async list(organizationId: string, page = 1, limit = 20) {
+    const saleRepo = new SaleRepositoryImpl(this._prisma);
+    return saleRepo.list(organizationId, page, limit);
+  }
+
   async void(id: string, organizationId: string): Promise<void> {
     const saleRepo = new SaleRepositoryImpl(this._prisma);
     const sale = await saleRepo.findById(id, organizationId);

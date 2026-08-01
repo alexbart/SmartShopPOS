@@ -1,33 +1,196 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  body {
-    @apply font-sans bg-gray-50 text-gray-900 antialiased;
-  }
+:root {
+  --color-primary: 210 80% 55%;
+  --color-primary-hover: 210 85% 48%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-secondary: 210 10% 45%;
+  --color-secondary-hover: 210 12% 35%;
+  --color-secondary-foreground: 0 0% 100%;
+  --color-accent: 30 90% 60%;
+  --color-accent-foreground: 210 10% 10%;
+  --color-success: 145 60% 45%;
+  --color-success-foreground: 0 0% 100%;
+  --color-warning: 35 90% 55%;
+  --color-warning-foreground: 210 10% 10%;
+  --color-danger: 0 70% 50%;
+  --color-danger-foreground: 0 0% 100%;
+  --color-info: 210 85% 50%;
+  --color-info-foreground: 0 0% 100%;
+  --color-background: 0 0% 96%;
+  --color-card: 0 0% 100%;
+  --color-card-foreground: 210 15% 15%;
+  --color-border: 210 12% 90%;
+  --color-input: 0 0% 98%;
+  --color-input-foreground: 210 15% 15%;
+  --color-muted: 210 10% 96%;
+  --color-muted-foreground: 210 10% 45%;
+  --color-popover: 0 0% 100%;
+  --color-popover-foreground: 210 15% 15%;
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 1.5rem;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.10), 0 1px 2px -1px rgb(0 0 0 / 0.10);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.10), 0 2px 4px -2px rgb(0 0 0 / 0.10);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.10), 0 4px 6px -4px rgb(0 0 0 / 0.10);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.10), 0 8px 10px -6px rgb(0 0 0 / 0.10);
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Fira Code', 'Fira Mono', 'Consolas', monospace;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --transition-duration: 150ms;
+  --transition-easing: ease-in-out;
 }
 
-@layer components {
-  .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
-  }
-  .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white focus:ring-primary-500;
-  }
-  .btn-secondary {
-    @apply bg-gray-100 hover:bg-gray-200 text-gray-900 focus:ring-gray-500;
-  }
-  .btn-ghost {
-    @apply bg-transparent hover:bg-gray-100 text-gray-700 focus:ring-gray-500;
-  }
-  .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200;
-  }
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
-  }
-  .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+[data-theme="dark"] {
+  --color-background: 210 15% 10%;
+  --color-card: 210 18% 14%;
+  --color-card-foreground: 0 0% 95%;
+  --color-border: 210 10% 25%;
+  --color-input: 210 18% 14%;
+  --color-input-foreground: 0 0% 95%;
+  --color-muted: 210 12% 18%;
+  --color-muted-foreground: 210 10% 65%;
+  --color-popover: 210 18% 14%;
+  --color-popover-foreground: 0 0% 95%;
+}
+
+body {
+  background-color: hsl(var(--color-background));
+  color: hsl(var(--color-card-foreground));
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: background-color 150ms ease-in-out;
+  border: 1px solid transparent;
+  cursor: pointer;
+  outline: none;
+}
+.btn:focus {
+  box-shadow: 0 0 0 2px hsla(0, 0%, 100%, 0.8), 0 0 0 4px hsl(var(--color-primary));
+}
+.btn-primary {
+  background-color: hsl(var(--color-primary));
+  color: hsl(var(--color-primary-foreground));
+}
+.btn-primary:hover {
+  background-color: hsl(var(--color-primary-hover));
+}
+.btn-secondary {
+  background-color: hsl(var(--color-secondary));
+  color: hsl(var(--color-secondary-foreground));
+}
+.btn-secondary:hover {
+  background-color: hsl(var(--color-secondary-hover));
+}
+.btn-ghost {
+  background: transparent;
+  color: hsl(var(--color-card-foreground));
+}
+.btn-ghost:hover {
+  background-color: hsl(var(--color-muted));
+}
+.btn-outline {
+  background: transparent;
+  border-color: hsl(var(--color-border));
+  color: hsl(var(--color-card-foreground));
+}
+.btn-outline:hover {
+  background-color: hsl(var(--color-muted));
+}
+.btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+.btn-lg { padding: 0.75rem 1.5rem; font-size: 1.125rem; }
+
+.card {
+  background-color: hsl(var(--color-card));
+  border: 1px solid hsl(var(--color-border));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid hsl(var(--color-border));
+  border-radius: var(--radius);
+  background-color: hsl(var(--color-input));
+  color: hsl(var(--color-input-foreground));
+  outline: none;
+}
+.input:focus {
+  border-color: hsl(var(--color-primary));
+  box-shadow: 0 0 0 2px hsla(0, 0%, 100%, 0.8), 0 0 0 4px hsl(var(--color-primary) / 0.3);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-badge-draft {
+  background-color: hsl(var(--color-muted) / 0.3);
+  color: hsl(var(--color-muted-foreground));
+}
+.status-badge-pending,
+.status-badge-pending-approval {
+  background-color: hsl(var(--color-warning) / 0.2);
+  color: hsl(var(--color-warning));
+}
+.status-badge-submitted {
+  background-color: hsl(var(--color-info) / 0.2);
+  color: hsl(var(--color-info));
+}
+.status-badge-approved {
+  background-color: hsl(var(--color-success) / 0.2);
+  color: hsl(var(--color-success));
+}
+.status-badge-received,
+.status-badge-partially_received {
+  background-color: hsl(var(--color-success) / 0.2);
+  color: hsl(var(--color-success));
+}
+.status-badge-rejected,
+.status-badge-cancelled,
+.status-badge-voided {
+  background-color: hsl(var(--color-danger) / 0.2);
+  color: hsl(var(--color-danger));
+}
+
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (max-width: 640px) {
+  .table-responsive td {
+    padding: 0.35rem;
+    font-size: 0.875rem;
   }
 }

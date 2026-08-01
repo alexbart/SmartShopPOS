@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { notification } from '@/stores/notification';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -22,9 +23,10 @@ async function handleRegister() {
   error.value = '';
   try {
     await auth.register(form.value);
+    notification.success('Registration successful');
     router.push('/');
   } catch (e: any) {
-    error.value = e.response?.data?.message || 'Registration failed';
+    error.value = e.response?.data?.error?.message || 'Registration failed';
   } finally {
     loading.value = false;
   }
@@ -47,10 +49,13 @@ async function handleRegister() {
             <input v-model="form.ownerFirstName" placeholder="Owner First Name" class="input" required />
             <input v-model="form.ownerLastName" placeholder="Owner Last Name" class="input" required />
             <input v-model="form.ownerEmail" type="email" placeholder="Owner Email" class="input" required />
-            <input v-model="form.ownerPhone" placeholder="Owner Phone" class="input" required />
+            <input v-model="form.ownerPhone" placeholder="Owner Phone (optional)" class="input" />
           </div>
 
           <div v-if="error" class="text-red-500 text-sm">{{ error }}</div>
+          <div class="text-xs text-gray-500">
+            Password must be at least 12 characters with uppercase, lowercase, number, and special character.
+          </div>
 
           <button type="submit" :disabled="loading" class="w-full btn btn-primary">
             {{ loading ? 'Creating...' : 'Create Organization' }}

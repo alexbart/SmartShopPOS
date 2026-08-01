@@ -41,6 +41,40 @@ export class SaleRepositoryImpl implements ISaleRepository {
     });
   }
 
+  async list(_organizationId: string, _page = 1, _limit = 20) {
+    const skip = (_page - 1) * _limit;
+    const [sales, total] = await Promise.all([
+      this._prisma.sale.findMany({
+        where: { organizationId: _organizationId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: _limit,
+      }),
+      this._prisma.sale.count({ where: { organizationId: _organizationId } }),
+    ]);
+
+    return {
+      items: sales.map((sale) => ({
+        id: sale.id,
+        organizationId: sale.organizationId,
+        number: sale.number,
+        customerId: sale.customerId ?? undefined,
+        warehouseId: sale.warehouseId,
+        cashierId: sale.cashierId,
+        subtotal: Number(sale.subtotal),
+        discount: Number(sale.discount),
+        tax: Number(sale.tax),
+        total: Number(sale.total),
+        status: sale.status,
+        createdAt: sale.createdAt,
+        updatedAt: sale.updatedAt,
+      })),
+      total,
+      page: _page,
+      limit: _limit,
+    };
+  }
+
   async findById(_id: string, _organizationId: string) {
     const sale = await this._prisma.sale.findFirst({
       where: { id: _id, organizationId: _organizationId },

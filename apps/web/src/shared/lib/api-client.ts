@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosResponse } from 'axios';
+import { notification } from '@/stores/notification';
 
 class ApiClient {
   private client: AxiosInstance;
@@ -23,7 +24,17 @@ class ApiClient {
       (error) => {
         if (error.response?.status === 401) {
           localStorage.removeItem('accessToken');
-          window.location.href = '/login';
+          localStorage.removeItem('refreshToken');
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
+          return Promise.reject(error);
+        }
+
+        const message =
+          error.response?.data?.error?.message || error.message || 'Unexpected error occurred';
+        if (error.response?.status >= 400) {
+          notification.error(message);
         }
         return Promise.reject(error);
       },
@@ -52,3 +63,19 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+export interface OrganizationTheme {
+  id: string;
+  organizationId: string;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  accentColor: string | null;
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  themeMode: string;
+  borderRadius: string;
+  fontFamily: string | null;
+  compactMode: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}

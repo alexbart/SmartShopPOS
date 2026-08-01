@@ -123,15 +123,24 @@ export interface IPurchaseOrderRepository {
   // eslint-disable-next-line no-unused-vars
   create(model: CreatePurchaseOrderModel): Promise<string>;
   // eslint-disable-next-line no-unused-vars
-  findById(id: string, organizationId: string): Promise<PurchaseOrderEntity | null>;
+  findById(_id: string, _organizationId: string): Promise<PurchaseOrderEntity | null>;
   // eslint-disable-next-line no-unused-vars
-  findByNumber(number: string, organizationId: string): Promise<PurchaseOrderEntity | null>;
-  // eslint-disable-next-line no-unused-vars
-  update(id: string, model: Partial<UpdatePurchaseOrderModel>): Promise<PurchaseOrderEntity | null>;
-  // eslint-disable-next-line no-unused-vars
-  updateStatus(id: string, status: string): Promise<void>;
-  // eslint-disable-next-line no-unused-vars
-  updateReceivedQuantity(id: string, receivedQuantity: number, totalQuantity: number): Promise<void>;
+  list(
+    _organizationId: string,
+    _page?: number,
+    _limit?: number,
+  ): Promise<{ items: PurchaseOrderEntity[]; total: number; page: number; limit: number }>;
+  findByNumber(_number: string, _organizationId: string): Promise<PurchaseOrderEntity | null>;
+  update(
+    _id: string,
+    _model: Partial<UpdatePurchaseOrderModel>,
+  ): Promise<PurchaseOrderEntity | null>;
+  updateStatus(_id: string, _status: string): Promise<void>;
+  updateReceivedQuantity(
+    _id: string,
+    _receivedQuantity: number,
+    _totalQuantity: number,
+  ): Promise<void>;
 }
 
 export interface UpdatePurchaseOrderModel {

@@ -39,6 +39,9 @@ export const saleRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/', { preHandler: [authenticateHook] }, async (request, reply) =>
     saleController.create(request, reply),
   );
+  fastify.get('/', { preHandler: [authenticateHook] }, async (request, reply) =>
+    saleController.list(request, reply),
+  );
   fastify.get('/:id', { preHandler: [authenticateHook] }, async (request, reply) =>
     saleController.findById(request, reply),
   );
