@@ -155,7 +155,14 @@ export class AuthRepositoryImpl implements IAuthRepository {
   async findUserByOrganizationAndEmail(_organizationId: string, _email: string) {
     const user = await this._prisma.user.findFirst({
       where: { organizationId: _organizationId, email: _email.toLowerCase(), deletedAt: null },
-      select: { id: true, passwordHash: true, status: true, branchId: true },
+      select: {
+        id: true,
+        passwordHash: true,
+        status: true,
+        branchId: true,
+        firstName: true,
+        lastName: true,
+      },
     });
 
     return user;
@@ -215,7 +222,13 @@ export class AuthRepositoryImpl implements IAuthRepository {
       lastName: user.lastName,
       email: user.email,
       organizationId: user.organization.id,
+      organization: {
+        id: user.organization.id,
+        name: user.organization.name,
+        code: user.organization.code,
+      },
       branchId: user.branch.id,
+      branch: { id: user.branch.id, name: user.branch.name, code: user.branch.code },
     };
   }
 

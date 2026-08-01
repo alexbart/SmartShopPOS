@@ -55,7 +55,7 @@ export const purchaseOrderRoutes: FastifyPluginAsync = async (fastify) => {
         summary: 'List Purchase Orders',
       },
     },
-    async (request, reply) => purchaseOrderController.findById(request, reply),
+    async (request, reply) => purchaseOrderController.list(request, reply),
   );
 
   fastify.get(

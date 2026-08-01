@@ -48,6 +48,20 @@ export class SaleController {
     });
   }
 
+  async list(request: FastifyRequest, reply: FastifyReply) {
+    const query = request.query as { page?: string; limit?: string };
+    const page = query.page ? Number(query.page) : 1;
+    const limit = query.limit ? Number(query.limit) : 20;
+
+    const result = await this._saleService.list(request.requestContext.organizationId, page, limit);
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Sales retrieved successfully.',
+      data: result,
+    });
+  }
+
   async void(request: FastifyRequest, reply: FastifyReply) {
     const { id } = request.params as { id: string };
 

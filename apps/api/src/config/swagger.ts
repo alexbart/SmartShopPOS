@@ -35,6 +35,7 @@ export const swaggerConfig = {
       { name: 'Finance', description: 'Expense and financial management' },
       { name: 'Banking', description: 'Bank accounts and transfers' },
       { name: 'Workflow', description: 'Approval workflows' },
+      { name: 'Organization', description: 'Organization settings and theming' },
     ],
     components: {
       securitySchemes: {

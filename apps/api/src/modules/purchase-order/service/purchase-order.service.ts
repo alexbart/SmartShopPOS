@@ -100,6 +100,11 @@ export class PurchaseOrderService {
     return po;
   }
 
+  async list(organizationId: string, page = 1, limit = 20) {
+    const poRepo = new PurchaseOrderRepositoryImpl(this._prisma);
+    return poRepo.list(organizationId, page, limit);
+  }
+
   async update(command: UpdatePurchaseOrderCommand): Promise<PurchaseOrderEntity> {
     const poRepo = new PurchaseOrderRepositoryImpl(this._prisma);
     const existing = await poRepo.findById(command.id, command.organizationId);
@@ -167,7 +172,12 @@ export class PurchaseOrderService {
     });
   }
 
-  async submit(id: string, organizationId: string, branchId?: string, requestedBy?: string): Promise<PurchaseOrderEntity> {
+  async submit(
+    id: string,
+    organizationId: string,
+    branchId?: string,
+    requestedBy?: string,
+  ): Promise<PurchaseOrderEntity> {
     const poRepo = new PurchaseOrderRepositoryImpl(this._prisma);
     const existing = await poRepo.findById(id, organizationId);
     if (!existing) {

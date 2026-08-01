@@ -9,6 +9,11 @@ export interface ISaleRepository {
   create(_model: CreateSaleModel): Promise<string>;
   createItems(_saleId: string, _items: CreateSaleItemModel[]): Promise<void>;
   findById(_id: string, _organizationId: string): Promise<SaleEntity | null>;
+  list(
+    _organizationId: string,
+    _page?: number,
+    _limit?: number,
+  ): Promise<{ items: SaleEntity[]; total: number; page: number; limit: number }>;
   findByNumber(_number: string, _organizationId: string): Promise<SaleEntity | null>;
   updateStatus(_id: string, _status: string): Promise<void>;
   void(_id: string): Promise<void>;

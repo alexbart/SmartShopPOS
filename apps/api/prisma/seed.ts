@@ -1,11 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
-import { seedCategories } from './03-categories.seed.js';
-import { seedBrands } from './04-brands.seed.js';
-import { seedUnits } from './05-units.seed.js';
-import { seedTaxes } from './06-taxes.seed.js';
-import { seedProducts } from './07-products.seed.js';
-import { seedWarehouses, seedSuppliers } from './08-warehouses.seed.js';
+import { seedCategories } from './seeds/03-categories.seed.js';
+import { seedBrands } from './seeds/04-brands.seed.js';
+import { seedUnits } from './seeds/05-units.seed.js';
+import { seedTaxes } from './seeds/06-taxes.seed.js';
+import { seedProducts } from './seeds/07-products.seed.js';
+import { seedWarehouses, seedSuppliers } from './seeds/08-warehouses.seed.js';
 
 const prisma = new PrismaClient();
 
@@ -38,7 +38,14 @@ async function main() {
   const rolePermissions: Record<string, string[]> = {
     OWNER: permissions.map((p) => p.name),
     MANAGER: ['USER.READ', 'USER.UPDATE', 'SALE.CREATE', 'SALE.VIEW', 'PAYMENT.CREATE'],
-    CASHIER: ['AUTH.LOGIN', 'AUTH.LOGOUT', 'SALE.CREATE', 'SALE.VIEW', 'PAYMENT.CREATE', 'RECEIPT.PRINT'],
+    CASHIER: [
+      'AUTH.LOGIN',
+      'AUTH.LOGOUT',
+      'SALE.CREATE',
+      'SALE.VIEW',
+      'PAYMENT.CREATE',
+      'RECEIPT.PRINT',
+    ],
   };
 
   for (const role of roles) {
@@ -119,14 +126,23 @@ async function main() {
   await seedTaxes(prisma, organizationId);
   await seedProducts(prisma, organizationId);
 
-  const branch = await prisma.branch.findFirst({
+  let branch = await prisma.branch.findFirst({
     where: { organizationId },
     select: { id: true },
   });
 
-  if (branch) {
-    await seedWarehouses(prisma, organizationId, branch.id);
+  if (!branch) {
+    branch = await prisma.branch.create({
+      data: {
+        organizationId,
+        name: 'Main Branch',
+        code: 'MAIN',
+        isHeadOffice: true,
+      },
+    });
   }
+
+  await seedWarehouses(prisma, organizationId, branch.id);
   await seedSuppliers(prisma, organizationId);
 
   const ownerRoleId = roleMap.get('OWNER');
@@ -138,15 +154,10 @@ async function main() {
   });
 
   if (!existingUser) {
-    const branch = await prisma.branch.findFirst({
-      where: { organizationId },
-      select: { id: true },
-    });
-
     await prisma.user.create({
       data: {
         organizationId,
-        branchId: branch?.id,
+        branchId: branch.id,
         email: ownerEmail,
         firstName: 'Demo',
         lastName: 'Owner',

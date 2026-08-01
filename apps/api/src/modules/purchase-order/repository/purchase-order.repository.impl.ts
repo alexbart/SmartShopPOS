@@ -59,6 +59,34 @@ export class PurchaseOrderRepositoryImpl implements IPurchaseOrderRepository {
     return this._toEntity(po);
   }
 
+  async list(
+    organizationId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ items: PurchaseOrderEntity[]; total: number; page: number; limit: number }> {
+    const skip = (page - 1) * limit;
+    const [pos, total] = await Promise.all([
+      this._prisma.purchaseOrder.findMany({
+        where: { organizationId },
+        include: {
+          items: true,
+          supplier: { select: { name: true, code: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this._prisma.purchaseOrder.count({ where: { organizationId } }),
+    ]);
+
+    return {
+      items: pos.map((po) => this._toEntity(po)),
+      total,
+      page,
+      limit,
+    };
+  }
+
   async findByNumber(number: string, organizationId: string): Promise<PurchaseOrderEntity | null> {
     const po = await this._prisma.purchaseOrder.findFirst({
       where: { orderNumber: number, organizationId },

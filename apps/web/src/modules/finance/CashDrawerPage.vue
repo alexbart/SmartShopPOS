@@ -1,21 +1,15 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { apiClient } from '@/shared/lib/api-client';
-import { useQuery } from '@tanstack/vue-query';
+import { notification } from '@/stores/notification';
+import MoneyDisplay from '@/components/business/MoneyDisplay.vue';
 
-interface CashDrawerSession {
-  id: string;
-  status: string;
-  openingFloat: number;
-  expectedCash: number;
-  countedCash: number | null;
-  variance: number | null;
-  totalSales: number;
-  totalCashIn: number;
-  totalCashOut: number;
-}
+const queryClient = useQueryClient();
+const openingFloat = ref(0);
+const closingLoading = ref(false);
 
-const { data: drawerResponse } = useQuery({
+const { data: drawerResponse, isLoading } = useQuery({
   queryKey: ['cash-drawer-current'],
   queryFn: async () => {
     const response = await apiClient.get('/cash-drawers/current');
@@ -23,18 +17,19 @@ const { data: drawerResponse } = useQuery({
   },
 });
 
-const session = computed(() => drawerResponse.value?.session);
-
-const openingFloat = ref(0);
+const session = computed(() => drawerResponse.value?.session ?? drawerResponse.value);
 
 async function openDrawer() {
   try {
-    await apiClient.post('/cash-drawers/open', {
+    const response = await apiClient.post('/cash-drawers/open', {
       openingFloat: openingFloat.value,
     });
-    alert('Cash drawer opened!');
-  } catch (e: any) {
-    alert(e.response?.data?.message || 'Failed to open drawer');
+    if (response.data.success) {
+      notification.success('Cash drawer opened');
+      queryClient.invalidateQueries({ queryKey: ['cash-drawer-current'] });
+    }
+  } catch {
+    // Handled by API interceptor
   }
 }
 
@@ -43,13 +38,24 @@ async function closeDrawer() {
   const counted = prompt('Enter counted cash amount:');
   if (!counted) return;
 
+  closingLoading.value = true;
   try {
-    await apiClient.post(`/cash-drawers/${session.value.id}/close`, {
+    const response = await apiClient.post(`/cash-drawers/${session.value.id}/close`, {
       countedCash: Number(counted),
     });
-    alert('Cash drawer closed!');
-  } catch (e: any) {
-    alert(e.response?.data?.message || 'Failed to close drawer');
+    if (response.data.success) {
+      const variance = response.data.data?.variance ?? 0;
+      if (Math.abs(variance) > 0.01) {
+        notification.warning('Cash drawer closed with variance', `Variance: KES ${Number(variance).toLocaleString()}`);
+      } else {
+        notification.success('Cash drawer closed');
+      }
+      queryClient.invalidateQueries({ queryKey: ['cash-drawer-current'] });
+    }
+  } catch {
+    // Handled by API interceptor
+  } finally {
+    closingLoading.value = false;
   }
 }
 </script>
@@ -60,9 +66,17 @@ async function closeDrawer() {
       <h1 class="text-2xl font-bold">Cash Drawer</h1>
     </div>
 
-    <div v-if="!session" class="card p-6 max-w-md">
+    <div v-if="isLoading" class="card p-6 max-w-md animate-pulse">
+      <div class="h-6 bg-gray-200 rounded mb-4 w-3/4"></div>
+      <div class="h-4 bg-gray-200 rounded mb-2 w-1/2"></div>
+    </div>
+
+    <div v-else-if="!session" class="card p-6 max-w-md">
       <h2 class="font-bold text-lg mb-4">Open Cash Drawer</h2>
-      <input v-model.number="openingFloat" type="number" placeholder="Opening Float Amount" class="input mb-4" />
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Opening Float</label>
+        <input v-model.number="openingFloat" type="number" placeholder="Enter opening float amount" class="input" />
+      </div>
       <button @click="openDrawer" class="w-full btn btn-primary">Open Drawer</button>
     </div>
 
@@ -72,33 +86,32 @@ async function closeDrawer() {
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="text-sm text-gray-600">Opening Float</label>
-            <p class="text-xl font-bold">KES {{ session.openingFloat?.toLocaleString() }}</p>
+            <p class="text-xl font-bold"><MoneyDisplay :amount="session.openingFloat ?? 0" /></p>
           </div>
           <div>
             <label class="text-sm text-gray-600">Expected Cash</label>
-            <p class="text-xl font-bold">KES {{ session.expectedCash?.toLocaleString() }}</p>
+            <p class="text-xl font-bold"><MoneyDisplay :amount="session.expectedCash ?? 0" /></p>
           </div>
           <div>
             <label class="text-sm text-gray-600">Total Sales</label>
-            <p class="text-xl font-bold text-green-600">KES {{ session.totalSales?.toLocaleString() }}</p>
+            <p class="text-xl font-bold text-green-600"><MoneyDisplay :amount="session.totalSales ?? 0" /></p>
           </div>
           <div>
             <label class="text-sm text-gray-600">Cash In</label>
-            <p class="text-xl font-bold">KES {{ session.totalCashIn?.toLocaleString() }}</p>
+            <p class="text-xl font-bold"><MoneyDisplay :amount="session.totalCashIn ?? 0" /></p>
           </div>
           <div>
             <label class="text-sm text-gray-600">Cash Out</label>
-            <p class="text-xl font-bold text-red-600">KES {{ session.totalCashOut?.toLocaleString() }}</p>
+            <p class="text-xl font-bold text-red-600"><MoneyDisplay :amount="session.totalCashOut ?? 0" /></p>
           </div>
-          <div v-if="session.variance !== null" :class="session.variance >= 0 ? 'text-green-600' : 'text-red-600'">
+          <div v-if="session.variance !== null && session.variance !== undefined" :class="Number(session.variance) >= 0 ? 'text-green-600' : 'text-red-600'">
             <label class="text-sm text-gray-600">Variance</label>
-            <p class="text-xl font-bold">KES {{ session.variance?.toLocaleString() }}</p>
+            <p class="text-xl font-bold"><MoneyDisplay :amount="session.variance ?? 0" /></p>
           </div>
         </div>
-
         <div class="mt-6">
-          <button v-if="session.status === 'OPEN'" @click="closeDrawer" class="btn btn-primary">
-            Close Cash Drawer
+          <button v-if="session.status === 'OPEN'" @click="closeDrawer" :disabled="closingLoading" class="btn btn-primary">
+            {{ closingLoading ? 'Closing...' : 'Close Cash Drawer' }}
           </button>
         </div>
       </div>

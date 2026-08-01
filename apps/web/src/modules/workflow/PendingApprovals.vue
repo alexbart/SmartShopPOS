@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { apiClient } from '@/shared/lib/api-client';
-import { useQuery } from '@tanstack/vue-query';
+import { notification } from '@/stores/notification';
+
+const queryClient = useQueryClient();
 
 const { data: pendingResponse, isLoading } = useQuery({
   queryKey: ['pending-approvals'],
@@ -14,17 +17,29 @@ const { data: pendingResponse, isLoading } = useQuery({
 const pending = computed(() => pendingResponse.value ?? []);
 
 async function approve(id: string) {
-  await apiClient.post(`/workflow/${id}/approve`, { comments: 'Approved via UI' });
-  alert('Approved!');
-  window.location.reload();
+  try {
+    const response = await apiClient.post(`/workflow/${id}/approve`, { comments: 'Approved via UI' });
+    if (response.data.success) {
+      notification.success('Approval granted');
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
+    }
+  } catch {
+    // Handled by API interceptor
+  }
 }
 
 async function reject(id: string) {
   const comment = prompt('Rejection reason:');
   if (!comment) return;
-  await apiClient.post(`/workflow/${id}/reject`, { comments: comment });
-  alert('Rejected!');
-  window.location.reload();
+  try {
+    const response = await apiClient.post(`/workflow/${id}/reject`, { comments: comment });
+    if (response.data.success) {
+      notification.success('Request rejected');
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
+    }
+  } catch {
+    // Handled by API interceptor
+  }
 }
 </script>
 

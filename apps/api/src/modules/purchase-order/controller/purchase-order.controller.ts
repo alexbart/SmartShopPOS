@@ -56,6 +56,24 @@ export class PurchaseOrderController {
     });
   }
 
+  async list(request: FastifyRequest, reply: FastifyReply) {
+    const query = request.query as { page?: string; limit?: string };
+    const page = query.page ? Number(query.page) : 1;
+    const limit = query.limit ? Number(query.limit) : 20;
+
+    const result = await this._purchaseOrderService.list(
+      request.requestContext.organizationId,
+      page,
+      limit,
+    );
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Purchase orders retrieved successfully.',
+      data: result,
+    });
+  }
+
   async update(request: FastifyRequest, reply: FastifyReply) {
     const { id } = request.params as { id: string };
 

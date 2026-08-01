@@ -233,8 +233,8 @@ export class AuthService {
     return {
       user: {
         id: user.id,
-        firstName: '',
-        lastName: '',
+        firstName: user.firstName ?? '',
+        lastName: user.lastName ?? '',
         email: command.email,
       },
       organization: {
@@ -358,13 +358,13 @@ export class AuthService {
       email: user.email,
       organization: {
         id: user.organizationId,
-        name: '',
-        code: '',
+        name: user.organization?.name ?? '',
+        code: user.organization?.code ?? '',
       },
       branch: {
         id: user.branchId,
-        name: '',
-        code: '',
+        name: user.branch?.name ?? '',
+        code: user.branch?.code ?? '',
       },
       roles,
     } as const;
