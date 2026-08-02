@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
@@ -41,13 +41,17 @@ async function reject(id: string) {
     // Handled by API interceptor
   }
 }
+
+function refresh() {
+  window.location.reload();
+}
 </script>
 
 <template>
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold">Pending Approvals</h1>
-      <button @click="window.location.reload()" class="btn btn-secondary">Refresh</button>
+      <button @click="refresh" class="btn btn-secondary">Refresh</button>
     </div>
 
     <div v-if="isLoading" class="text-center py-8 text-gray-500">Loading...</div>

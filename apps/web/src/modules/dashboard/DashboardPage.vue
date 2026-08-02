@@ -2,24 +2,11 @@
 import { useQuery } from '@tanstack/vue-query';
 import { apiClient } from '@/shared/lib/api-client';
 
-interface DashboardData {
-  today: {
-    sales: number;
-    transactions: number;
-    customers: number;
-  };
-  inventory: {
-    lowStock: number;
-    outOfStock: number;
-  };
-  topProducts: Array<{ id: string; name: string; salesCount: number }>;
-  recentSales: Array<{ id: string; saleNumber: string; total: number; customerName?: string }>;
-}
 
 const { data: dashboard, isLoading } = useQuery({
   queryKey: ['dashboard'],
   queryFn: async () => {
-    const response = await apiClient.get<DashboardData>('/dashboard');
+    const response = await apiClient.get('/dashboard');
     return response.data.data;
   },
 });

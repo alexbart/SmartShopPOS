@@ -1,29 +1,23 @@
 <script setup lang="ts">
 defineProps<{
-  status: string;
-  size?: 'sm' | 'md';
+  status: 'active' | 'inactive' | 'draft' | 'pending' | string;
+  text?: string;
 }>();
 </script>
 
 <template>
   <span
     :class="[
-      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-      {
-        'status-badge-draft': status === 'DRAFT',
-        'status-badge-pending': status === 'PENDING' || status === 'PENDING_APPROVAL',
-        'status-badge-submitted': status === 'SUBMITTED',
-        'status-badge-approved': status === 'APPROVED',
-        'status-badge-received': status === 'RECEIVED' || status === 'PARTIALLY_RECEIVED',
-        'status-badge-rejected': status === 'REJECTED' || status === 'CANCELLED' || status === 'VOIDED',
-        'status-badge-pending': status === 'PENDING_PAYMENT',
-        'bg-gray-100 text-gray-800': ![
-          'DRAFT', 'PENDING', 'PENDING_APPROVAL', 'SUBMITTED', 'APPROVED',
-          'RECEIVED', 'PARTIALLY_RECEIVED', 'REJECTED', 'CANCELLED', 'VOIDED', 'PENDING_PAYMENT',
-        ].includes(status),
-      },
+      'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+      status === 'active' && 'bg-success/10 text-success',
+      status === 'inactive' && 'bg-muted/30 text-muted-foreground',
+      status === 'draft' && 'bg-muted/30 text-muted-foreground',
+      status === 'pending' && 'bg-warning/10 text-warning',
+      status === 'approved' && 'bg-success/10 text-success',
+      status === 'rejected' && 'bg-destructive/10 text-destructive',
+      status === 'cancelled' && 'bg-destructive/10 text-destructive',
     ]"
   >
-    {{ status }}
+    {{ text ?? status }}
   </span>
 </template>

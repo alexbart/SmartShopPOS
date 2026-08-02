@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useNotificationStore } from '@/stores/notification';
+import { ref, watch } from 'vue';
 
 const props = withDefaults(
   defineProps<{
@@ -22,7 +21,6 @@ const emit = defineEmits<{
 
 const internalValue = ref(props.modelValue ?? '');
 const isFocused = ref(false);
-const isFocusedDebounced = ref(false);
 
 watch(
   () => props.modelValue,
@@ -47,7 +45,7 @@ watch(internalValue, (val) => {
   }
 });
 
-let debounceTimeout: NodeJS.Timeout | null = null;
+let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 function debounceSearch(value: string) {
   if (debounceTimeout) clearTimeout(debounceTimeout);
   debounceTimeout = setTimeout(() => {

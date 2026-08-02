@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref } from 'vue';
 import { useThemeStore, type ThemeConfig } from '@/stores/theme';
 import { notification } from '@/stores/notification';
-import { useAuthStore } from '@/stores/auth';
 
 const themeStore = useThemeStore();
-const auth = useAuthStore();
 
 const editableTheme = ref<ThemeConfig>({ ...themeStore.theme });
 
@@ -99,7 +97,7 @@ function applyPreset(p: typeof presets[0]) {
   editableTheme.value.accent = p.accent;
 }
 
-function handleImageUpload(field: keyof typeof brandAssets) {
+  function handleImageUpload(field: keyof typeof brandAssets.value) {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
@@ -148,12 +146,6 @@ function resetToDefault() {
     radius: '0.5rem',
   } };
 }
-
-const accentColorClass = computed(() => {
-  const hex = editableTheme.value.primary;
-  if (!hex) return 'bg-blue-500';
-  return '';
-});
 </script>
 
 <template>

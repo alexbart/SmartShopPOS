@@ -67,16 +67,21 @@ function applyTheme(theme: ThemeConfig) {
   root.style.setProperty('--radius', theme.radius);
   root.style.setProperty('--font-body', theme.fontFamily);
 
+  root.style.setProperty('--color-primary', hexToHsl(theme.primary));
+  root.style.setProperty('--color-primary-hover', hexToHsl(theme.primary));
+  root.style.setProperty('--color-secondary', hexToHsl(theme.secondary));
+  root.style.setProperty('--color-secondary-hover', hexToHsl(theme.secondary));
+
   if (theme.darkMode) {
-    document.documentElement.setAttribute('data-theme', 'dark');
+    root.setAttribute('data-theme', 'dark');
   } else {
-    document.documentElement.setAttribute('data-theme', 'light');
+    root.setAttribute('data-theme', 'light');
   }
 
   if (theme.compactMode) {
-    document.documentElement.classList.add('compact');
+    root.classList.add('compact');
   } else {
-    document.documentElement.classList.remove('compact');
+    root.classList.remove('compact');
   }
 }
 
@@ -115,7 +120,7 @@ export const useThemeStore = defineStore('theme', () => {
   async function loadTheme() {
     try {
       const response = await apiClient.get<Record<string, unknown>>('/theme');
-      const data = response.data.data;
+      const data: any = response.data.data;
       if (data) {
         updateTheme({
           primary: data.primaryColor ?? theme.value.primary,

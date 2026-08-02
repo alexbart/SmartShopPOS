@@ -6,11 +6,11 @@ defineProps<{
   disabled?: boolean;
   active?: boolean;
   block?: boolean;
-  type?: string;
+  type?: 'button' | 'submit' | 'reset';
 }>();
 
 const emit = defineEmits<{
-  (e: 'click', e: MouseEvent): void;
+  (e: 'click', event: MouseEvent): void;
 }>();
 </script>
 
