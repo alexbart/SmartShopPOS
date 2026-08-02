@@ -11,11 +11,17 @@ export interface Product {
   lowStockThreshold: number;
   unitId: string;
   unitName: string;
-  unitAbbreviation: string;
+  unitAbbreviation?: string;
   categoryId?: string;
+  categoryName?: string;
   brandId?: string;
+  brandName?: string;
   taxId?: string;
   isActive: boolean;
+  imageUrl?: string;
+  images?: { url: string; alt?: string; isPrimary?: boolean }[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Category {
@@ -107,4 +113,37 @@ export interface ExpenseCategory {
   name: string;
   description?: string;
   isActive: boolean;
+}
+
+export interface CashDrawerSession {
+  id: string;
+  status: 'OPEN' | 'CLOSED';
+  openingFloat: number;
+  closingFloat: number | null;
+  totalSales: number;
+  totalRefunds: number;
+  totalCashIn: number;
+  totalCashOut: number;
+  expectedCash: number;
+  countedCash: number | null;
+  variance: number | null;
+  openedAt: string;
+  closedAt: string | null;
+  movements?: CashMovement[];
+}
+
+export interface CashMovement {
+  id: string;
+  type: string;
+  amount: number;
+  referenceType?: string;
+  notes?: string;
+  performedBy: string;
+  createdAt: string;
+}
+
+export interface CashDrawerSummary {
+  drawerId: string;
+  name: string;
+  session: CashDrawerSession;
 }

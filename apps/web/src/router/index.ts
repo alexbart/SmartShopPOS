@@ -1,5 +1,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { useShiftStore } from '@/modules/shift/stores/shiftStore';
+import { catalogRoutes } from '@/modules/catalog/router';
+import { salesRoutes } from '@/modules/sales/router';
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', component: () => import('@/modules/auth/LoginPage.vue') },
@@ -18,33 +21,8 @@ const routes: RouteRecordRaw[] = [
         name: 'dashboard',
         component: () => import('@/modules/dashboard/DashboardPage.vue'),
       },
-      {
-        path: 'products',
-        name: 'products',
-        component: () => import('@/modules/catalog/ProductsPage.vue'),
-      },
-      {
-        path: 'products/create',
-        name: 'products-create',
-        component: () => import('@/modules/catalog/ProductForm.vue'),
-      },
-      {
-        path: 'products/:id',
-        name: 'products-edit',
-        component: () => import('@/modules/catalog/ProductForm.vue'),
-      },
-      {
-        path: 'categories',
-        name: 'categories',
-        component: () => import('@/modules/catalog/CategoriesPage.vue'),
-      },
-      {
-        path: 'brands',
-        name: 'brands',
-        component: () => import('@/modules/catalog/BrandsPage.vue'),
-      },
-      { path: 'units', name: 'units', component: () => import('@/modules/catalog/UnitsPage.vue') },
-      { path: 'taxes', name: 'taxes', component: () => import('@/modules/catalog/TaxesPage.vue') },
+      ...catalogRoutes,
+      ...salesRoutes,
       {
         path: 'suppliers',
         name: 'suppliers',
@@ -75,7 +53,6 @@ const routes: RouteRecordRaw[] = [
         name: 'purchase-orders-view',
         component: () => import('@/modules/purchasing/PurchaseOrderView.vue'),
       },
-      { path: 'pos', name: 'pos', component: () => import('@/modules/sales/PosPage.vue') },
       { path: 'sales', name: 'sales', component: () => import('@/modules/sales/SalesPage.vue') },
       {
         path: 'customers',
@@ -86,6 +63,11 @@ const routes: RouteRecordRaw[] = [
         path: 'cash-drawer',
         name: 'cash-drawer',
         component: () => import('@/modules/finance/CashDrawerPage.vue'),
+      },
+      {
+        path: 'shift',
+        name: 'shift',
+        component: () => import('@/modules/shift/ShiftWorkflow.vue'),
       },
       {
         path: 'expenses',
@@ -122,13 +104,39 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to) => {
+function getRoleRedirect(roles: string[]): string {
+  if (roles.includes('Cashier') || roles.includes('cashier')) return '/pos';
+  if (roles.includes('Manager') || roles.includes('manager')) return '/';
+  if (roles.includes('Accountant') || roles.includes('accountant')) return '/reports/finance';
+  if (roles.includes('Administrator') || roles.includes('administrator')) return '/theme-settings';
+  return '/';
+}
+
+router.beforeEach(async (to) => {
   const auth = useAuthStore();
   const publicPaths = ['/login', '/register'];
   const requiresAuth = !publicPaths.includes(to.path);
 
   if (requiresAuth && !auth.isAuthenticated) {
     return { path: '/login' };
+  }
+
+  if (to.path === '/') {
+    if (auth.isAuthenticated && auth.rolesLoaded && auth.roles.length > 0) {
+      const redirect = getRoleRedirect(auth.roles);
+      if (redirect !== '/') return { path: redirect };
+    }
+    return true;
+  }
+
+  if (to.path === '/pos' && auth.isAuthenticated) {
+    const shiftStore = useShiftStore();
+    if (shiftStore.drawerStatus === 'loading') {
+      await shiftStore.checkDrawerStatus();
+    }
+    if (!shiftStore.isShiftOpen) {
+      return { path: '/shift' };
+    }
   }
 
   return true;

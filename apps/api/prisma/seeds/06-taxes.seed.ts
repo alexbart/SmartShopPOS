@@ -2,10 +2,10 @@ import { PrismaClient } from '@prisma/client';
 
 export async function seedTaxes(prisma: PrismaClient, organizationId: string): Promise<void> {
   const taxes = [
-    { code: 'VAT0', name: 'Zero Rate', rate: 0 },
-    { code: 'VAT5', name: '5% VAT', rate: 5 },
-    { code: 'VAT12', name: '12% VAT', rate: 12 },
-    { code: 'VAT18', name: '18% VAT', rate: 18 },
+    { code: 'VAT16', name: 'Standard Rate (16%)', rate: 16 },
+    { code: 'VAT8', name: 'Petroleum Levy (8%)', rate: 8 },
+    { code: 'VAT0', name: 'Zero Rated (0%)', rate: 0 },
+    { code: 'EXEMPT', name: 'Exempt', rate: 0 },
   ];
 
   for (const tax of taxes) {

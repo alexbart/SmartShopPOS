@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AxiosInstance, AxiosResponse } from 'axios';
+import type { AxiosInstance, AxiosResponse, AxiosRequestConfig } from 'axios';
 import { notification } from '@/stores/notification';
 
 class ApiClient {
@@ -41,23 +41,23 @@ class ApiClient {
     );
   }
 
-  get<T>(url: string, params?: Record<string, unknown>) {
-    return this.client.get<T>(url, { params });
+  get<T = any>(url: string, config?: AxiosRequestConfig) {
+    return this.client.get<T>(url, config);
   }
 
-  post<T>(url: string, data?: unknown) {
+  post<T = any>(url: string, data?: unknown) {
     return this.client.post<T>(url, data);
   }
 
-  patch<T>(url: string, data?: unknown) {
+  patch<T = any>(url: string, data?: unknown) {
     return this.client.patch<T>(url, data);
   }
 
-  put<T>(url: string, data?: unknown) {
+  put<T = any>(url: string, data?: unknown) {
     return this.client.put<T>(url, data);
   }
 
-  delete<T>(url: string) {
+  delete<T = any>(url: string) {
     return this.client.delete<T>(url);
   }
 }

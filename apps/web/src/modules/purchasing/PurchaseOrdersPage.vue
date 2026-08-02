@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useQuery, useQueryClient } from '@tanstack/vue-query';
+import { useQuery } from '@tanstack/vue-query';
 import { apiClient } from '@/shared/lib/api-client';
-import { notification } from '@/stores/notification';
 import StatusBadge from '@/components/business/StatusBadge.vue';
 import type { PurchaseOrder } from '@/shared/types';
-
-const queryClient = useQueryClient();
 
 const { data: poResponse, isLoading, error: poError } = useQuery({
   queryKey: ['purchase-orders'],

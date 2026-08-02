@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useThemeStore } from '@/stores/theme';
-
 defineProps<{
   title: string;
   value: number | string;
@@ -9,8 +7,6 @@ defineProps<{
   subtitle?: string;
   currency?: boolean;
 }>();
-
-const { theme } = useThemeStore();
 </script>
 
 <template>

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue';
+import { reactive, computed } from 'vue';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
 import { useRouter, useRoute } from 'vue-router';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
-import type { Supplier, Product, Category } from '@/shared/types';
+import type { Supplier, Product } from '@/shared/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -134,7 +134,7 @@ const total = computed(() =>
         <span class="text-xl font-bold text-primary-600">KES {{ total.toLocaleString() }}</span>
       </div>
 
-      <button type="submit" :disabled="saveMutation.isPending" class="btn btn-primary w-full">
+      <button type="submit" :disabled="saveMutation.isPending ? true : false" class="btn btn-primary w-full">
         {{ saveMutation.isPending ? 'Saving...' : 'Submit Purchase Order' }}
       </button>
     </form>

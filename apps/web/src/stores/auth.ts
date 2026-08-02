@@ -30,13 +30,14 @@ export const useAuthStore = defineStore('auth', () => {
   const branch = ref<{ id: string; name: string } | null>(null);
   const accessToken = ref<string | null>(null);
   const roles = ref<string[]>([]);
+  const rolesLoaded = ref(false);
 
   const isAuthenticated = computed(() => !!accessToken.value);
 
   async function fetchMe() {
     try {
       const response = await apiClient.get('/auth/me');
-      const data = response.data.data;
+      const data: any = response.data.data;
       user.value = {
         id: data.id,
         email: data.email,
@@ -50,6 +51,7 @@ export const useAuthStore = defineStore('auth', () => {
       };
       branch.value = data.branch ? { id: data.branch.id, name: data.branch.name } : null;
       roles.value = data.roles || [];
+      rolesLoaded.value = true;
     } catch {
       logout();
     }
@@ -79,13 +81,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(email: string, password: string, organizationCode: string) {
-    const response = await apiClient.post<AuthResponse>('/auth/login', {
+    const response = await apiClient.post('/auth/login', {
       email,
       password,
       organizationCode,
     });
-    setAuth(response.data.data);
-    return response.data.data;
+    const data = response.data.data as AuthResponse;
+    setAuth(data);
+    return data;
   }
 
   async function register(payload: {
@@ -96,9 +99,10 @@ export const useAuthStore = defineStore('auth', () => {
     ownerPhone: string;
     password: string;
   }) {
-    const response = await apiClient.post<AuthResponse>('/auth/register', payload);
-    setAuth(response.data.data);
-    return response.data.data;
+    const response = await apiClient.post('/auth/register', payload);
+    const data = response.data.data as AuthResponse;
+    setAuth(data);
+    return data;
   }
 
   function logout() {
@@ -107,6 +111,7 @@ export const useAuthStore = defineStore('auth', () => {
     branch.value = null;
     accessToken.value = null;
     roles.value = [];
+    rolesLoaded.value = false;
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     localStorage.removeItem('organization');
@@ -118,6 +123,7 @@ export const useAuthStore = defineStore('auth', () => {
     branch,
     accessToken,
     roles,
+    rolesLoaded,
     isAuthenticated,
     login,
     register,

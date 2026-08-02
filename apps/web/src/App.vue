@@ -2,7 +2,7 @@
 import { onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore } from '@/stores/theme';
-import Toast from '@/components/Toast.vue';
+import Sonner from '@/components/ui/sonner/Sonner.vue';
 
 const auth = useAuthStore();
 const theme = useThemeStore();
@@ -10,9 +10,13 @@ onMounted(() => {
   auth.loadFromStorage();
   theme.loadTheme();
 });
-</script>>
+</script>
 
 <template>
   <RouterView />
-  <Toast />
+  <Sonner
+    :theme="theme.theme.darkMode ? 'dark' : 'light'"
+    position="bottom-right"
+    :close-button="true"
+  />
 </template>

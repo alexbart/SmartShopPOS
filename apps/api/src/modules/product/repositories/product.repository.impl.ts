@@ -141,6 +141,8 @@ export class ProductRepositoryImpl implements IProductRepository {
         { code: { contains: _query.search, mode: 'insensitive' } },
         { sku: { equals: _query.search, mode: 'insensitive' } },
         { barcode: { equals: _query.search, mode: 'insensitive' } },
+        { brand: { name: { contains: _query.search, mode: 'insensitive' } } },
+        { category: { name: { contains: _query.search, mode: 'insensitive' } } },
       ];
     }
 

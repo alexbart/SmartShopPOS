@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
+import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
 import type { Product } from '@/shared/types';
@@ -22,25 +22,25 @@ interface CartItem {
 const { data: productsData, isLoading: productsLoading } = useQuery({
   queryKey: ['products-list'],
   queryFn: async () => {
-    const response = await apiClient.get<{ items: Product[] }>('/products');
-    return response.data.data;
+    const response = await apiClient.get('/products');
+    return response.data.data.items as Product[];
   },
 });
 
 const { data: warehousesData } = useQuery({
   queryKey: ['warehouses-list'],
   queryFn: async () => {
-    const response = await apiClient.get<{ items: Array<{ id: string; name: string; isDefault: boolean }> }>('/warehouses');
-    return response.data.data;
+    const response = await apiClient.get('/warehouses');
+    return response.data.data.items as Array<{ id: string; name: string; isDefault: boolean }>;
   },
 });
 
-const products = computed(() => productsData?.value?.items ?? []);
-const warehouses = computed(() => warehousesData?.value?.items ?? []);
+const products = computed(() => (productsData.value ?? []) as Product[]);
+const warehouses = computed(() => warehousesData.value ?? [] as Array<{ id: string; name: string; isDefault: boolean }>);
 
 const defaultWarehouseId = computed(() => {
   if (!warehouses.value.length) return null;
-  const def = warehouses.value.find((w) => w.isDefault);
+  const def = warehouses.value.find((w: { id: string; name: string; isDefault: boolean }) => w.isDefault);
   return def ? def.id : warehouses.value[0]?.id ?? null;
 });
 
@@ -49,7 +49,7 @@ const filteredProducts = computed(() => {
   const q = searchQuery.value.toLowerCase();
   if (!q) return products.value;
   return products.value.filter(
-    (p) =>
+    (p: Product) =>
       p.name.toLowerCase().includes(q) ||
       p.code.toLowerCase().includes(q) ||
       p.sku.toLowerCase().includes(q),

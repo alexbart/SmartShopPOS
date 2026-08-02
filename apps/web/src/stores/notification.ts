@@ -1,57 +1,59 @@
-import { ref, type Ref } from 'vue';
-import type { ToastOptions } from '@/components/Toast.vue';
-
-let nextId = 0;
+import { toast } from 'vue-sonner';
 
 class NotificationService {
-  private toasts: Ref<ToastOptions[]> = ref([]);
-  private listeners: ((toasts: ToastOptions[]) => void)[] = [];
-
-  get toasts() {
-    return this.toasts.value;
-  }
-
-  private notify(toast: Omit<ToastOptions, 'id'>) {
-    const id = `toast-${nextId++}`;
-    const duration = toast.duration ?? 4000;
-    const item: ToastOptions = { ...toast, id };
-    this.toasts.value.push(item);
-
-    setTimeout(() => this.dismiss(id), duration);
-  }
-
-  dismiss(id: string) {
-    this.toasts.value = this.toasts.value.filter((t) => t.id !== id);
-  }
-
   success(title: string, message?: string) {
-    this.notify({ type: 'success', title, message });
+    if (message) {
+      toast.success(title, { description: message });
+    } else {
+      toast.success(title);
+    }
   }
 
   error(title: string | Error | { message?: string }, message?: string) {
     if (title instanceof Error) {
-      this.notify({ type: 'error', title: 'Error', message: title.message });
+      toast.error(title.message);
     } else if (typeof title === 'object' && title?.message) {
-      this.notify({ type: 'error', title: 'Error', message: title.message });
+      toast.error(title.message);
     } else {
-      this.notify({ type: 'error', title, message });
+      if (message) {
+        toast.error(title, { description: message });
+      } else {
+        toast.error(title);
+      }
     }
   }
 
   warning(title: string, message?: string) {
-    this.notify({ type: 'warning', title, message });
+    if (message) {
+      toast.warning(title, { description: message });
+    } else {
+      toast.warning(title);
+    }
   }
 
   info(title: string, message?: string) {
-    this.notify({ type: 'info', title, message });
+    if (message) {
+      toast.info(title, { description: message });
+    } else {
+      toast.info(title);
+    }
+  }
+
+  loading(title: string, message?: string) {
+    if (message) {
+      return toast.loading(title, { description: message });
+    } else {
+      return toast.loading(title);
+    }
+  }
+
+  dismiss(toastId?: string | number) {
+    if (toastId !== undefined) {
+      toast.dismiss(toastId);
+    } else {
+      toast.dismiss();
+    }
   }
 }
 
 export const notification = new NotificationService();
-
-export function useNotification() {
-  return {
-    toasts: notification.toasts,
-    dismiss: notification.dismiss,
-  };
-}
