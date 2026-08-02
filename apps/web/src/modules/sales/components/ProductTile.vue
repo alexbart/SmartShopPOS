@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { Product } from '@/shared/types';
 import ProductAvatar from '@/modules/catalog/components/ProductAvatar.vue';
 import StockBadge from '@/modules/catalog/components/StockBadge.vue';
-import { Star } from '@lucide/vue';
+import { Star, AlertTriangle } from '@lucide/vue';
 
 const props = withDefaults(
   defineProps<{
@@ -16,6 +17,8 @@ const emit = defineEmits<{
   (e: 'select', product: Product): void;
   (e: 'pin', productId: string): void;
 }>();
+
+const isOutOfStock = computed(() => (props.product.stockQuantity ?? 0) <= 0);
 
 function handlePin(event: MouseEvent) {
   event.stopPropagation();
@@ -33,8 +36,14 @@ const displayPrice = (price: number) => {
 
 <template>
   <button
-    @click="$emit('select', product)"
-    class="relative flex flex-col items-center p-2 rounded-lg border border-border bg-card hover:shadow-md hover:border-primary transition-all duration-150 touch-target w-full group"
+    @click="!isOutOfStock && $emit('select', product)"
+    :disabled="isOutOfStock"
+    :class="[
+      'relative flex flex-col items-center p-2 rounded-lg border bg-card transition-all duration-150 touch-target w-full group',
+      isOutOfStock
+        ? 'border-border opacity-60 cursor-not-allowed'
+        : 'border-border hover:shadow-md hover:border-primary cursor-pointer',
+    ]"
   >
     <Star
       v-if="props.pinned"
@@ -47,12 +56,9 @@ const displayPrice = (price: number) => {
     >
       <Star class="w-3 h-3 text-muted-foreground" />
     </button>
+
     <div class="relative mb-1">
-      <ProductAvatar
-        :src="product.imageUrl"
-        :alt="product.name"
-        size="md"
-      />
+      <ProductAvatar :src="product.imageUrl" :alt="product.name" size="md" />
       <StockBadge
         v-if="product.stockQuantity !== undefined"
         :quantity="product.stockQuantity"
@@ -63,20 +69,17 @@ const displayPrice = (price: number) => {
       />
     </div>
 
-    <p
-      class="text-sm font-medium text-center leading-tight mb-0.5 truncate w-full"
-      :title="product.name"
-    >
+    <p class="text-sm font-medium text-center leading-tight mb-0.5 truncate w-full" :title="product.name">
       {{ product.name }}
-    </p>
-    <p
-      v-if="product.description"
-      class="text-xs text-muted-foreground/70 text-center truncate w-full"
-    >
-      {{ product.description.substring(0, 30) }}
     </p>
     <p class="text-lg font-bold text-primary mt-1">
       {{ displayPrice(product.sellingPrice) }}
     </p>
+
+    <!-- Out of stock overlay label -->
+    <div v-if="isOutOfStock" class="flex items-center gap-1 mt-0.5">
+      <AlertTriangle class="w-3 h-3 text-amber-500" />
+      <span class="text-xs text-amber-600 font-medium">Out of Stock</span>
+    </div>
   </button>
 </template>

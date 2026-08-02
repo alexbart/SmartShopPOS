@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import type { Product } from '@/shared/types';
 import ProductTile from '@/modules/sales/components/ProductTile.vue';
-import { Grid3X3, LayoutList, Package } from '@lucide/vue';
-import { Button } from '@/components/ui/button';
+import { Package } from '@lucide/vue';
 
 const props = defineProps<{
   products: Product[];
@@ -11,6 +10,7 @@ const props = defineProps<{
   searchQuery?: string;
   selectedCategory?: string | null;
   pinnedIds?: string[];
+  viewMode?: 'grid' | 'list';
 }>();
 
 const emit = defineEmits<{
@@ -18,23 +18,20 @@ const emit = defineEmits<{
   (e: 'pin', productId: string): void;
 }>();
 
-const viewMode = ref<'grid' | 'list'>('grid');
-const searchQueryLower = computed(() => props.searchQuery?.toLowerCase() ?? '');
-
-function matchesSearch(product: Product): boolean {
-  if (!searchQueryLower.value) return true;
-  return (
-    product.name.toLowerCase().includes(searchQueryLower.value) ||
-    (product.code || '').toLowerCase().includes(searchQueryLower.value) ||
-    (product.sku || '').toLowerCase().includes(searchQueryLower.value) ||
-    (product.barcode || '').toLowerCase().includes(searchQueryLower.value) ||
-    (product.brandName || '').toLowerCase().includes(searchQueryLower.value) ||
-    (product.categoryName || '').toLowerCase().includes(searchQueryLower.value)
-  );
-}
-
 const filtered = computed(() => {
-  let result = props.products.filter(matchesSearch);
+  let result = props.products;
+  if (props.searchQuery) {
+    const q = props.searchQuery.toLowerCase();
+    result = result.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.code || '').toLowerCase().includes(q) ||
+        (p.sku || '').toLowerCase().includes(q) ||
+        (p.barcode || '').toLowerCase().includes(q) ||
+        (p.brandName || '').toLowerCase().includes(q) ||
+        (p.categoryName || '').toLowerCase().includes(q),
+    );
+  }
   if (props.selectedCategory) {
     result = result.filter((p) => p.categoryId === props.selectedCategory);
   }
@@ -44,96 +41,72 @@ const filtered = computed(() => {
 
 <template>
   <div class="h-full flex flex-col">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-medium">
-        Products
-        <span v-if="searchQuery" class="text-muted-foreground text-sm">
-          — "{{ searchQuery }}"
-        </span>
-      </h2>
-      <div class="flex items-center gap-2">
-        <div
-          v-if="searchQuery"
-          class="text-sm text-muted-foreground"
-        >
-          {{ filtered.length }} found
-        </div>
-        <div class="flex border rounded-lg">
-          <Button
-            variant="ghost"
-            size="sm"
-            :class="{ 'bg-muted': viewMode === 'grid' }"
-            @click="viewMode = 'grid'"
-            class="touch-target"
-          >
-            <Grid3X3 class="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            :class="{ 'bg-muted': viewMode === 'list' }"
-            @click="viewMode = 'list'"
-            class="touch-target"
-          >
-            <LayoutList class="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-
+    <!-- Skeleton -->
     <div
       v-if="loading"
-      class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 overflow-y-auto"
+      class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
     >
-      <div v-for="i in 12" :key="i" class="animate-pulse">
-        <div class="bg-muted rounded-lg aspect-square w-full mb-2"></div>
-        <div class="h-3 bg-muted rounded w-3/4 mb-1"></div>
-        <div class="h-3 bg-muted rounded w-1/2"></div>
+      <div v-for="i in 15" :key="i" class="animate-pulse">
+        <div class="bg-muted rounded-lg aspect-square w-full mb-2" />
+        <div class="h-3 bg-muted rounded w-3/4 mb-1" />
+        <div class="h-3 bg-muted rounded w-1/2" />
       </div>
     </div>
 
+    <!-- Empty state -->
     <div
       v-else-if="filtered.length === 0"
-      class="flex-1 flex flex-col items-center justify-center text-center py-12"
+      class="flex-1 flex flex-col items-center justify-center text-center py-16"
     >
-      <Package class="w-16 h-16 text-muted-foreground/30 mb-4" />
-      <h3 class="text-lg font-medium text-muted-foreground">
-        No products found
+      <Package class="w-16 h-16 text-muted-foreground/20 mb-4" />
+      <h3 class="text-base font-medium text-muted-foreground">
+        {{ searchQuery ? `No results for "${searchQuery}"` : 'No products in this category' }}
       </h3>
-      <p class="text-sm text-muted-foreground/70 mt-1">
-        Try adjusting your search
+      <p class="text-sm text-muted-foreground/60 mt-1">
+        {{ searchQuery ? 'Try a different search term or scan a barcode' : 'Select a different category or search above' }}
       </p>
     </div>
 
+    <!-- Grid -->
     <div
-      v-else
-      :class="[
-        'overflow-y-auto',
-        viewMode === 'grid'
-          ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3'
-          : 'space-y-1',
-      ]"
+      v-else-if="viewMode !== 'list'"
+      class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
     >
-        <ProductTile
-          v-for="product in filtered"
-          :key="product.id"
-          :product="product"
-          :pinned="props.pinnedIds?.includes(product.id)"
-          @select="$emit('select', $event)"
-          @pin="$emit('pin', $event)"
-        />
+      <ProductTile
+        v-for="product in filtered"
+        :key="product.id"
+        :product="product"
+        :pinned="props.pinnedIds?.includes(product.id)"
+        @select="$emit('select', $event)"
+        @pin="$emit('pin', $event)"
+      />
+    </div>
+
+    <!-- List -->
+    <div v-else class="space-y-1">
+      <button
+        v-for="product in filtered"
+        :key="product.id"
+        :disabled="(product.stockQuantity ?? 0) <= 0"
+        @click="$emit('select', product)"
+        :class="[
+          'w-full flex items-center gap-3 p-3 rounded-lg border bg-card text-left transition-all',
+          (product.stockQuantity ?? 0) <= 0
+            ? 'opacity-60 cursor-not-allowed border-border'
+            : 'hover:shadow-md hover:border-primary cursor-pointer border-border',
+        ]"
+      >
+        <div class="flex-1">
+          <p class="font-medium text-sm">{{ product.name }}</p>
+          <p class="text-xs text-muted-foreground/70 font-mono">{{ product.code || product.sku || '—' }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-base font-bold text-primary">KES {{ product.sellingPrice.toLocaleString() }}</p>
+          <p class="text-xs" :class="(product.stockQuantity ?? 0) <= 0 ? 'text-amber-500 font-medium' : 'text-muted-foreground'">
+            {{ (product.stockQuantity ?? 0) <= 0 ? 'Out of stock' : `Stock: ${product.stockQuantity}` }}
+          </p>
+        </div>
+      </button>
     </div>
   </div>
 </template>
-
-<style scoped>
-.view-enter-active,
-.view-leave-active {
-  transition: all 0.2s ease-in-out;
-}
-.view-enter-from,
-.view-leave-to {
-  opacity: 0;
-  transform: translateX(10px);
-}
-</style>

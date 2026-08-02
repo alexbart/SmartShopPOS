@@ -129,6 +129,10 @@ function handleProductSelect(product: Product) {
     notification.warning('Open shift first', 'Please open a cash drawer before selling.');
     return;
   }
+  if ((product.stockQuantity ?? 0) <= 0) {
+    notification.warning('Out of stock', `${product.name} has no stock available.`);
+    return;
+  }
   addItem(product);
   searchQuery.value = '';
   notification.success('Added', product.name);
@@ -204,6 +208,14 @@ function handleSuspend() {
 function handleResume(sale: PosSale) {
   suspendDialogOpen.value = false;
   notification.success('Sale resumed', `KES ${sale.total?.toLocaleString()}`);
+}
+
+function handleDeleteSuspended(sale: PosSale) {
+  const saved = localStorage.getItem('pos-suspended-sales');
+  const sales: PosSale[] = saved ? JSON.parse(saved) : [];
+  const remaining = sales.filter((s) => s.timestamp !== sale.timestamp);
+  localStorage.setItem('pos-suspended-sales', JSON.stringify(remaining));
+  notification.info('Sale removed', 'Suspended sale deleted.');
 }
 
 function handleCartRecovery() {
@@ -425,36 +437,15 @@ onMounted(() => {
         <!-- Product Grid/List -->
         <div class="flex-1 overflow-y-auto">
           <ProductGrid
-            v-if="viewMode === 'grid'"
             :products="filteredProducts"
             :loading="productsLoading"
             :search-query="searchQuery"
             :selected-category="selectedCategory"
             :pinned-ids="pinnedProductIds"
+            :view-mode="viewMode"
             @select="handleProductSelect"
             @pin="togglePin"
           />
-
-          <div v-else class="space-y-1">
-            <div v-if="productsLoading" v-for="i in 12" :key="i" class="h-16 bg-muted rounded-lg animate-pulse mb-1" />
-            <template v-else>
-              <button
-                v-for="product in filteredProducts"
-                :key="product.id"
-                @click="handleProductSelect(product)"
-                class="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:shadow-md hover:border-primary transition-all text-left"
-              >
-                <div class="flex-1">
-                  <p class="font-medium text-sm">{{ product.name }}</p>
-                  <p class="text-xs text-muted-foreground/70 font-mono">{{ product.code || product.sku || '—' }}</p>
-                </div>
-                <div class="text-right">
-                  <p class="text-base font-bold text-primary">KES {{ product.sellingPrice.toLocaleString() }}</p>
-                  <p class="text-xs text-muted-foreground">Stock: {{ product.stockQuantity }}</p>
-                </div>
-              </button>
-            </template>
-          </div>
         </div>
       </div>
 
@@ -541,6 +532,7 @@ onMounted(() => {
       :sales="getSuspendedSales()"
       @close="suspendDialogOpen = false"
       @resume="handleResume"
+      @delete="handleDeleteSuspended"
     />
   </div>
 </template>

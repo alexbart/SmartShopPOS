@@ -2,45 +2,20 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/vue-query';
 import { useRouter, useRoute } from 'vue-router';
-import {
-  Save,
-  ChevronLeft,
-  ChevronRight,
-  Package,
-  X,
-} from '@lucide/vue';
+import { Save, ChevronLeft, ChevronRight, Package, X } from '@lucide/vue';
 import { useForm } from 'vee-validate';
 import { toTypedSchema } from '@vee-validate/zod';
 import { z } from 'zod';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import ImageUploader from '@/modules/catalog/components/ImageUploader.vue';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 
 const steps = [
   { key: 1, title: 'Basic Info', description: 'Name, SKU, barcode' },
@@ -55,6 +30,7 @@ const route = useRoute();
 const queryClient = useQueryClient();
 const activeStep = ref(1);
 const isEditing = computed(() => !!route.params.id);
+const productId = computed(() => route.params.id as string | undefined);
 
 const productSchema = toTypedSchema(
   z.object({
@@ -95,98 +71,69 @@ const form = useForm({
   },
 });
 
+// Reference data
 const { data: categoriesData } = useQuery({
   queryKey: ['categories'],
-  queryFn: async () => {
-    const res = await apiClient.get('/categories');
-    return res.data.data.items;
-  },
+  queryFn: async () => (await apiClient.get('/categories')).data.data.items,
+  staleTime: 60_000,
 });
-
 const { data: unitsData } = useQuery({
   queryKey: ['units'],
-  queryFn: async () => {
-    const res = await apiClient.get('/units');
-    return res.data.data.items;
-  },
+  queryFn: async () => (await apiClient.get('/units')).data.data.items,
+  staleTime: 60_000,
 });
-
 const { data: brandsData } = useQuery({
   queryKey: ['brands'],
-  queryFn: async () => {
-    const res = await apiClient.get('/brands');
-    return res.data.data.items;
-  },
+  queryFn: async () => (await apiClient.get('/brands')).data.data.items,
+  staleTime: 60_000,
 });
-
 const { data: taxesData } = useQuery({
   queryKey: ['taxes'],
-  queryFn: async () => {
-    const res = await apiClient.get('/taxes');
-    return res.data.data.items;
-  },
+  queryFn: async () => (await apiClient.get('/taxes')).data.data.items,
+  staleTime: 60_000,
 });
 
-const { data: existingProduct } = useQuery({
-  queryKey: ['product', route.params.id as string],
-  queryFn: async () => {
-    const res = await apiClient.get(`/products/${route.params.id}`);
-    return res.data.data;
-  },
-  enabled: isEditing.value,
+// Fetch existing product when editing
+const { data: existingProduct, isLoading: isLoadingProduct } = useQuery({
+  queryKey: ['product', productId],
+  queryFn: async () => (await apiClient.get(`/products/${productId.value}`)).data.data,
+  enabled: isEditing,
+  staleTime: 0,
 });
 
+// Populate form when product data arrives — this is the core fix
 watch(
-  () => existingProduct.value,
+  existingProduct,
   (product) => {
-    if (product) {
-      nextTick(() => {
-        form.setValues({
+    if (!product) return;
+    nextTick(() => {
+      form.setValues({
         name: product.name ?? '',
         code: product.code ?? '',
         sku: product.sku ?? '',
         barcode: product.barcode ?? '',
         description: product.description ?? '',
-        sellingPrice: product.sellingPrice ?? 0,
-        costPrice: product.costPrice ?? 0,
-        stockQuantity: product.stockQuantity ?? 0,
-        lowStockThreshold: product.lowStockThreshold ?? 0,
+        sellingPrice: Number(product.sellingPrice) ?? 0,
+        costPrice: Number(product.costPrice) ?? 0,
+        stockQuantity: Number(product.stockQuantity) ?? 0,
+        lowStockThreshold: Number(product.lowStockThreshold) ?? 0,
         unitId: product.unitId ?? '',
         categoryId: product.categoryId ?? '',
         brandId: product.brandId ?? '',
         taxId: product.taxId ?? '',
         isActive: product.isActive ?? true,
-        });
       });
-    }
+    });
   },
   { immediate: true },
 );
 
-const saveMutation = useMutation({
-  mutationFn: (payload: any) =>
-    isEditing.value
-      ? apiClient.put(`/products/${route.params.id}`, payload)
-      : apiClient.post('/products', payload),
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['products'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    localStorage.removeItem(draftKey.value);
-    notification.success(
-      isEditing.value ? 'Product updated' : 'Product created',
-      (form.values as any).value?.name,
-    );
-    router.push('/products');
-  },
-  onError: () => {
-    notification.error('Failed to save product');
-  },
-});
-
+// Draft — only for create mode to avoid overwriting real product data
+const draftKey = computed(() => `product-draft-new`);
 const uploadedImages = ref<string[]>([]);
-const draftKey = computed(() => `product-draft-${route.params.id ?? 'new'}`);
 
 onMounted(() => {
+  if (isEditing.value) return; // never restore draft when editing
   const saved = localStorage.getItem(draftKey.value);
   if (saved) {
     try {
@@ -201,30 +148,46 @@ onMounted(() => {
 });
 
 watch(
-  () => (form.values as any).value,
-  (val: any) => {
+  () => form.values,
+  (val) => {
+    if (isEditing.value) return;
     if (val?.name) {
       localStorage.setItem(
         draftKey.value,
-        JSON.stringify({
-          fields: val,
-          images: uploadedImages.value,
-          step: activeStep.value,
-        }),
+        JSON.stringify({ fields: val, images: uploadedImages.value, step: activeStep.value }),
       );
     }
   },
   { deep: true },
 );
 
+const saveMutation = useMutation({
+  mutationFn: (payload: any) =>
+    isEditing.value
+      ? apiClient.put(`/products/${productId.value}`, payload)
+      : apiClient.post('/products', payload),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+    queryClient.invalidateQueries({ queryKey: ['product', productId.value] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    if (!isEditing.value) localStorage.removeItem(draftKey.value);
+    notification.success(isEditing.value ? 'Product updated' : 'Product created');
+    router.push('/products');
+  },
+  onError: () => {
+    notification.error('Failed to save product');
+  },
+});
+
 function handleFilesAdded(files: File[]) {
-  const promises = files.map((file) => {
-    return new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result as string);
-      reader.readAsDataURL(file);
-    });
-  });
+  const promises = files.map(
+    (file) =>
+      new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(file);
+      }),
+  );
   Promise.all(promises).then((urls) => {
     uploadedImages.value = [...uploadedImages.value, ...urls];
   });
@@ -235,137 +198,124 @@ function removeImage(index: number) {
 }
 
 async function handleSubmit() {
-  const valid = await form.validate();
-  if (!valid.valid) {
-    notification.error('Please fix validation errors');
+  const { valid } = await form.validate();
+  if (!valid) {
+    notification.error('Please fix validation errors before saving');
     return;
   }
-  const values = (form.values as any).value;
+  const v = form.values;
   await saveMutation.mutateAsync({
-    name: values.name,
-    code: values.code || undefined,
-    sku: values.sku || undefined,
-    barcode: values.barcode || undefined,
-    description: values.description || undefined,
-    sellingPrice: Number(values.sellingPrice),
-    costPrice: Number(values.costPrice),
-    stockQuantity: Number(values.stockQuantity),
-    lowStockThreshold: Number(values.lowStockThreshold),
-    unitId: values.unitId,
-    categoryId: values.categoryId || undefined,
-    brandId: values.brandId || undefined,
-    taxId: values.taxId || undefined,
-    isActive: values.isActive,
+    name: v.name,
+    code: v.code || undefined,
+    sku: v.sku || undefined,
+    barcode: v.barcode || undefined,
+    description: v.description || undefined,
+    sellingPrice: Number(v.sellingPrice),
+    costPrice: Number(v.costPrice),
+    unitId: v.unitId,
+    categoryId: v.categoryId || undefined,
+    brandId: v.brandId || undefined,
+    taxId: v.taxId || undefined,
+    isActive: v.isActive,
   });
 }
 
-function nextStep() {
-  activeStep.value = Math.min(activeStep.value + 1, steps.length);
-}
-
-function prevStep() {
-  activeStep.value = Math.max(activeStep.value - 1, 1);
-}
-
-function goToProducts() {
-  router.push('/products');
-}
+function nextStep() { activeStep.value = Math.min(activeStep.value + 1, steps.length); }
+function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
 </script>
 
 <template>
-  <div class="p-4 sm:p-6">
-    <div class="flex items-center gap-3 mb-6">
-      <nav aria-label="breadcrumb">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <RouterLink to="/products" class="hover:underline">Catalog</RouterLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{{ isEditing ? 'Edit Product' : 'Create Product' }}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </nav>
-    </div>
+  <div class="p-4 sm:p-6 max-w-3xl mx-auto">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <RouterLink to="/products" class="hover:underline text-sm">Catalog</RouterLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{{ isEditing ? 'Edit Product' : 'Create Product' }}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    </nav>
 
+    <!-- Header -->
     <div class="flex items-center gap-3 mb-6">
       <Package class="h-5 w-5 text-primary" />
       <div>
-        <h1 class="text-2xl font-bold">
-          {{ isEditing ? 'Edit Product' : 'Create Product' }}
-        </h1>
+        <h1 class="text-2xl font-bold">{{ isEditing ? 'Edit Product' : 'Create Product' }}</h1>
         <p class="text-sm text-muted-foreground mt-0.5">
-          {{ isEditing ? 'Update product details' : 'Add a new product to your catalog' }}
+          {{ isEditing ? `Editing: ${existingProduct?.name ?? '…'}` : 'Add a new product to your catalog' }}
         </p>
       </div>
     </div>
 
-    <div class="flex items-center mb-6 overflow-x-auto">
-      <div
-        v-for="(step, index) in steps"
-        :key="step.key"
-        class="flex items-center"
-      >
-        <div
-          :class="[
-            'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors',
-            activeStep === step.key
-              ? 'bg-primary text-primary-foreground'
-              : step.key < activeStep
-                ? 'bg-success text-success-foreground'
-                : 'bg-muted text-muted-foreground',
-          ]"
-        >
-          {{ step.key }}
-        </div>
-        <div class="ml-3 hidden sm:block">
-          <p
-            :class="[
-              'text-sm font-medium',
-              activeStep === step.key ? 'text-primary' : 'text-muted-foreground',
-            ]"
-          >
-            {{ step.title }}
-          </p>
-          <p class="text-xs text-muted-foreground/70">
-            {{ step.description }}
-          </p>
-        </div>
-        <ChevronRight
-          v-if="index < steps.length - 1"
-          class="w-4 h-4 text-muted-foreground mx-2 flex-shrink-0"
-        />
-      </div>
+    <!-- Loading state for edit -->
+    <div v-if="isEditing && isLoadingProduct" class="space-y-4">
+      <div v-for="i in 4" :key="i" class="h-12 bg-muted rounded-lg animate-pulse" />
     </div>
 
-    <Form :form="form">
-      <div class="space-y-6 animate-fadeIn">
-        <Card v-if="activeStep === 1" class="transition-all duration-200">
+    <template v-else>
+      <!-- Step indicators -->
+      <div class="flex items-center mb-6 overflow-x-auto gap-0">
+        <div v-for="(step, index) in steps" :key="step.key" class="flex items-center">
+          <div
+            :class="[
+              'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors shrink-0',
+              activeStep === step.key
+                ? 'bg-primary text-primary-foreground'
+                : step.key < activeStep
+                  ? 'bg-green-500 text-white'
+                  : 'bg-muted text-muted-foreground',
+            ]"
+          >
+            {{ step.key }}
+          </div>
+          <div class="ml-2 mr-1 hidden sm:block">
+            <p :class="['text-sm font-medium', activeStep === step.key ? 'text-primary' : 'text-muted-foreground']">
+              {{ step.title }}
+            </p>
+          </div>
+          <ChevronRight v-if="index < steps.length - 1" class="w-4 h-4 text-muted-foreground mx-1 shrink-0" />
+        </div>
+      </div>
+
+      <Form :form="form">
+        <!-- Step 1: Basic Info -->
+        <Card v-if="activeStep === 1">
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
-            <CardDescription>
-              Enter the product name, SKU, barcode, and description.
-            </CardDescription>
+            <CardDescription>Name, SKU, barcode and description.</CardDescription>
           </CardHeader>
           <CardContent class="space-y-4">
             <FormField v-slot="{ componentField }" name="name" :form="form">
               <FormItem>
                 <FormLabel>Product Name *</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter product name" v-bind="componentField" />
+                  <Input placeholder="e.g. Coca Cola 500ml" v-bind="componentField" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             </FormField>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField v-slot="{ componentField }" name="code" :form="form">
+                <FormItem>
+                  <FormLabel>Product Code</FormLabel>
+                  <FormControl>
+                    <Input placeholder="COKE-001" v-bind="componentField" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+
               <FormField v-slot="{ componentField }" name="sku" :form="form">
                 <FormItem>
                   <FormLabel>SKU</FormLabel>
                   <FormControl>
-                    <Input placeholder="SKU-001" v-bind="componentField" />
+                    <Input placeholder="COKE-500ML" v-bind="componentField" />
                   </FormControl>
                   <FormDescription>Stock Keeping Unit</FormDescription>
                   <FormMessage />
@@ -376,7 +326,7 @@ function goToProducts() {
                 <FormItem>
                   <FormLabel>Barcode</FormLabel>
                   <FormControl>
-                    <Input placeholder="Barcode" v-bind="componentField" />
+                    <Input placeholder="6001234567890" v-bind="componentField" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -387,11 +337,7 @@ function goToProducts() {
               <FormItem>
                 <FormLabel>Description</FormLabel>
                 <FormControl>
-                  <Textarea
-                    placeholder="Product description..."
-                    rows="3"
-                    v-bind="componentField"
-                  />
+                  <Textarea placeholder="Product description..." rows="3" v-bind="componentField" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -399,6 +345,7 @@ function goToProducts() {
           </CardContent>
         </Card>
 
+        <!-- Step 2: Pricing -->
         <Card v-if="activeStep === 2">
           <CardHeader>
             <CardTitle>Pricing</CardTitle>
@@ -408,9 +355,9 @@ function goToProducts() {
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField v-slot="{ componentField }" name="sellingPrice" :form="form">
                 <FormItem>
-                  <FormLabel>Selling Price *</FormLabel>
+                  <FormLabel>Selling Price (KES) *</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0.00" step="0.01" v-bind="componentField" />
+                    <Input type="number" placeholder="0.00" step="0.01" min="0" v-bind="componentField" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -418,22 +365,23 @@ function goToProducts() {
 
               <FormField v-slot="{ componentField }" name="costPrice" :form="form">
                 <FormItem>
-                  <FormLabel>Cost Price *</FormLabel>
+                  <FormLabel>Cost Price (KES) *</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0.00" step="0.01" v-bind="componentField" />
+                    <Input type="number" placeholder="0.00" step="0.01" min="0" v-bind="componentField" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               </FormField>
             </div>
 
-            <FormField v-slot="{ componentField }" name="taxId" :form="form">
+            <!-- Tax select — uses value/handleChange pattern for shadcn Select -->
+            <FormField v-slot="{ value, handleChange }" name="taxId" :form="form">
               <FormItem>
                 <FormLabel>Tax</FormLabel>
-                <Select v-bind="componentField">
+                <Select :model-value="value" @update:model-value="handleChange">
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select Tax" />
+                      <SelectValue placeholder="No tax" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -441,13 +389,14 @@ function goToProducts() {
                       {{ t.name }} ({{ t.rate }}%)
                     </SelectItem>
                   </SelectContent>
-                  <FormDescription v-if="!taxesData?.length">No taxes available</FormDescription>
                 </Select>
+                <FormDescription v-if="!taxesData?.length">No taxes configured</FormDescription>
               </FormItem>
             </FormField>
           </CardContent>
         </Card>
 
+        <!-- Step 3: Inventory -->
         <Card v-if="activeStep === 3">
           <CardHeader>
             <CardTitle>Inventory</CardTitle>
@@ -459,7 +408,7 @@ function goToProducts() {
                 <FormItem>
                   <FormLabel>Stock Quantity</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0" v-bind="componentField" />
+                    <Input type="number" placeholder="0" min="0" v-bind="componentField" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -469,20 +418,20 @@ function goToProducts() {
                 <FormItem>
                   <FormLabel>Low Stock Threshold</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0" v-bind="componentField" />
+                    <Input type="number" placeholder="0" min="0" v-bind="componentField" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               </FormField>
             </div>
 
-            <FormField v-slot="{ componentField }" name="unitId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="unitId" :form="form">
               <FormItem>
                 <FormLabel>Unit *</FormLabel>
-                <Select v-bind="componentField">
+                <Select :model-value="value" @update:model-value="handleChange">
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select Unit" />
+                      <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -491,16 +440,17 @@ function goToProducts() {
                     </SelectItem>
                   </SelectContent>
                 </Select>
+                <FormMessage />
               </FormItem>
             </FormField>
 
-            <FormField v-slot="{ componentField }" name="categoryId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="categoryId" :form="form">
               <FormItem>
                 <FormLabel>Category</FormLabel>
-                <Select v-bind="componentField">
+                <Select :model-value="value" @update:model-value="handleChange">
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select Category" />
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -512,13 +462,13 @@ function goToProducts() {
               </FormItem>
             </FormField>
 
-            <FormField v-slot="{ componentField }" name="brandId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="brandId" :form="form">
               <FormItem>
                 <FormLabel>Brand</FormLabel>
-                <Select v-bind="componentField">
+                <Select :model-value="value" @update:model-value="handleChange">
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select Brand" />
+                      <SelectValue placeholder="Select brand" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -532,27 +482,16 @@ function goToProducts() {
           </CardContent>
         </Card>
 
+        <!-- Step 4: Images -->
         <Card v-if="activeStep === 4">
           <CardHeader>
             <CardTitle>Images</CardTitle>
-            <CardDescription>
-              Upload product images. Drag & drop multiple images or click to browse.
-            </CardDescription>
+            <CardDescription>Upload product images.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ImageUploader
-              :max-files="10"
-              @upload="handleFilesAdded"
-            />
-            <div
-              v-if="uploadedImages.length > 0"
-              class="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-3"
-            >
-              <div
-                v-for="(url, index) in uploadedImages"
-                :key="index"
-                class="relative group"
-              >
+            <ImageUploader :max-files="10" @upload="handleFilesAdded" />
+            <div v-if="uploadedImages.length > 0" class="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-3">
+              <div v-for="(url, index) in uploadedImages" :key="index" class="relative group">
                 <img
                   :src="url"
                   :alt="`Product image ${index + 1}`"
@@ -561,7 +500,6 @@ function goToProducts() {
                 <button
                   @click="removeImage(index)"
                   class="absolute top-1 right-1 p-0.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Remove"
                 >
                   <X class="w-3 h-3" />
                 </button>
@@ -570,114 +508,57 @@ function goToProducts() {
           </CardContent>
         </Card>
 
+        <!-- Step 5: Review -->
         <Card v-if="activeStep === 5">
           <CardHeader>
             <CardTitle>Review & Confirm</CardTitle>
             <CardDescription>Please review all details before saving.</CardDescription>
           </CardHeader>
-          <CardContent class="space-y-4">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <h3 class="text-xs font-medium text-muted-foreground uppercase">General</h3>
-                <dl class="space-y-1 mt-1">
-                  <div>
-                    <dt class="text-xs text-muted-foreground">Name</dt>
-                    <dd class="text-sm">{{ form.values.name }}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs text-muted-foreground">SKU</dt>
-                    <dd class="text-sm font-mono">{{ form.values.sku || '—' }}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs text-muted-foreground">Barcode</dt>
-                    <dd class="text-sm font-mono">{{ form.values.barcode || '—' }}</dd>
-                  </div>
-                </dl>
+          <CardContent>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+              <div class="space-y-2">
+                <h3 class="text-xs font-medium text-muted-foreground uppercase tracking-wide">General</h3>
+                <div class="space-y-1">
+                  <div class="flex justify-between"><span class="text-muted-foreground">Name</span><span class="font-medium">{{ form.values.name }}</span></div>
+                  <div class="flex justify-between"><span class="text-muted-foreground">Code</span><span class="font-mono">{{ form.values.code || '—' }}</span></div>
+                  <div class="flex justify-between"><span class="text-muted-foreground">SKU</span><span class="font-mono">{{ form.values.sku || '—' }}</span></div>
+                  <div class="flex justify-between"><span class="text-muted-foreground">Barcode</span><span class="font-mono">{{ form.values.barcode || '—' }}</span></div>
+                </div>
               </div>
-              <div>
-                <h3 class="text-xs font-medium text-muted-foreground uppercase">Pricing & Stock</h3>
-                <dl class="space-y-1 mt-1">
-                  <div>
-                    <dt class="text-xs text-muted-foreground">Selling Price</dt>
-                    <dd class="text-sm font-mono">
-                      {{ form.values.sellingPrice?.toLocaleString('en-KE', { style: 'currency', currency: 'KES' }) }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs text-muted-foreground">Cost Price</dt>
-                    <dd class="text-sm font-mono">
-                      {{ form.values.costPrice?.toLocaleString('en-KE', { style: 'currency', currency: 'KES' }) }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs text-muted-foreground">Stock</dt>
-                    <dd class="text-sm">{{ form.values.stockQuantity }}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs text-muted-foreground">Images</dt>
-                    <dd class="text-sm">{{ uploadedImages.length }} selected</dd>
-                  </div>
-                </dl>
+              <div class="space-y-2">
+                <h3 class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pricing & Stock</h3>
+                <div class="space-y-1">
+                  <div class="flex justify-between"><span class="text-muted-foreground">Selling Price</span><span class="font-medium">KES {{ Number(form.values.sellingPrice).toLocaleString() }}</span></div>
+                  <div class="flex justify-between"><span class="text-muted-foreground">Cost Price</span><span class="font-medium">KES {{ Number(form.values.costPrice).toLocaleString() }}</span></div>
+                  <div class="flex justify-between"><span class="text-muted-foreground">Stock</span><span>{{ form.values.stockQuantity }}</span></div>
+                  <div class="flex justify-between"><span class="text-muted-foreground">Images</span><span>{{ uploadedImages.length }} uploaded</span></div>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
-    </Form>
+      </Form>
 
-    <div class="flex justify-between mt-6">
-      <Button
-        v-if="activeStep > 1"
-        variant="outline"
-        @click="prevStep"
-      >
-        <ChevronLeft class="w-4 h-4 mr-1" />
-        Back
-      </Button>
-      <div class="flex gap-2">
-        <Button variant="outline" @click="goToProducts">
-          Cancel
+      <!-- Navigation -->
+      <div class="flex justify-between mt-6">
+        <Button v-if="activeStep > 1" variant="outline" @click="prevStep">
+          <ChevronLeft class="w-4 h-4 mr-1" />
+          Back
         </Button>
-        <Button
-          v-if="activeStep < steps.length"
-          @click="nextStep"
-        >
-          Continue
-          <ChevronRight class="w-4 h-4 ml-1" />
-        </Button>
-        <Button
-          v-else
-          :disabled="saveMutation.isPending ? true : false"
-          @click="handleSubmit"
-        >
-          <Save class="w-4 h-4 mr-2" v-if="!saveMutation.isPending" />
-          {{ saveMutation.isPending ? 'Saving...' : (isEditing ? 'Update Product' : 'Save Product') }}
-        </Button>
+        <div v-else />
+
+        <div class="flex gap-2">
+          <Button variant="outline" @click="router.push('/products')">Cancel</Button>
+          <Button v-if="activeStep < steps.length" @click="nextStep">
+            Continue
+            <ChevronRight class="w-4 h-4 ml-1" />
+          </Button>
+          <Button v-else :disabled="saveMutation.isPending.value" @click="handleSubmit">
+            <Save class="w-4 h-4 mr-2" />
+            {{ saveMutation.isPending.value ? 'Saving…' : (isEditing ? 'Update Product' : 'Save Product') }}
+          </Button>
+        </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
-
-<style scoped>
-.slide-fade-enter-active {
-  transition: all 0.2s ease-in-out;
-}
-.slide-fade-leave-active {
-  transition: all 0.2s ease-in-out;
-}
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  opacity: 0;
-  transform: translateX(10px);
-}
-.fade-in {
-  animation: fadeIn 0.3s ease-in-out;
-}
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-in-out;
-}
-</style>

@@ -4,6 +4,21 @@ import { notification } from '@/stores/notification';
 import { useQueryClient } from '@tanstack/vue-query';
 import type { PosSale } from './types';
 
+let cachedWarehouseId: string | null = null;
+
+async function getDefaultWarehouseId(): Promise<string | null> {
+  if (cachedWarehouseId) return cachedWarehouseId;
+  try {
+    const res = await apiClient.get('/warehouses');
+    const warehouses: Array<{ id: string; isDefault: boolean }> = res.data.data.items ?? [];
+    const def = warehouses.find((w) => w.isDefault) ?? warehouses[0];
+    cachedWarehouseId = def?.id ?? null;
+    return cachedWarehouseId;
+  } catch {
+    return null;
+  }
+}
+
 export function useSale() {
   const queryClient = useQueryClient();
   const isProcessing = ref(false);
@@ -12,9 +27,16 @@ export function useSale() {
   async function processSale(sale: PosSale) {
     if (sale.cartItems.length === 0) return null;
 
+    const warehouseId = await getDefaultWarehouseId();
+    if (!warehouseId) {
+      notification.error('No warehouse', 'Please set up a warehouse before making sales.');
+      return null;
+    }
+
     isProcessing.value = true;
     try {
       const response = await apiClient.post('/sales', {
+        warehouseId,
         items: sale.cartItems.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
@@ -36,6 +58,7 @@ export function useSale() {
       if (response.data.success) {
         lastSale.value = sale;
         queryClient.invalidateQueries({ queryKey: ['products-list'] });
+        queryClient.invalidateQueries({ queryKey: ['pos-products'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         notification.success('Sale completed!', `Receipt #${response.data.data?.number ?? ''}`);
       }

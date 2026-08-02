@@ -24,9 +24,7 @@ const emit = defineEmits<{
         <p class="text-xs text-muted-foreground">
           Receipt #{{ receipt.number }}
         </p>
-        <p class="text-xs text-muted-foreground">
-          {{ new Date(receipt.timestamp).toLocaleString() }}
-        </p>
+        <p class="text-xs text-muted-foreground">{{ receipt.timestamp }}</p>
       </div>
 
       <div
