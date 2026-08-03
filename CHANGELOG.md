@@ -5,7 +5,50 @@ All notable changes to SmartShopPOS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.1.0] — 2026-08-01
+## [Unreleased]
+
+### Added
+
+#### Inventory Workspace (`/inventory`)
+
+- **Tabbed workspace** with 7 tabs: Overview, Products, Stock Levels, Movements, Transfers, Adjustments, Cycle Counts
+- **Overview cards**: Total Products, Low Stock, Out of Stock, Inventory Value, Today's Movements, Reserved
+- **Recent Activity feed** showing today's stock movements
+- **InventoryProductTable** with status badges (In Stock / Low / Out / Incoming), sorting, selection, and stock columns
+- **StockMovementTimeline** with grouped timeline view (Today → Yesterday → etc.), type/date filters, and animated movement entries
+- **GoodsReceivingWizard** — 4-step flow (Warehouse → Add Products → Review Quantities → Confirm) with batch receiving
+- **TransferStockDialog** — Visual warehouse-to-warehouse transfer with source/destination selection, product picker, and quantity
+- **AdjustmentDialog** — Stock adjustment with forced reason selection (Damage, Expired, Theft, Count, Other), type selection, and notes
+- **CycleCountView** — Expected vs. Counted comparison with difference highlighting and reason capture
+- **BulkActionBar** — Export CSV, Print Labels, Archive, Delete with selection awareness
+- **InventoryFilters** — Warehouse dropdown with "Receive Goods" quick action button
+
+#### Feature Flag System
+
+- Backend: `featureFlagsPlugin` Fastify plugin with environment-variable-driven configuration (FEATURE_POS, FEATURE_INVENTORY, etc.)
+- Backend: `/api/v1/feature-flags` API endpoint
+- Frontend: `useFeatureFlagsStore` Pinia store with auto-loading and API-backed flags
+
+#### Demo Data Seed
+
+- 1,000 products across 6 categories (Beverages, Bakery, General, Electronics, Household, Stationery)
+- 100 customers with Kenyan names and realistic phone numbers
+- 50 suppliers with contact persons, tax pins, and payment terms
+- 9 employees (7 cashiers, 2 managers) with hashed passwords
+- 500 historical sales with stock movements, payments, and receipts
+- Cash drawer session with $25,500 starting float and sales total
+
+### Changed
+
+- Route path `/warehouses` → `/inventory` for the inventory workspace
+- Layout navigation updated to point to `/inventory`
+
+### Added (Backend)
+
+- `listMovements` endpoint on InventoryController (`/inventory/movements`)
+- `listMovements` method on StockService
+
+## [v1.1.0-ui-foundation] — 2026-08-01
 
 ### Summary
 

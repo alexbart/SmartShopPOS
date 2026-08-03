@@ -1,5 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { StockService } from '../services/stock.service.js';
+import { StockMovementRepositoryImpl } from '../repositories/stock-movement.repository.impl.js';
+import type { StockMovementType } from '../repositories/stock-movement.repository.js';
 import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
 import { PrismaClient } from '@prisma/client';
 
@@ -50,6 +52,32 @@ export class InventoryController {
     return reply.status(200).send({
       success: true,
       message: 'Stock levels retrieved successfully.',
+      data: result,
+    });
+  }
+
+  async listMovements(request: FastifyRequest, reply: FastifyReply) {
+    const query = request.query as {
+      warehouseId?: string;
+      productId?: string;
+      type?: string;
+      page?: string;
+      limit?: string;
+    };
+
+    const movementRepo = new StockMovementRepositoryImpl(prisma);
+    const result = await movementRepo.findAll({
+      organizationId: request.requestContext.organizationId,
+      warehouseId: query.warehouseId,
+      productId: query.productId,
+      type: query.type as StockMovementType,
+      page: Number(query.page ?? 1),
+      limit: Number(query.limit ?? 50),
+    });
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Stock movements retrieved successfully.',
       data: result,
     });
   }

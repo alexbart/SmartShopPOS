@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useShiftStore } from '@/modules/shift/stores/shiftStore';
 import { catalogRoutes } from '@/modules/catalog/router';
 import { salesRoutes } from '@/modules/sales/router';
+import { inventoryRoutes } from '@/modules/inventory/router';
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', component: () => import('@/modules/auth/LoginPage.vue') },
@@ -23,21 +24,7 @@ const routes: RouteRecordRaw[] = [
       },
       ...catalogRoutes,
       ...salesRoutes,
-      {
-        path: 'suppliers',
-        name: 'suppliers',
-        component: () => import('@/modules/inventory/SuppliersPage.vue'),
-      },
-      {
-        path: 'warehouses',
-        name: 'warehouses',
-        component: () => import('@/modules/inventory/WarehousesPage.vue'),
-      },
-      {
-        path: 'stock',
-        name: 'stock',
-        component: () => import('@/modules/inventory/StockPage.vue'),
-      },
+      ...inventoryRoutes,
       {
         path: 'purchase-orders',
         name: 'purchase-orders',

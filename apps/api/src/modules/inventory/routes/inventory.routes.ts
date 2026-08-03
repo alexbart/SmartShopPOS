@@ -46,4 +46,8 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
     { preHandler: [authenticateHook] },
     async (request, reply) => inventoryController.getStockLevel(request, reply),
   );
+
+  fastify.get('/movements', { preHandler: [authenticateHook] }, async (request, reply) =>
+    inventoryController.listMovements(request, reply),
+  );
 };

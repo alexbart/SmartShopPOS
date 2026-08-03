@@ -95,7 +95,7 @@ const workspaces = [
       { name: 'Taxes', path: '/taxes', icon: Percent },
     ],
   },
-  { name: 'Inventory', path: '/warehouses', icon: Warehouse },
+  { name: 'Inventory', path: '/inventory', icon: Warehouse },
   { name: 'Purchasing', path: '/purchase-orders', icon: Receipt },
   { name: 'Sales', path: '/pos', icon: ShoppingCart },
   { name: 'Customers', path: '/customers', icon: Users },

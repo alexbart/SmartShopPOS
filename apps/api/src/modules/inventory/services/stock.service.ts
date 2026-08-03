@@ -309,4 +309,23 @@ export class StockService {
       reservedQuantity: Number(s.reservedQuantity),
     }));
   }
+
+  async listMovements(params: {
+    organizationId: string;
+    warehouseId?: string;
+    productId?: string;
+    type?: string;
+    page: number;
+    limit: number;
+  }) {
+    const movementRepo = new StockMovementRepositoryImpl(this._prisma);
+    return movementRepo.findAll({
+      organizationId: params.organizationId,
+      warehouseId: params.warehouseId,
+      productId: params.productId,
+      type: params.type as StockMovementType,
+      page: params.page,
+      limit: params.limit,
+    });
+  }
 }
