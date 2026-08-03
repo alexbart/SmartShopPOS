@@ -6,6 +6,7 @@ import { seedUnits } from './seeds/05-units.seed.js';
 import { seedTaxes } from './seeds/06-taxes.seed.js';
 import { seedProducts } from './seeds/07-products.seed.js';
 import { seedWarehouses, seedSuppliers } from './seeds/08-warehouses.seed.js';
+import { seedDemoData } from './seeds/10-demo-data.seed.js';
 
 const prisma = new PrismaClient();
 
@@ -153,7 +154,7 @@ async function main() {
     where: { organizationId, email: ownerEmail },
   });
 
-  if (!existingUser) {
+   if (!existingUser) {
     await prisma.user.create({
       data: {
         organizationId,
@@ -169,6 +170,13 @@ async function main() {
       },
     });
   }
+
+  const owner = await prisma.user.findFirst({
+    where: { organizationId, email: ownerEmail },
+    select: { id: true },
+  });
+
+  await seedDemoData(prisma, organizationId, branch.id, owner?.id ?? '');
 
   console.log('Seed completed successfully');
 }

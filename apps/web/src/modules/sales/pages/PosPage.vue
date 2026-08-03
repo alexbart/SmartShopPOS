@@ -51,7 +51,7 @@ const {
   subtotal, tax, totalDiscount, total, itemCount, isEmpty, toReceiptData,
 } = useCart();
 
-const { isProcessing, processSale, suspendSale, getSuspendedSales } = useSale();
+const { isProcessing, processSale, suspendSale, getSuspendedSales, resumeSale } = useSale();
 
 const searchQuery = ref('');
 const selectedCategory = ref<string | null>(null);
@@ -207,6 +207,16 @@ function handleSuspend() {
 
 function handleResume(sale: PosSale) {
   suspendDialogOpen.value = false;
+  clearCart();
+  clearCustomer();
+  sale.cartItems.forEach((item) => {
+    addItem(item.product, item.quantity);
+    if (item.discount) setDiscount(item.id, item.discount);
+    if (item.note) setNote(item.id, item.note);
+  });
+  if (sale.customerId && sale.customerName) {
+    setCustomer({ id: sale.customerId, name: sale.customerName });
+  }
   notification.success('Sale resumed', `KES ${sale.total?.toLocaleString()}`);
 }
 
@@ -230,6 +240,7 @@ function handleDiscardCart() {
 }
 
 const searchBarRef = ref<any>(null);
+const customerLookupRef = ref<any>(null);
 
 onMounted(() => {
   clockTimer = setInterval(() => { now.value = new Date(); }, 1000);
@@ -243,10 +254,19 @@ onMounted(() => {
     const target = e.target as HTMLElement;
     const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-    if (e.key === 'F2' && !isInput) { e.preventDefault(); searchBarRef.value?.focus(); }
-    if (e.key === 'F8' && !isInput) { e.preventDefault(); handleSuspend(); }
-    if (e.key === 'F9' && !isInput) { e.preventDefault(); if (!isEmpty.value) paymentDrawerOpen.value = true; }
-    if (e.key === 'F10' && !isInput) { e.preventDefault(); if (!isEmpty.value) handleCheckout(); }
+    if (e.key === 'F2') { e.preventDefault(); searchBarRef.value?.focus(); }
+    if (e.key === 'F3') { e.preventDefault(); customerLookupRef.value?.focus(); }
+    if (e.key === 'F4') { e.preventDefault(); handleSuspend(); }
+    if (e.key === 'F5') { e.preventDefault(); suspendDialogOpen.value = true; }
+    if (e.key === 'F6') { e.preventDefault(); if (!isEmpty.value) paymentDrawerOpen.value = true; }
+    if (e.key === 'F7') { e.preventDefault(); if (!isEmpty.value) paymentDrawerOpen.value = true; }
+    if (e.key === 'F9') { e.preventDefault(); clearCart(); }
+    if (e.key === 'F10') { e.preventDefault(); if (!isEmpty.value) handleCheckout(); }
+    if (e.key === 'Escape') {
+      if (paymentDrawerOpen.value) { paymentDrawerOpen.value = false; }
+      else if (showReceipt.value) { showReceipt.value = false; }
+      else if (suspendDialogOpen.value) { suspendDialogOpen.value = false; }
+    }
     if (e.key === 'Delete' && e.ctrlKey && !isInput) { e.preventDefault(); clearCart(); }
     if (e.key === 'Enter' && !isInput) {
       if (!paymentDrawerOpen.value && !showReceipt.value && !isEmpty.value) handleCheckout();
@@ -268,6 +288,9 @@ onMounted(() => {
     <div class="border-b px-4 py-2 flex items-center justify-between bg-card shrink-0">
       <div class="flex items-center gap-4">
         <h1 class="text-lg font-bold">SmartShop POS</h1>
+        <span v-if="shiftStore.shift?.branchName" class="text-sm text-muted-foreground">
+          {{ shiftStore.shift.branchName }}
+        </span>
         <div v-if="shiftStore.isShiftOpen" class="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Clock class="w-3.5 h-3.5" />
           <span>{{ shiftStore.shiftDuration }}</span>
@@ -454,6 +477,7 @@ onMounted(() => {
 
         <!-- Customer -->
         <CustomerLookup
+          ref="customerLookupRef"
           :selected-customer="customerId ? { id: customerId, name: customerName || '' } : null"
           @select="setCustomer"
           @clear="clearCustomer"
@@ -490,7 +514,7 @@ onMounted(() => {
           </Button>
           <div class="grid grid-cols-2 gap-2">
             <Button variant="outline" class="w-full" @click="handleSuspend" :disabled="isEmpty">
-              Suspend (F8)
+              Hold (F4)
             </Button>
             <Button variant="ghost" class="w-full" @click="clearCart" :disabled="isEmpty">
               Clear (Ctrl+Del)
@@ -516,13 +540,12 @@ onMounted(() => {
       <div class="max-w-md w-full max-h-[80vh] overflow-y-auto">
         <ReceiptPreview
           :receipt="receiptData"
-          @print="showReceipt = false; notification.success('Receipt printed')"
+          @print="notification.success('Receipt printed')"
+          @download="notification.success('PDF downloaded')"
           @email="showReceipt = false; notification.success('Receipt sent via email')"
           @sms="showReceipt = false; notification.success('Receipt sent via SMS')"
+          @done="showReceipt = false"
         />
-        <div class="flex justify-center mt-4">
-          <Button @click="showReceipt = false">Close</Button>
-        </div>
       </div>
     </div>
 

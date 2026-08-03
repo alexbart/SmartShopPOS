@@ -26,10 +26,6 @@ const emit = defineEmits<{
   (e: 'clear'): void;
   (e: 'set-tax', taxId: string | null): void;
 }>();
-
-const selectedTax = computed(() =>
-  props.taxes.find((t) => t.id === props.selectedTaxId) ?? null,
-);
 </script>
 
 <template>

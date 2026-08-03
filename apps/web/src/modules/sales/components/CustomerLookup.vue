@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useQuery } from '@tanstack/vue-query';
 import { User, X, Search } from '@lucide/vue';
 import { Input } from '@/components/ui/input';
+import { apiClient } from '@/shared/lib/api-client';
 import type { Customer } from '@/modules/sales/composables/types';
 
-const props = defineProps<{
-  selectedCustomer?: Customer | null;
-}>();
+defineProps<{ selectedCustomer?: Customer | null }>();
 
 const emit = defineEmits<{
   (e: 'select', customer: Customer): void;
@@ -15,21 +15,23 @@ const emit = defineEmits<{
 
 const searchQuery = ref('');
 const focused = ref(false);
+const inputRef = ref<HTMLInputElement | null>(null);
 
-// Sample customers — replace with API call when ready
-const customers: Customer[] = [
-  { id: '1', name: 'Walk-in Customer', phone: '0700000000' },
-  { id: '2', name: 'Jane Doe', phone: '0711111111' },
-  { id: '3', name: 'John Smith', phone: '0722222222' },
-  { id: '4', name: 'Mary Johnson', phone: '0733333333' },
-];
+const { data: customersData } = useQuery({
+  queryKey: ['customers-pos'],
+  queryFn: async () => {
+    const res = await apiClient.get('/customers', { params: { limit: '200' } });
+    return res.data.data.items as Customer[];
+  },
+  staleTime: 120_000,
+});
 
 const filtered = computed(() => {
   if (!searchQuery.value.trim()) return [];
   const q = searchQuery.value.toLowerCase();
-  return customers.filter(
-    (c) => c.name.toLowerCase().includes(q) || (c.phone?.includes(q) ?? false),
-  );
+  return (customersData.value ?? [])
+    .filter((c) => c.name.toLowerCase().includes(q) || (c.phone?.includes(q) ?? false))
+    .slice(0, 8);
 });
 
 function select(customer: Customer) {
@@ -42,6 +44,16 @@ function clear() {
   emit('clear');
   searchQuery.value = '';
 }
+
+function onBlur() {
+  setTimeout(() => { focused.value = false; }, 150);
+}
+
+function focus() {
+  inputRef.value?.focus();
+}
+
+defineExpose({ focus });
 </script>
 
 <template>
@@ -54,18 +66,18 @@ function clear() {
     </button>
   </div>
 
-  <!-- Search input (shown when no customer selected) -->
+  <!-- Search input -->
   <div v-else class="relative">
     <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
     <Input
+      ref="inputRef"
       v-model="searchQuery"
-      placeholder="Customer (optional)"
+      placeholder="Customer (optional) — F3"
       class="pl-8 h-8 text-sm"
       @focus="focused = true"
-      @blur="setTimeout(() => { focused = false }, 150)"
+      @blur="onBlur"
     />
 
-    <!-- Dropdown results — only when typing -->
     <div
       v-if="focused && filtered.length > 0"
       class="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-20 overflow-hidden"

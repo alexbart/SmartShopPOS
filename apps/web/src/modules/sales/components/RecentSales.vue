@@ -1,28 +1,45 @@
 <script setup lang="ts">
-import { ShoppingCart, ArrowRight } from '@lucide/vue';
+import { useQuery } from '@tanstack/vue-query';
+import { ShoppingCart, ArrowRight, Printer } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
-
-interface RecentSale {
-  id: string;
-  customerName: string;
-  total: number;
-  itemCount: number;
-  time: string;
-  status: 'completed' | 'returned';
-}
+import { Button } from '@/components/ui/button';
+import { apiClient } from '@/shared/lib/api-client';
 
 const props = withDefaults(
   defineProps<{ limit?: number }>(),
   { limit: 5 },
 );
 
-const recentSales: RecentSale[] = [
-  { id: '1', customerName: 'Jane Doe', total: 2300, itemCount: 4, time: '10:32 AM', status: 'completed' },
-  { id: '2', customerName: 'John Smith', total: 1550, itemCount: 3, time: '10:28 AM', status: 'completed' },
-  { id: '3', customerName: 'Walk-in', total: 890, itemCount: 2, time: '10:15 AM', status: 'completed' },
-  { id: '4', customerName: 'Mary Johnson', total: 4250, itemCount: 7, time: '09:52 AM', status: 'completed' },
-  { id: '5', customerName: 'Jane Doe', total: 175, itemCount: 2, time: '09:45 AM', status: 'returned' },
-];
+const emit = defineEmits<{
+  (e: 'reprint', saleId: string): void;
+}>();
+
+const { data } = useQuery({
+  queryKey: ['recent-sales-pos'],
+  queryFn: async () => {
+    const res = await apiClient.get('/sales', { params: { limit: String(props.limit), page: '1' } });
+    return res.data.data.items as Array<{
+      id: string;
+      number: string;
+      customerName?: string;
+      total: number;
+      itemCount: number;
+      createdAt: string;
+      status: string;
+    }>;
+  },
+  staleTime: 30_000,
+  refetchInterval: 60_000,
+});
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-KE', {
+    timeZone: 'Africa/Nairobi',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
 </script>
 
 <template>
@@ -31,21 +48,27 @@ const recentSales: RecentSale[] = [
       <ShoppingCart class="w-3.5 h-3.5" />
       Recent Sales
     </h3>
-    <div class="flex flex-wrap gap-2">
+    <div v-if="!data || data.length === 0" class="text-xs text-muted-foreground/60 py-1">
+      No recent sales
+    </div>
+    <div v-else class="flex flex-wrap gap-2">
       <div
-        v-for="sale in recentSales.slice(0, limit)"
+        v-for="sale in data.slice(0, limit)"
         :key="sale.id"
-        class="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors cursor-pointer min-w-[180px]"
+        class="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors min-w-[200px]"
       >
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium truncate">{{ sale.customerName }}</p>
-          <p class="text-xs text-muted-foreground">{{ sale.time }} · {{ sale.itemCount }} items</p>
+          <p class="text-sm font-medium truncate">{{ sale.customerName || 'Walk-in' }}</p>
+          <p class="text-xs text-muted-foreground">{{ formatTime(sale.createdAt) }} · {{ sale.number }}</p>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
-          <Badge :variant="sale.status === 'returned' ? 'secondary' : 'default'" class="text-xs">
-            {{ sale.status }}
+          <Badge :variant="sale.status === 'RETURNED' ? 'secondary' : 'default'" class="text-xs capitalize">
+            {{ sale.status.toLowerCase() }}
           </Badge>
           <span class="text-sm font-semibold">KES {{ sale.total.toLocaleString() }}</span>
+          <Button variant="ghost" size="icon" class="h-6 w-6" @click="emit('reprint', sale.id)">
+            <Printer class="w-3 h-3" />
+          </Button>
           <ArrowRight class="w-3 h-3 text-muted-foreground" />
         </div>
       </div>

@@ -79,13 +79,13 @@ export const useShiftStore = defineStore('shift', () => {
     }
   }
 
-  async function openDrawer(openingFloat: number, notes: string) {
+  async function openDrawer(openingFloat: number, notes: string, cashierName: string = 'Cashier') {
     const response = await apiClient.post('/cash-drawers/open', {
       openingFloat,
       notes,
     });
     const session: CashDrawerSummary = response.data.data;
-    startShift(session, 'Alex');
+    startShift(session, cashierName);
     queryClient.invalidateQueries({ queryKey: ['cash-drawer-current'] });
     return true;
   }

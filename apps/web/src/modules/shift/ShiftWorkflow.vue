@@ -47,7 +47,7 @@ async function handleOpenDrawer() {
 
   isSaving.value = true;
   try {
-    await shiftStore.openDrawer(openingFloat.value, notes.value);
+    await shiftStore.openDrawer(openingFloat.value, notes.value, auth.user ? `${auth.user.firstName} ${auth.user.lastName}` : 'Cashier');
     notification.success('✓ Drawer Opened', `Opening float: KES ${openingFloat.value.toLocaleString()}`);
     step.value = 'ready';
   } catch {

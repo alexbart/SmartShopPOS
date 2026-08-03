@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ReceiptData } from '@/modules/sales/composables/types';
-import { Printer, Mail, Send } from '@lucide/vue';
+import { Printer, Mail, Send, Download, X } from '@lucide/vue';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -13,7 +13,14 @@ const emit = defineEmits<{
   (e: 'print'): void;
   (e: 'email'): void;
   (e: 'sms'): void;
+  (e: 'download'): void;
+  (e: 'done'): void;
 }>();
+
+function downloadPdf() {
+  window.print();
+  emit('download');
+}
 </script>
 
 <template>
@@ -83,28 +90,26 @@ const emit = defineEmits<{
       </div>
     </CardContent>
 
-    <CardFooter class="flex justify-center gap-2 border-t">
-        <Button size="sm" @click="$emit('print')" class="touch-target">
+    <CardFooter class="flex flex-wrap justify-center gap-2 border-t pt-3">
+      <Button size="sm" @click="$emit('print')" class="touch-target">
         <Printer class="w-4 h-4 mr-1" />
         Print
       </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        @click="$emit('email')"
-        class="touch-target"
-      >
+      <Button variant="outline" size="sm" @click="downloadPdf" class="touch-target">
+        <Download class="w-4 h-4 mr-1" />
+        PDF
+      </Button>
+      <Button variant="outline" size="sm" @click="$emit('email')" class="touch-target">
         <Mail class="w-4 h-4 mr-1" />
         Email
       </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        @click="$emit('sms')"
-        class="touch-target"
-      >
+      <Button variant="outline" size="sm" @click="$emit('sms')" class="touch-target">
         <Send class="w-4 h-4 mr-1" />
         SMS
+      </Button>
+      <Button variant="ghost" size="sm" @click="$emit('done')" class="touch-target">
+        <X class="w-4 h-4 mr-1" />
+        Done
       </Button>
     </CardFooter>
   </Card>

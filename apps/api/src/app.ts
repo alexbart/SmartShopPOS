@@ -5,6 +5,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import { loggerPlugin, requestLoggerPlugin } from './plugins/logger.js';
 import { requestIdPlugin } from './plugins/requestId.js';
 import { errorHandlerPlugin } from './plugins/errorHandler.js';
+import { featureFlagsPlugin } from './plugins/featureFlags.js';
 import { swaggerConfig } from './config/swagger.js';
 import { healthRoute } from './routes/health.js';
 import { env } from './config/env.js';
@@ -35,6 +36,7 @@ import { financeReportRoutes } from './modules/reports/finance/index.js';
 import { bankingRoutes } from './modules/banking/index.js';
 import { workflowRoutes } from './modules/workflow/index.js';
 import { themeRoutes } from './modules/theme/routes/theme.routes.js';
+import { featureFlagRoutes } from './routes/featureFlags.js';
 import { getPrisma } from './shared/database/prisma.js';
 
 export async function buildApp() {
@@ -54,6 +56,8 @@ export async function buildApp() {
   await app.register(requestIdPlugin);
   await app.register(requestLoggerPlugin);
   await app.register(errorHandlerPlugin);
+
+  await app.register(featureFlagsPlugin);
 
   const cacheService = createCacheService(env, app.log);
   app.decorate('cacheService', cacheService);
@@ -85,6 +89,7 @@ export async function buildApp() {
   await app.register(bankingRoutes, { prefix: '/api/v1/banking' });
   await app.register(workflowRoutes, { prefix: '/api/v1/workflow' });
   await app.register(themeRoutes, { prefix: '/api/v1/theme' });
+  await app.register(featureFlagRoutes, { prefix: '/api/v1/feature-flags' });
 
   try {
     const prisma = getPrisma();

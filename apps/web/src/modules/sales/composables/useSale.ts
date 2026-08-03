@@ -72,6 +72,10 @@ export function useSale() {
   }
 
   async function suspendSale(sale: PosSale) {
+    if (sale.cartItems.length === 0) {
+      notification.warning('Empty cart', 'Nothing to suspend.');
+      return;
+    }
     const suspended: PosSale = { ...sale, timestamp: new Date().toISOString() };
     const saved = localStorage.getItem('pos-suspended-sales');
     const suspendedSales: PosSale[] = saved ? JSON.parse(saved) : [];
