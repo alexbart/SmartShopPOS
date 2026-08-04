@@ -1,4 +1,15 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import EmptyState from '@/components/business/EmptyState.vue';
+
 interface Column<T> {
   key: string;
   label: string;
@@ -128,15 +139,3 @@ function handleRowClick(row: any, event: MouseEvent) {
   </div>
 </template>
 
-<script lang="ts" setup>
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { EmptyState } from '@/components/business/EmptyState.vue';
-</script>

@@ -1,20 +1,27 @@
-<script setup lang="ts">
-import { reactive, computed } from 'vue';
+﻿<script setup lang="ts">
+import { reactive, computed, ref } from 'vue';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
 import { useRouter, useRoute } from 'vue-router';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
+import { useAuthStore } from '@/stores/auth';
+import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
+import { Plus, Trash2, Save } from '@lucide/vue';
 import type { Supplier, Product } from '@/shared/types';
 
 const route = useRoute();
 const router = useRouter();
 const queryClient = useQueryClient();
+const auth = useAuthStore();
 const isEditing = computed(() => !!route.params.id);
 
 const form = reactive({
   supplierId: '',
+  warehouseId: auth.branch?.id || '',
+  branchId: auth.branch?.id || '',
   expectedDeliveryDate: new Date().toISOString().split('T')[0],
   items: [{ productId: '', quantity: 1, unitCost: 0 }],
+  notes: '',
 });
 
 const { data: suppliersData } = useQuery({
@@ -39,7 +46,7 @@ const products = computed(() => productsData.value ?? []);
 const saveMutation = useMutation({
   mutationFn: (payload: any) =>
     isEditing.value
-      ? apiClient.put(`/purchase-orders/${route.params.id}`, payload)
+      ? apiClient.patch(`/purchase-orders/${route.params.id}`, payload)
       : apiClient.post('/purchase-orders', payload),
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
@@ -53,12 +60,15 @@ const saveMutation = useMutation({
 async function handleSubmit() {
   const payload = {
     supplierId: form.supplierId,
+    warehouseId: form.warehouseId,
+    branchId: form.branchId,
     expectedDeliveryDate: form.expectedDeliveryDate,
     items: form.items.map((item) => ({
       productId: item.productId,
       quantity: Number(item.quantity),
       unitCost: Number(item.unitCost),
     })),
+    notes: form.notes,
   };
 
   await saveMutation.mutateAsync(payload);
@@ -78,23 +88,21 @@ const total = computed(() =>
 </script>
 
 <template>
-  <div class="p-6">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">{{ isEditing ? 'Edit Purchase Order' : 'New Purchase Order' }}</h1>
-      <button @click="router.push('/purchase-orders')" class="btn btn-outline">Cancel</button>
-    </div>
-
+  <WorkspaceShell
+    :workspace-title="isEditing ? 'Edit Purchase Order' : 'New Purchase Order'"
+    workspace-description="Add supplier, select products, and submit for approval"
+  >
     <form @submit.prevent="handleSubmit" class="card p-6 space-y-6 max-w-4xl">
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Supplier *</label>
+          <label class="block text-sm font-medium text-foreground mb-1">Supplier *</label>
           <select v-model="form.supplierId" class="input" required>
             <option value="">Select Supplier</option>
             <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Expected Delivery</label>
+          <label class="block text-sm font-medium text-foreground mb-1">Expected Delivery</label>
           <input v-model="form.expectedDeliveryDate" type="date" class="input" />
         </div>
       </div>
@@ -102,7 +110,9 @@ const total = computed(() =>
       <div>
         <div class="flex justify-between items-center mb-2">
           <h3 class="font-medium">Items</h3>
-          <button type="button" @click="addItem" class="btn btn-secondary btn-sm">Add Item</button>
+          <button type="button" @click="addItem" class="btn btn-secondary btn-sm">
+            <Plus class="w-3 h-3 mr-1" /> Add Item
+          </button>
         </div>
 
         <div class="space-y-3">
@@ -123,20 +133,27 @@ const total = computed(() =>
               @click="removeItem(index)"
               class="btn btn-sm btn-ghost text-red-600"
             >
-              Remove
+              <Trash2 class="w-3 h-3" />
             </button>
           </div>
         </div>
       </div>
 
-      <div class="flex justify-between items-center pt-4 border-t">
-        <span class="font-medium">Total:</span>
-        <span class="text-xl font-bold text-primary-600">KES {{ total.toLocaleString() }}</span>
+      <div>
+        <label class="block text-sm font-medium text-foreground mb-1">Notes</label>
+        <textarea v-model="form.notes" class="input" rows="3" placeholder="Add notes..."></textarea>
       </div>
 
-      <button type="submit" :disabled="saveMutation.isPending ? true : false" class="btn btn-primary w-full">
-        {{ saveMutation.isPending ? 'Saving...' : 'Submit Purchase Order' }}
+      <div class="flex justify-between items-center pt-4 border-t">
+        <span class="font-medium">Total:</span>
+        <span class="text-xl font-bold">KES {{ total.toLocaleString() }}</span>
+      </div>
+
+      <button type="submit" :disabled="saveMutation.isPending" class="btn btn-primary w-full">
+        <Save v-if="!saveMutation.isPending" class="w-4 h-4 mr-2" />
+        {{ saveMutation.isPending ? 'Saving...' : isEditing ? 'Update Order' : 'Save Purchase Order' }}
       </button>
     </form>
-  </div>
+  </WorkspaceShell>
 </template>
+

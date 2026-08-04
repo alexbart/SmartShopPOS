@@ -4,6 +4,7 @@ defineProps<{
   currency?: string;
   size?: 'sm' | 'md' | 'lg';
   prefix?: string;
+  negative?: boolean;
 }>();
 </script>
 
@@ -14,7 +15,7 @@ defineProps<{
     'text-base': size === 'lg',
     'font-medium': true,
   }">
-    {{ prefix ?? (currency ?? 'KES') }} {{ Number(amount).toLocaleString('en-KE', {
+     {{ negative ? '-' : '' }}{{ prefix ?? (currency ?? 'KES') }} {{ Number(amount).toLocaleString('en-KE', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }) }}
