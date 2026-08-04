@@ -48,6 +48,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `listMovements` endpoint on InventoryController (`/inventory/movements`)
 - `listMovements` method on StockService
 
+#### Finance Workspace (`/finance`)
+
+- **Finance Dashboard** — 5-summary card row (Today Revenue, Today Expenses, Cash Drawer, Bank Balance, Profit Today) with trend indicators, quick action bar, cash drawer status card, and recent expenses preview
+- **Cash Drawer Workspace** — Shift management workflow with open/close drawer, cash in/out operations, detailed movements timeline, and full reconciliation summary (Opening Float, Cash Sales, Refunds, Expenses Paid, Cash In/Out, Expected vs Counted, Variance with warning display)
+- **Expenses Workspace** — Card-based expense listing with status badges (Approved/Pending/Rejected), filtering by status and category, category expense totals, new expense form with drag-and-drop receipt upload and preview
+- **Banking Workspace** — Bank account management, deposit workflow (Cash → Deposit → Bank Account → Confirmed) with visual timeline, recent deposits list, and new deposit form
+- **End of Day Closing Wizard** — 4-step guided reconciliation (Count Cash → Compare → Variance → Submit) with manager review flag on variance
+- **Finance Composable** — `useFinance.ts` with `useCashDrawer`, `useExpenses`, `useExpenseCategories`, `useBanking`, and `useFinanceDashboard` composables
+- Command Palette entries for Finance Dashboard, Expenses, Banking, and End of Day Closing
+
 ## [v1.1.0-ui-foundation] — 2026-08-01
 
 ### Summary

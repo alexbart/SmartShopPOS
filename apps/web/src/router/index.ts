@@ -52,6 +52,16 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/modules/finance/CashDrawerPage.vue'),
       },
       {
+        path: 'finance',
+        name: 'finance-dashboard',
+        component: () => import('@/modules/finance/FinanceDashboard.vue'),
+      },
+      {
+        path: 'finance/closing',
+        name: 'end-of-day-closing',
+        component: () => import('@/modules/finance/EndOfDayClosingWizard.vue'),
+      },
+      {
         path: 'shift',
         name: 'shift',
         component: () => import('@/modules/shift/ShiftWorkflow.vue'),

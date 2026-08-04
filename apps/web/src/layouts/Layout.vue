@@ -28,6 +28,9 @@ import {
   WifiOff,
   Printer,
   QrCode,
+  Banknote,
+  CheckCircle,
+  PiggyBank,
 } from '@lucide/vue';
 
 const router = useRouter();
@@ -64,6 +67,7 @@ onUnmounted(() => {
 });
 const expandedWorkspaces = reactive<Record<string, boolean>>({
   catalog: true,
+  finance: true,
 });
 
 onMounted(() => {
@@ -99,7 +103,19 @@ const workspaces = [
   { name: 'Purchasing', path: '/purchase-orders', icon: Receipt },
   { name: 'Sales', path: '/pos', icon: ShoppingCart },
   { name: 'Customers', path: '/customers', icon: Users },
-  { name: 'Finance', path: '/cash-drawer', icon: CreditCard },
+  {
+    name: 'Finance',
+    icon: CreditCard,
+    key: 'finance',
+    hasChildren: true,
+    children: [
+      { name: 'Dashboard', path: '/finance', icon: LayoutDashboard },
+      { name: 'Cash Drawer', path: '/cash-drawer', icon: CreditCard },
+      { name: 'Expenses', path: '/expenses', icon: Receipt },
+      { name: 'Banking', path: '/banking', icon: Banknote },
+      { name: 'End of Day', path: '/finance/closing', icon: CheckCircle },
+    ],
+  },
   { name: 'Reports', path: '/reports/sales', icon: BarChart3 },
   { name: 'Approvals', path: '/workflow/pending', icon: Clock },
   { name: 'Theme', path: '/theme-settings', icon: Settings },
