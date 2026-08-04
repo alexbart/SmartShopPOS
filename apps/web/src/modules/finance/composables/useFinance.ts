@@ -187,7 +187,9 @@ export function useExpenses(
   const expenses = computed(() => expResponse.value?.items ?? []);
   const total = computed(() => expResponse.value?.total ?? 0);
 
-  const categories = useExpenseCategories();
+  const expenseCategories = useExpenseCategories();
+  const categories = expenseCategories.categories;
+  const categoriesLoading = expenseCategories.isLoading;
 
   const createMutation = useMutation({
     mutationFn: (payload: {
@@ -210,6 +212,7 @@ export function useExpenses(
     error: expError,
     createMutation,
     categories,
+    categoriesLoading,
   };
 }
 
