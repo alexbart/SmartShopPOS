@@ -14,7 +14,7 @@ import {
   Banknote,
   Calendar,
 } from '@lucide/vue';
-import { useAdminDashboard } from './composables/useAdmin.js';
+import { useAdminDashboard } from '../composables/useAdmin.js';
 import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
 
 const router = useRouter();
