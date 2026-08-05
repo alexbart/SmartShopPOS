@@ -159,12 +159,13 @@ export function useBranches() {
     queryKey: ['branches'],
     queryFn: async () => {
       const res = await apiClient.get('/warehouses');
-      return res.data.data as Branch[];
+      const responseData = res.data.data;
+      return responseData.items ?? responseData ?? [];
     },
     staleTime: 60_000,
   });
 
-  const branches = computed(() => branchesData.value ?? []);
+  const branches = computed(() => (branchesData.value || []) as Branch[]);
 
   const updateBranchMutation = useMutation({
     mutationFn: (payload: { id: string } & Partial<Branch>) =>
@@ -187,12 +188,13 @@ export function useTaxes() {
     queryKey: ['taxes'],
     queryFn: async () => {
       const res = await apiClient.get('/taxes');
-      return res.data.data as Tax[];
+      const responseData = res.data.data;
+      return responseData.items ?? responseData ?? [];
     },
     staleTime: 60_000,
   });
 
-  const taxes = computed(() => taxesData.value ?? []);
+  const taxes = computed(() => (taxesData.value || []) as Tax[]);
 
   return {
     taxes,
@@ -292,15 +294,19 @@ export function useAdminDashboard() {
   const { organization } = useOrganization();
 
   const dashboardData = computed(() => {
-    const activeUsers = users.value.filter((u) => u.status === 'active' || !u.status).length;
-    const employeeCount = branches.value.reduce((sum, b) => sum + (b.employeeCount ?? 0), 0);
-    const openBranches = branches.value.filter((b) => (b.status ?? 'OPEN') === 'OPEN').length;
-    const pendingUsers = users.value.filter((u) => u.status === 'pending').length;
+    const usersList = Array.isArray(users.value) ? users.value : [];
+    const branchesList = Array.isArray(branches.value) ? branches.value : [];
+    const rolesList = Array.isArray(roles.value) ? roles.value : [];
+
+    const activeUsers = usersList.filter((u) => u.status === 'active' || !u.status).length;
+    const employeeCount = branchesList.reduce((sum, b) => sum + (b.employeeCount ?? 0), 0);
+    const openBranches = branchesList.filter((b) => (b.status ?? 'OPEN') === 'OPEN').length;
+    const pendingUsers = usersList.filter((u) => u.status === 'pending').length;
 
     return {
       activeUsers,
-      totalBranches: branches.value.length,
-      totalRoles: roles.value.length,
+      totalBranches: branchesList.length,
+      totalRoles: rolesList.length,
       pendingInvites: pendingUsers,
       openBranches,
       totalEmployees: employeeCount,

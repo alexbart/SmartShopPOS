@@ -9,7 +9,8 @@ import StatusBadge from '@/components/business/StatusBadge.vue';
 const { branches, branchesLoading, updateBranchMutation } = useBranches();
 
 const branchCards = computed(() => {
-  return (branches.value || []).map((b: Branch) => ({
+  const items = Array.isArray(branches.value) ? branches.value : [];
+  return items.map((b: Branch) => ({
     id: b.id,
     name: b.name || 'Unnamed Branch',
     code: b.code || '',
