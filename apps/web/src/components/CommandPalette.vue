@@ -15,6 +15,10 @@ import {
   Search,
   Plus,
   Warehouse,
+  Shield,
+  Building,
+  Paintbrush,
+  Activity,
 } from '@lucide/vue';
 
 interface Command {
@@ -132,6 +136,48 @@ const commands = computed<Command[]>(() => [
     icon: Settings,
     category: 'Settings',
     action: () => { router.push('/theme-settings'); close(); },
+  },
+  {
+    id: 'admin-dashboard',
+    label: 'Admin Dashboard',
+    icon: LayoutDashboard,
+    category: 'Admin',
+    action: () => { router.push('/admin'); close(); },
+  },
+  {
+    id: 'organization',
+    label: 'Organization Profile',
+    icon: Building,
+    category: 'Admin',
+    action: () => { router.push('/admin/organization'); close(); },
+  },
+  {
+    id: 'users',
+    label: 'User Management',
+    icon: Users,
+    category: 'Admin',
+    action: () => { router.push('/admin/users'); close(); },
+  },
+  {
+    id: 'roles',
+    label: 'Role Designer',
+    icon: Shield,
+    category: 'Admin',
+    action: () => { router.push('/admin/roles'); close(); },
+  },
+  {
+    id: 'branches',
+    label: 'Branch Management',
+    icon: Building,
+    category: 'Admin',
+    action: () => { router.push('/admin/branches'); close(); },
+  },
+  {
+    id: 'theme-studio',
+    label: 'Theme Studio',
+    icon: Paintbrush,
+    category: 'Admin',
+    action: () => { router.push('/admin/theme'); close(); },
   },
 ]);
 

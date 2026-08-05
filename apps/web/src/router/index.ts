@@ -86,10 +86,60 @@ const routes: RouteRecordRaw[] = [
         name: 'reports-sales',
         component: () => import('@/modules/reports/SalesReportsPage.vue'),
       },
-      {
+       {
         path: 'workflow/pending',
         name: 'workflow-pending',
         component: () => import('@/modules/workflow/PendingApprovals.vue'),
+      },
+      {
+        path: 'admin',
+        name: 'admin-dashboard',
+        component: () => import('@/modules/admin/pages/AdminDashboard.vue'),
+      },
+      {
+        path: 'admin/organization',
+        name: 'admin-organization',
+        component: () => import('@/modules/admin/pages/OrganizationProfile.vue'),
+      },
+      {
+        path: 'admin/branches',
+        name: 'admin-branches',
+        component: () => import('@/modules/admin/pages/BranchManagement.vue'),
+      },
+      {
+        path: 'admin/users',
+        name: 'admin-users',
+        component: () => import('@/modules/admin/pages/UserManagement.vue'),
+      },
+      {
+        path: 'admin/roles',
+        name: 'admin-roles',
+        component: () => import('@/modules/admin/pages/RoleDesigner.vue'),
+      },
+      {
+        path: 'admin/taxes',
+        name: 'admin-taxes',
+        component: () => import('@/modules/admin/pages/TaxManagement.vue'),
+      },
+      {
+        path: 'admin/theme',
+        name: 'admin-theme',
+        component: () => import('@/modules/admin/pages/ThemeStudio.vue'),
+      },
+      {
+        path: 'admin/integrations',
+        name: 'admin-integrations',
+        component: () => import('@/modules/admin/pages/IntegrationCenter.vue'),
+      },
+      {
+        path: 'admin/audit',
+        name: 'admin-audit',
+        component: () => import('@/modules/admin/pages/AuditCenter.vue'),
+      },
+      {
+        path: 'admin/health',
+        name: 'admin-health',
+        component: () => import('@/modules/admin/pages/HealthCenter.vue'),
       },
     ],
   },

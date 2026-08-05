@@ -58,6 +58,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Finance Composable** — `useFinance.ts` with `useCashDrawer`, `useExpenses`, `useExpenseCategories`, `useBanking`, and `useFinanceDashboard` composables
 - Command Palette entries for Finance Dashboard, Expenses, Banking, and End of Day Closing
 
+#### Administration Workspace (`/admin`)
+
+- **Admin Dashboard** — Summary cards (Active Users, Branches, Roles, Pending Invites, License) with navigation grid to all admin sections
+- **Organization Profile** — Business name, tagline, business type, KRA PIN, VAT number, currency, timezone, website, receipt footer, logo upload
+- **Branch Management** — Visual branch cards with employee count, status toggle (Open/Closed), edit actions
+- **User Management** — Avatar cards with role/status badges, search filter, reset password, deactivate actions
+- **Role Designer** — Grouped permission editor by resource with checkbox selection, create/edit roles
+- **Theme Studio** — Color picker for primary/secondary/accent, sidebar style, card radius, font selection with live preview
+- **Integration Center** — Integration cards (M-Pesa, Email, Redis, S3) with graceful "Not Configured" / "Configure Later" states
+- **Audit Center** — Timeline of all organization activity with date grouping, action filtering, user attribution
+- **Health Center** — Service status cards (API, Database, Redis, Email, Storage) with refresh and overall status view
+- **Tax Management** — Tax rate cards with active/inactive grouping, edit/delete actions
+- Admin composable (`useAdmin.ts`) with `useOrganization`, `useUsers`, `useRoles`, `useBranches`, `useTaxes`, `useAuditLog`, `useHealth`, `useIntegrations`, `useAdminDashboard`
+- Administration workspace in Layout navigation with 9 sub-pages
+- Command Palette entries for Admin Dashboard, Organization, Users, Roles, Branches, Theme Studio
+
 ## [v1.1.0-ui-foundation] — 2026-08-01
 
 ### Summary

@@ -31,6 +31,11 @@ import {
   Banknote,
   CheckCircle,
   PiggyBank,
+  Building,
+  Shield,
+  Paintbrush,
+  Plug,
+  Activity,
 } from '@lucide/vue';
 
 const router = useRouter();
@@ -68,6 +73,7 @@ onUnmounted(() => {
 const expandedWorkspaces = reactive<Record<string, boolean>>({
   catalog: true,
   finance: true,
+  admin: true,
 });
 
 onMounted(() => {
@@ -117,6 +123,24 @@ const workspaces = [
     ],
   },
   { name: 'Reports', path: '/reports/sales', icon: BarChart3 },
+  {
+    name: 'Administration',
+    icon: Settings,
+    key: 'admin',
+    hasChildren: true,
+    children: [
+      { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+      { name: 'Organization', path: '/admin/organization', icon: Building },
+      { name: 'Branches', path: '/admin/branches', icon: Building },
+      { name: 'Users', path: '/admin/users', icon: Users },
+      { name: 'Roles', path: '/admin/roles', icon: Shield },
+      { name: 'Taxes', path: '/admin/taxes', icon: Receipt },
+      { name: 'Theme Studio', path: '/admin/theme', icon: Paintbrush },
+      { name: 'Integrations', path: '/admin/integrations', icon: Plug },
+      { name: 'Audit Center', path: '/admin/audit', icon: BarChart3 },
+      { name: 'Health Center', path: '/admin/health', icon: Activity },
+    ],
+  },
   { name: 'Approvals', path: '/workflow/pending', icon: Clock },
   { name: 'Theme', path: '/theme-settings', icon: Settings },
 ];
