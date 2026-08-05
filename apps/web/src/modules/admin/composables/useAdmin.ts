@@ -317,4 +317,4 @@ export function useAdminDashboard() {
   };
 }
 
-export { Organization, User, Role, Permission, Branch, Tax, AuditEntry, Integration, HealthStatus } from './types.js';
+export type { Organization, User, Role, Permission, Branch, Tax, AuditEntry, Integration, HealthStatus } from './types.js';
