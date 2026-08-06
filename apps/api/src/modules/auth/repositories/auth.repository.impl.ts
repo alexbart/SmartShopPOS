@@ -232,13 +232,21 @@ export class AuthRepositoryImpl implements IAuthRepository {
     };
   }
 
-  async findUserWithRolesById(_userId: string) {
+  async findUserWithRolesById(_userId: string): Promise<{ id: string; email: string; roles: string[]; permissions: string[] } | null> {
     const user = await this._prisma.user.findFirst({
       where: { id: _userId, deletedAt: null },
       include: {
         roles: {
           include: {
-            role: true,
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -249,11 +257,15 @@ export class AuthRepositoryImpl implements IAuthRepository {
     }
 
     const roles = user.roles.map((userRole) => userRole.role.name);
+    const permissions = user.roles.flatMap((userRole) =>
+      userRole.role.permissions.map((rp) => rp.permission.name),
+    );
 
     return {
       id: user.id,
       email: user.email,
       roles,
+      permissions,
     };
   }
 }

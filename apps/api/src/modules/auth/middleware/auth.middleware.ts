@@ -2,6 +2,7 @@ import type { FastifyRequest } from 'fastify';
 import type { IJwtService } from '../../../shared/services/jwt/jwt.interface.js';
 import type { IAuthRepository } from '../repositories/auth.repository.js';
 import type { RequestContext } from '../../../shared/types/request-context.types.js';
+import { PermissionDeniedError } from '../../../shared/errors/business-error.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -50,6 +51,7 @@ export const createAuthenticateHook = (jwtService: IJwtService, repository: IAut
 
     const userWithRoles = await repository.findUserWithRolesById(payload.userId);
     const roles = userWithRoles?.roles ?? [];
+    const permissions = userWithRoles?.permissions ?? [];
 
     const requestId = request.id;
 
@@ -58,7 +60,7 @@ export const createAuthenticateHook = (jwtService: IJwtService, repository: IAut
       organizationId: user.organizationId,
       branchId: user.branchId,
       roles,
-      permissions: [],
+      permissions,
       requestId,
     };
   };
@@ -72,15 +74,9 @@ export const createAuthorizeHook = (requiredPermissions: string[]) => {
     );
 
     if (missingPermissions.length > 0) {
-      const error = new Error(
+      throw new PermissionDeniedError(
         `Missing required permissions: ${missingPermissions.join(', ')}`,
-      ) as Error & {
-        code: string;
-        statusCode: number;
-      };
-      error.code = 'FORBIDDEN';
-      error.statusCode = 403;
-      throw error;
+      );
     }
   };
 };

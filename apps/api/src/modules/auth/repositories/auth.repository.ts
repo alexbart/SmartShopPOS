@@ -54,5 +54,5 @@ export interface IAuthRepository {
   } | null>;
   findUserWithRolesById(
     _userId: string,
-  ): Promise<{ id: string; email: string; roles: string[] } | null>;
+  ): Promise<{ id: string; email: string; roles: string[]; permissions: string[] } | null>;
 }
