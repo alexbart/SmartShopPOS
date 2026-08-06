@@ -1,9 +1,10 @@
-import axios from 'axios';
-import type { AxiosInstance, AxiosResponse, AxiosRequestConfig } from 'axios';
+import axios, { type AxiosInstance, type AxiosResponse, type AxiosRequestConfig } from 'axios';
 import { notification } from '@/stores/notification';
 
 class ApiClient {
   private client: AxiosInstance;
+  private isRefreshing = false;
+  private refreshPromise: Promise<string | null> | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -21,14 +22,54 @@ class ApiClient {
 
     this.client.interceptors.response.use(
       (response: AxiosResponse) => response,
-      (error) => {
+      async (error) => {
         if (error.response?.status === 401) {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
+          const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+
+          if (originalRequest._retry) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login';
+            }
+            return Promise.reject(error);
           }
-          return Promise.reject(error);
+
+          const refreshToken = localStorage.getItem('refreshToken');
+          if (!refreshToken) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login';
+            }
+            return Promise.reject(error);
+          }
+
+          if (!this.isRefreshing) {
+            this.isRefreshing = true;
+            this.refreshPromise = this.refreshAccessToken(refreshToken);
+          }
+
+          try {
+            const newToken = await this.refreshPromise;
+            if (newToken) {
+              localStorage.setItem('accessToken', newToken);
+              originalRequest.headers = originalRequest.headers || {};
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              originalRequest._retry = true;
+              return this.client(originalRequest);
+            }
+          } catch {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login';
+            }
+            return Promise.reject(error);
+          } finally {
+            this.isRefreshing = false;
+            this.refreshPromise = null;
+          }
         }
 
         const message =
@@ -41,23 +82,35 @@ class ApiClient {
     );
   }
 
-  get<T = any>(url: string, config?: AxiosRequestConfig) {
+  private async refreshAccessToken(refreshToken: string): Promise<string | null> {
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1'}/auth/refresh`,
+        { refreshToken },
+      );
+      return response.data?.data?.accessToken ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  get<T = unknown>(url: string, config?: AxiosRequestConfig) {
     return this.client.get<T>(url, config);
   }
 
-  post<T = any>(url: string, data?: unknown) {
+  post<T = unknown>(url: string, data?: unknown) {
     return this.client.post<T>(url, data);
   }
 
-  patch<T = any>(url: string, data?: unknown) {
+  patch<T = unknown>(url: string, data?: unknown) {
     return this.client.patch<T>(url, data);
   }
 
-  put<T = any>(url: string, data?: unknown) {
+  put<T = unknown>(url: string, data?: unknown) {
     return this.client.put<T>(url, data);
   }
 
-  delete<T = any>(url: string) {
+  delete<T = unknown>(url: string) {
     return this.client.delete<T>(url);
   }
 }
