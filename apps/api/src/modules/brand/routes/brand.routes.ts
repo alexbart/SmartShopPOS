@@ -3,11 +3,11 @@ import { BrandController } from '../controllers/brand.controller.js';
 import { BrandService } from '../service/brand.service.js';
 import { BrandRepositoryImpl } from '../repositories/brand.repository.impl.js';
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export const brandRoutes: FastifyPluginAsync = async (fastify) => {
   const brandRepository = new BrandRepositoryImpl(prisma);

@@ -5,10 +5,10 @@ import { InventoryReportRepositoryImpl } from '../repository/inventory-report.re
 import { createAuthenticateHook } from '../../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../../auth/repositories/auth.repository.impl.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { registerInventoryReports } from '../inventory-report.registration.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 registerInventoryReports(new InventoryReportRepositoryImpl(prisma));
 

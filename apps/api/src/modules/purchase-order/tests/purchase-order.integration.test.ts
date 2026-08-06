@@ -2,10 +2,10 @@ import 'reflect-metadata';
 import { describe, expect, it, beforeAll } from 'vitest';
 import { buildApp } from '../../../app.js';
 import type { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { PurchaseOrderStatuses } from '../../purchase-order/repository/purchase-order.repository.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 describe('Purchase Order integration tests', () => {
   let app: FastifyInstance;

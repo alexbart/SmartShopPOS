@@ -1,11 +1,11 @@
 import { FastifyPluginAsync } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { FinanceReportRepositoryImpl } from './repository/finance-report.repository.impl.js';
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export const financeReportRoutes: FastifyPluginAsync = async (fastify) => {
   const repository = new FinanceReportRepositoryImpl(prisma);

@@ -4,11 +4,11 @@ import { PaymentService } from '../service/payment.service.js';
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
 import { InMemoryEventBus } from '../../../shared/events/event-bus.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 const unitOfWork = new UnitOfWork();
 const eventBus = new InMemoryEventBus();
 

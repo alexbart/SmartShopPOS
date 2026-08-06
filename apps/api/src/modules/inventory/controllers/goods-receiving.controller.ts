@@ -1,10 +1,10 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { StockService } from '../services/stock.service.js';
 import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { MovementTypes } from '../../../shared/constants/domain-constants.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export class GoodsReceivingController {
   private _stockService: StockService;

@@ -5,6 +5,7 @@ import type { CategoryQuery } from '../repositories/category.repository.js';
 import type { CategoryResponse } from '../responses/category.response.js';
 import type { CategoryListResponse } from '../responses/category-list.response.js';
 import { BaseService } from '../../../shared/services/base.service.js';
+import { ConflictError, NotFoundError } from '../../../shared/errors/business-error.js';
 
 export class CategoryService extends BaseService<ICategoryRepository> {
   constructor(repository: ICategoryRepository) {
@@ -14,18 +15,7 @@ export class CategoryService extends BaseService<ICategoryRepository> {
   async create(command: CreateCategoryCommand): Promise<CategoryResponse> {
     const existingByCode = await this._repository.findByCode(command.code, command.organizationId);
     if (existingByCode) {
-      throw new Error('Category code already exists.') as Error & {
-        code: string;
-        statusCode: number;
-      };
-    }
-
-    const existingByName = await this._repository.findByCode(command.name, command.organizationId);
-    if (existingByName) {
-      throw new Error('Category name already exists.') as Error & {
-        code: string;
-        statusCode: number;
-      };
+      throw new ConflictError('Category code already exists.');
     }
 
     return (await super.create(command)) as CategoryResponse;
@@ -34,26 +24,13 @@ export class CategoryService extends BaseService<ICategoryRepository> {
   async update(command: UpdateCategoryCommand): Promise<CategoryResponse> {
     const existing = await this._repository.findById(command.id, command.organizationId);
     if (!existing) {
-      throw new Error('Category not found.') as Error & { code: string; statusCode: number };
+      throw new NotFoundError('Category not found.');
     }
 
     if (command.code && command.code !== existing.code) {
       const duplicate = await this._repository.findByCode(command.code, command.organizationId);
       if (duplicate && duplicate.id !== command.id) {
-        throw new Error('Category code already exists.') as Error & {
-          code: string;
-          statusCode: number;
-        };
-      }
-    }
-
-    if (command.name && command.name !== existing.name) {
-      const duplicate = await this._repository.findByCode(command.name, command.organizationId);
-      if (duplicate && duplicate.id !== command.id) {
-        throw new Error('Category name already exists.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new ConflictError('Category code already exists.');
       }
     }
 

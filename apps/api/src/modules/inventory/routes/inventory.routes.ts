@@ -4,9 +4,9 @@ import { InventoryController } from '../controllers/inventory.controller.js';
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
   const goodsReceivingController = new GoodsReceivingController();

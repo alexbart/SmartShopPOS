@@ -3,13 +3,13 @@ import { AuthController } from '../controllers/auth.controller.js';
 import { AuthService } from '../services/auth.service.js';
 import { AuthRepositoryImpl } from '../repositories/auth.repository.impl.js';
 import { createAuthenticateHook } from '../middleware/auth.middleware.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
 import { PasswordService } from '../../../shared/services/password/password.service.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { OrganizationCodeService } from '../../../shared/services/organization-code/organization-code.service.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authRepository = new AuthRepositoryImpl(prisma);

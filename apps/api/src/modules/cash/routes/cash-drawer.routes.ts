@@ -5,9 +5,9 @@ import { CashDrawerRepositoryImpl } from '../repository/cash-drawer.repository.i
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export const cashDrawerRoutes: FastifyPluginAsync = async (fastify) => {
   const repository = new CashDrawerRepositoryImpl(prisma);
