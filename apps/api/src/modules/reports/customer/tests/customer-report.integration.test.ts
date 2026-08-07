@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it, beforeAll } from 'vitest';
 import { buildApp } from '../../../../app.js';
 import type { FastifyInstance } from 'fastify';
-import { getPrisma } from '../../../shared/database/prisma.js';
+import { getPrisma } from '../../../../shared/database/prisma.js';
 
 const prisma = getPrisma();
 
