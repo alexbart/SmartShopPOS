@@ -9,7 +9,7 @@ import { useSale } from '@/modules/sales/composables/useSale';
 import { useShiftStore } from '@/modules/shift/stores/shiftStore';
 import { useNetworkStatus } from '@/modules/shift/composables/useNetworkStatus';
 import type { Product, Category } from '@/shared/types';
-import type { PosSale, ReceiptData } from '@/modules/sales/composables/types';
+import type { PosSale, ReceiptData, PaymentPayload } from '@/modules/sales/composables/types';
 import SearchBar from '@/modules/sales/components/SearchBar.vue';
 import ProductGrid from '@/modules/sales/components/ProductGrid.vue';
 import ProductShortcuts from '@/modules/sales/components/ProductShortcuts.vue';
@@ -163,31 +163,35 @@ function handleCheckout() {
   paymentDrawerOpen.value = true;
 }
 
-function handlePayment(payload: { method: any; tendered?: number; change?: number; split?: any[] }) {
+function handlePayment(payload: PaymentPayload) {
   paymentDrawerOpen.value = false;
   const sale: PosSale = {
     cartItems: items.value,
     subtotal: subtotal.value,
     tax: tax.value,
     discount: totalDiscount.value,
-    total: total.value,
+    total: payload.amount,
     paymentMethod: payload.method,
     tenderedAmount: payload.tendered,
     change: payload.change,
+    reference: payload.reference,
+    phone: payload.phone,
     splitPayments: payload.split,
     customerId: customerId.value ?? undefined,
     customerName: customerName.value ?? undefined,
   };
   (async () => {
     const result = await processSale(sale);
-    if (result?.success) {
-      receiptData.value = toReceiptData(auth.user?.firstName || 'Cashier');
+    if (result?.success && result.paymentSuccess) {
+      receiptData.value = toReceiptData(payload.method, auth.user?.firstName || 'Cashier');
       showReceipt.value = true;
       clearCart();
       setPaymentMethod('CASH');
       clearCustomer();
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     }
+    // If result.success && !result.paymentSuccess, useSale already showed the error toast.
+    // Do not clear the cart — cashier needs to investigate.
   })();
 }
 

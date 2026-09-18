@@ -2,7 +2,7 @@ import { ref } from 'vue';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
 import { useQueryClient } from '@tanstack/vue-query';
-import type { PosSale } from './types';
+import type { PosSale, ProcessSaleResult } from './types';
 
 let cachedWarehouseId: string | null = null;
 
@@ -24,7 +24,7 @@ export function useSale() {
   const isProcessing = ref(false);
   const lastSale = ref<PosSale | null>(null);
 
-  async function processSale(sale: PosSale) {
+  async function processSale(sale: PosSale): Promise<ProcessSaleResult | null> {
     if (sale.cartItems.length === 0) return null;
 
     const warehouseId = await getDefaultWarehouseId();
@@ -35,37 +35,74 @@ export function useSale() {
 
     isProcessing.value = true;
     try {
-      const response = await apiClient.post('/sales', {
+      // Step 1: Create the sale — only fields the backend accepts
+      const saleResponse = await apiClient.post('/sales', {
         warehouseId,
+        customerId: sale.customerId,
         items: sale.cartItems.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
           price: item.price,
           discount: item.discount,
-          note: item.note,
         })),
-        customerId: sale.customerId,
-        paymentMethod: sale.paymentMethod,
-        subtotal: sale.subtotal,
         tax: sale.tax,
         discount: sale.discount,
-        total: sale.total,
-        tenderedAmount: sale.tenderedAmount,
-        change: sale.change,
-        splitPayments: sale.splitPayments,
       });
 
-      if (response.data.success) {
-        lastSale.value = sale;
-        queryClient.invalidateQueries({ queryKey: ['products-list'] });
-        queryClient.invalidateQueries({ queryKey: ['pos-products'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-        notification.success('Sale completed!', `Receipt #${response.data.data?.number ?? ''}`);
+      if (!saleResponse.data.success) {
+        notification.error('Sale failed', 'The sale could not be created.');
+        return { success: false, paymentSuccess: false };
       }
-      return response.data;
+
+      const createdSale = saleResponse.data.data;
+      const saleId: string = createdSale.id;
+      const saleNumber: string = createdSale.number ?? '';
+
+      lastSale.value = sale;
+      queryClient.invalidateQueries({ queryKey: ['products-list'] });
+      queryClient.invalidateQueries({ queryKey: ['pos-products'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-sales-pos'] });
+
+      // Step 2: Record payment(s) — separate from the sale transaction
+      try {
+        if (sale.paymentMethod === 'SPLIT' && sale.splitPayments?.length) {
+          // Sequential — deterministic error handling if one leg fails
+          for (const payment of sale.splitPayments) {
+            if (payment.amount <= 0) continue;
+            await apiClient.post('/payments', {
+              saleId,
+              method: payment.method,
+              amount: payment.amount,
+              reference: payment.reference,
+            });
+          }
+        } else {
+          await apiClient.post('/payments', {
+            saleId,
+            method: sale.paymentMethod,
+            amount: sale.total,
+            reference: sale.reference,
+          });
+        }
+
+        notification.success('Sale completed!', `Receipt #${saleNumber}`);
+        return { success: true, saleId, saleNumber, paymentSuccess: true };
+      } catch (paymentError) {
+        // Sale succeeded but payment recording failed — do NOT retry the sale
+        const msg = 'Sale created, but payment could not be recorded. Do not retry — check payment status.';
+        notification.error('Payment recording failed', msg);
+        return {
+          success: true,
+          saleId,
+          saleNumber,
+          paymentSuccess: false,
+          paymentError: msg,
+        };
+      }
     } catch {
       notification.error('Sale failed', 'Please check your network and try again.');
-      return null;
+      return { success: false, paymentSuccess: false };
     } finally {
       isProcessing.value = false;
     }
