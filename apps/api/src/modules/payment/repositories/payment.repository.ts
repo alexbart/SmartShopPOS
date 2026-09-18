@@ -2,7 +2,8 @@ export interface IPaymentRepository {
   create(_model: CreatePaymentModel): Promise<string>;
   findById(_id: string, _organizationId: string): Promise<PaymentEntity | null>;
   findBySaleId(_saleId: string, _organizationId: string): Promise<PaymentEntity[]>;
-  getTotalForSale(_saleId: string): Promise<number>;
+  findByIdempotencyKey(_key: string): Promise<PaymentEntity | null>;
+  getTotalPaidForSale(_saleId: string, _organizationId: string): Promise<number>;
 }
 
 export interface CreatePaymentModel {
@@ -13,6 +14,7 @@ export interface CreatePaymentModel {
   reference?: string;
   status: string;
   paidAt?: Date;
+  idempotencyKey?: string;
 }
 
 export interface PaymentEntity {
@@ -25,4 +27,5 @@ export interface PaymentEntity {
   status: string;
   paidAt?: Date;
   createdAt: Date;
+  idempotencyKey?: string;
 }

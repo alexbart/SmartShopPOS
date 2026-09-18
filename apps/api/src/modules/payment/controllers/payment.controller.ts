@@ -10,6 +10,7 @@ export class PaymentController {
       method: string;
       amount: number;
       reference?: string;
+      idempotencyKey?: string;
     };
 
     const payment = await this._paymentService.create({
@@ -18,6 +19,7 @@ export class PaymentController {
       method: body.method as 'CASH' | 'MPESA' | 'CARD' | 'BANK' | 'CREDIT',
       amount: body.amount,
       reference: body.reference,
+      idempotencyKey: body.idempotencyKey,
     });
 
     return reply.status(201).send({

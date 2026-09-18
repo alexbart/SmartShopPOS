@@ -3,4 +3,5 @@ export interface CreatePaymentDto {
   method: 'CASH' | 'MPESA' | 'CARD' | 'BANK' | 'CREDIT';
   amount: number;
   reference?: string;
+  idempotencyKey?: string;
 }
