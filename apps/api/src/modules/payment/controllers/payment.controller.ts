@@ -7,18 +7,22 @@ export class PaymentController {
   async create(request: FastifyRequest, reply: FastifyReply) {
     const body = request.body as {
       saleId: string;
+      saleNumber?: string;
       method: string;
       amount: number;
       reference?: string;
+      phone?: string;
       idempotencyKey?: string;
     };
 
     const payment = await this._paymentService.create({
       organizationId: request.requestContext.organizationId,
       saleId: body.saleId,
+      saleNumber: body.saleNumber,
       method: body.method as 'CASH' | 'MPESA' | 'CARD' | 'BANK' | 'CREDIT',
       amount: body.amount,
       reference: body.reference,
+      phone: body.phone,
       idempotencyKey: body.idempotencyKey,
     });
 

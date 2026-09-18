@@ -1,4 +1,4 @@
-import { getDarajaConfig } from '../config/daraja.config.js';
+import { getDarajaConfig } from '../../config/daraja.config.js';
 
 interface TokenCache {
   token: string;

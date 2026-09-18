@@ -3,7 +3,14 @@ export interface IPaymentRepository {
   findById(_id: string, _organizationId: string): Promise<PaymentEntity | null>;
   findBySaleId(_saleId: string, _organizationId: string): Promise<PaymentEntity[]>;
   findByIdempotencyKey(_key: string): Promise<PaymentEntity | null>;
+  findByDarajaRequestId(_requestId: string): Promise<PaymentEntity | null>;
   getTotalPaidForSale(_saleId: string, _organizationId: string): Promise<number>;
+  hasPendingMpesa(_saleId: string, _organizationId: string): Promise<boolean>;
+  updateStatus(
+    _id: string,
+    _status: string,
+    _opts?: { paidAt?: Date; darajaTransactionId?: string },
+  ): Promise<void>;
 }
 
 export interface CreatePaymentModel {
@@ -15,6 +22,7 @@ export interface CreatePaymentModel {
   status: string;
   paidAt?: Date;
   idempotencyKey?: string;
+  darajaRequestId?: string;
 }
 
 export interface PaymentEntity {
@@ -28,4 +36,6 @@ export interface PaymentEntity {
   paidAt?: Date;
   createdAt: Date;
   idempotencyKey?: string;
+  darajaRequestId?: string;
+  darajaTransactionId?: string;
 }

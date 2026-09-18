@@ -9,4 +9,6 @@ export interface PaymentResponse {
   paidAt?: Date;
   createdAt: Date;
   idempotencyKey?: string;
+  darajaRequestId?: string;
+  darajaTransactionId?: string;
 }

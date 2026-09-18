@@ -13,9 +13,11 @@ const PAYMENT_SELECT = {
   paidAt: true,
   createdAt: true,
   idempotencyKey: true,
+  darajaRequestId: true,
+  darajaTransactionId: true,
 } as const;
 
-function mapPayment(payment: {
+function mapPayment(p: {
   id: string;
   organizationId: string;
   saleId: string;
@@ -26,18 +28,22 @@ function mapPayment(payment: {
   paidAt: Date | null;
   createdAt: Date;
   idempotencyKey: string | null;
+  darajaRequestId: string | null;
+  darajaTransactionId: string | null;
 }) {
   return {
-    id: payment.id,
-    organizationId: payment.organizationId,
-    saleId: payment.saleId,
-    method: payment.method,
-    amount: Number(payment.amount),
-    reference: payment.reference ?? undefined,
-    status: payment.status,
-    paidAt: payment.paidAt ?? undefined,
-    createdAt: payment.createdAt,
-    idempotencyKey: payment.idempotencyKey ?? undefined,
+    id: p.id,
+    organizationId: p.organizationId,
+    saleId: p.saleId,
+    method: p.method,
+    amount: Number(p.amount),
+    reference: p.reference ?? undefined,
+    status: p.status,
+    paidAt: p.paidAt ?? undefined,
+    createdAt: p.createdAt,
+    idempotencyKey: p.idempotencyKey ?? undefined,
+    darajaRequestId: p.darajaRequestId ?? undefined,
+    darajaTransactionId: p.darajaTransactionId ?? undefined,
   };
 }
 
@@ -55,20 +61,19 @@ export class PaymentRepositoryImpl implements IPaymentRepository {
         status: _model.status as 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED',
         paidAt: _model.paidAt,
         idempotencyKey: _model.idempotencyKey,
+        darajaRequestId: _model.darajaRequestId,
       },
       select: { id: true },
     });
-
     return payment.id;
   }
 
   async findById(_id: string, _organizationId: string) {
-    const payment = await this._prisma.payment.findFirst({
+    const p = await this._prisma.payment.findFirst({
       where: { id: _id, organizationId: _organizationId },
       select: PAYMENT_SELECT,
     });
-
-    return payment ? mapPayment(payment) : null;
+    return p ? mapPayment(p) : null;
   }
 
   async findBySaleId(_saleId: string, _organizationId: string) {
@@ -77,17 +82,23 @@ export class PaymentRepositoryImpl implements IPaymentRepository {
       select: PAYMENT_SELECT,
       orderBy: { createdAt: 'asc' },
     });
-
     return payments.map(mapPayment);
   }
 
   async findByIdempotencyKey(_key: string) {
-    const payment = await this._prisma.payment.findUnique({
+    const p = await this._prisma.payment.findUnique({
       where: { idempotencyKey: _key },
       select: PAYMENT_SELECT,
     });
+    return p ? mapPayment(p) : null;
+  }
 
-    return payment ? mapPayment(payment) : null;
+  async findByDarajaRequestId(_requestId: string) {
+    const p = await this._prisma.payment.findUnique({
+      where: { darajaRequestId: _requestId },
+      select: PAYMENT_SELECT,
+    });
+    return p ? mapPayment(p) : null;
   }
 
   async getTotalPaidForSale(_saleId: string, _organizationId: string) {
@@ -95,7 +106,33 @@ export class PaymentRepositoryImpl implements IPaymentRepository {
       where: { saleId: _saleId, organizationId: _organizationId, status: 'PAID' },
       _sum: { amount: true },
     });
-
     return Number(result._sum.amount ?? 0);
+  }
+
+  async hasPendingMpesa(_saleId: string, _organizationId: string) {
+    const count = await this._prisma.payment.count({
+      where: {
+        saleId: _saleId,
+        organizationId: _organizationId,
+        method: 'MPESA',
+        status: 'PENDING',
+      },
+    });
+    return count > 0;
+  }
+
+  async updateStatus(
+    _id: string,
+    _status: string,
+    _opts?: { paidAt?: Date; darajaTransactionId?: string },
+  ) {
+    await this._prisma.payment.update({
+      where: { id: _id },
+      data: {
+        status: _status as 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED',
+        paidAt: _opts?.paidAt,
+        darajaTransactionId: _opts?.darajaTransactionId,
+      },
+    });
   }
 }
