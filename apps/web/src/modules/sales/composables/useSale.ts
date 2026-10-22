@@ -2,7 +2,7 @@ import { ref } from 'vue';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
 import { useQueryClient } from '@tanstack/vue-query';
-import type { PosSale, ProcessSaleResult } from './types';
+import type { PosSale, ProcessSaleResult, PaymentResponse } from './types';
 
 let cachedWarehouseId: string | null = null;
 
@@ -10,13 +10,58 @@ async function getDefaultWarehouseId(): Promise<string | null> {
   if (cachedWarehouseId) return cachedWarehouseId;
   try {
     const res = await apiClient.get('/warehouses');
-    const warehouses: Array<{ id: string; isDefault: boolean }> = res.data.data.items ?? [];
+    const warehousesData = (res.data as any).data?.items ?? [];
+    const warehouses: Array<{ id: string; isDefault: boolean }> = warehousesData;
     const def = warehouses.find((w) => w.isDefault) ?? warehouses[0];
     cachedWarehouseId = def?.id ?? null;
     return cachedWarehouseId;
   } catch {
     return null;
   }
+}
+
+/**
+ * Polls the payment status for a specific payment until it reaches a terminal state (PAID/FAILED)
+ * or times out.
+ */
+async function pollMpesaPaymentStatus(
+  paymentId: string,
+  options: {
+    intervalMs?: number;
+    timeoutMs?: number;
+    onStatusChange?: (status: string) => void;
+  } = {},
+): Promise<{ success: boolean; payment?: PaymentResponse; error?: string }> {
+  const { intervalMs = 3000, timeoutMs = 120000, onStatusChange } = options;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const response = await apiClient.get(`/payments/${paymentId}`);
+      const payment: PaymentResponse = (response.data as any).data;
+
+      if (payment) {
+        onStatusChange?.(payment.status);
+
+        if (payment.status === 'PAID') {
+          return { success: true, payment };
+        }
+        if (payment.status === 'FAILED') {
+          return { success: false, payment, error: 'M-Pesa payment failed or was cancelled.' };
+        }
+        // PENDING - continue polling
+      }
+    } catch {
+      // Ignore polling errors, continue polling
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return {
+    success: false,
+    error: 'M-Pesa payment timed out. Please check payment status manually.',
+  };
 }
 
 export function useSale() {
@@ -49,14 +94,16 @@ export function useSale() {
         discount: sale.discount,
       });
 
-      if (!saleResponse.data.success) {
+      const saleResp = saleResponse.data as { success: boolean; data: any; message?: string };
+
+      if (!saleResp.success) {
         notification.error('Sale failed', 'The sale could not be created.');
         return { success: false, paymentSuccess: false };
       }
 
-      const createdSale = saleResponse.data.data;
-      const saleId: string = createdSale.id;
-      const saleNumber: string = createdSale.number ?? '';
+      const saleData = saleResp.data;
+      const saleId: string = saleData.id;
+      const saleNumber: string = saleData.number ?? '';
 
       lastSale.value = sale;
       queryClient.invalidateQueries({ queryKey: ['products-list'] });
@@ -77,20 +124,68 @@ export function useSale() {
               reference: payment.reference,
             });
           }
+          notification.success('Sale completed!', `Receipt #${saleNumber}`);
+          return { success: true, saleId, saleNumber, paymentSuccess: true };
+        } else if (sale.paymentMethod === 'MPESA') {
+          // M-Pesa: initiate STK push and poll for result
+          notification.info('M-Pesa', 'STK push sent. Waiting for customer to complete payment...');
+
+          const paymentResponse = await apiClient.post('/payments', {
+            saleId,
+            method: 'MPESA',
+            amount: sale.total,
+            phone: sale.phone,
+            reference: sale.reference,
+          });
+
+          const paymentData = (paymentResponse.data as any).data;
+          const paymentId: string = paymentData.id;
+
+          // Poll for completion using the specific payment ID
+          const pollResult = await pollMpesaPaymentStatus(paymentId, {
+            intervalMs: 3000,
+            timeoutMs: 120000, // 2 minutes
+            onStatusChange: (status) => {
+              if (status === 'PENDING') {
+                notification.info('M-Pesa', 'Waiting for customer to complete payment...');
+              }
+            },
+          });
+
+          if (pollResult.success) {
+            notification.success('Sale completed!', `Receipt #${saleNumber}`);
+            return { success: true, saleId, saleNumber, paymentSuccess: true };
+          } else {
+            // Payment failed or timed out - sale exists but payment didn't complete
+            const errorMsg = pollResult.error || 'M-Pesa payment did not complete.';
+            notification.error(
+              'Payment failed',
+              `${errorMsg} Sale #${saleNumber} created but unpaid.`,
+            );
+            return {
+              success: true,
+              saleId,
+              saleNumber,
+              paymentSuccess: false,
+              paymentError: errorMsg,
+            };
+          }
         } else {
+          // CASH, CARD, BANK - immediate
           await apiClient.post('/payments', {
             saleId,
             method: sale.paymentMethod,
             amount: sale.total,
             reference: sale.reference,
           });
-        }
 
-        notification.success('Sale completed!', `Receipt #${saleNumber}`);
-        return { success: true, saleId, saleNumber, paymentSuccess: true };
+          notification.success('Sale completed!', `Receipt #${saleNumber}`);
+          return { success: true, saleId, saleNumber, paymentSuccess: true };
+        }
       } catch (paymentError) {
         // Sale succeeded but payment recording failed — do NOT retry the sale
-        const msg = 'Sale created, but payment could not be recorded. Do not retry — check payment status.';
+        const msg =
+          'Sale created, but payment could not be recorded. Do not retry — check payment status.';
         notification.error('Payment recording failed', msg);
         return {
           success: true,

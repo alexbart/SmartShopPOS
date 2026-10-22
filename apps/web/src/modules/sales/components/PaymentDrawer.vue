@@ -8,7 +8,7 @@ import {
   Landmark,
   Plus,
   X,
-  Check,
+  Loader2,
 } from '@lucide/vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ const splitCard = ref(0);
 const splitMpesa = ref(0);
 const showSplit = ref(false);
 const mpesaPhone = ref('');
-const mpesaStatus = ref<'idle' | 'processing' | 'confirmed'>('idle');
+const mpesaInitiating = ref(false);
 const bankReference = ref('');
 
 const change = computed(() => Math.max(0, (tendered.value || 0) - props.total));
@@ -62,7 +62,7 @@ function selectMethod(method: PaymentMethod) {
   splitCash.value = 0;
   splitCard.value = 0;
   splitMpesa.value = 0;
-  mpesaStatus.value = 'idle';
+  mpesaInitiating.value = false;
   bankReference.value = '';
 }
 
@@ -89,9 +89,9 @@ function handlePay() {
   } else if (selectedMethod.value === 'SPLIT') {
     if (splitTotal.value < props.total) return;
     const splitEntries: SplitPayment[] = [
-      { method: 'CASH', amount: splitCash.value },
-      { method: 'CARD', amount: splitCard.value },
-      { method: 'MPESA', amount: splitMpesa.value },
+      { method: 'CASH' as const, amount: splitCash.value },
+      { method: 'CARD' as const, amount: splitCard.value },
+      { method: 'MPESA' as const, amount: splitMpesa.value },
     ].filter((s) => s.amount > 0);
     emit('pay', {
       method: 'SPLIT',
@@ -99,21 +99,18 @@ function handlePay() {
       split: splitEntries,
     });
   }
-  // MPESA is handled via handleMpesaPay — not here
+  // MPESA is handled via handleMpesaInitiate
 }
 
-function handleMpesaPay() {
-  if (!mpesaPhone.value) return;
-  mpesaStatus.value = 'processing';
-  // Sandbox simulation — Daraja STK push will replace this in the next phase
-  setTimeout(() => {
-    mpesaStatus.value = 'confirmed';
-    emit('pay', {
-      method: 'MPESA',
-      amount: props.total,
-      phone: mpesaPhone.value,
-    });
-  }, 2000);
+function handleMpesaInitiate() {
+  if (!mpesaPhone.value || !mpesaPhone.value.startsWith('07')) return;
+  mpesaInitiating.value = true;
+  emit('pay', {
+    method: 'MPESA',
+    amount: props.total,
+    phone: mpesaPhone.value,
+  });
+  // Drawer will close via parent after emit
 }
 
 function resetAndClose() {
@@ -124,7 +121,7 @@ function resetAndClose() {
   splitMpesa.value = 0;
   showSplit.value = false;
   mpesaPhone.value = '';
-  mpesaStatus.value = 'idle';
+  mpesaInitiating.value = false;
   bankReference.value = '';
   emit('close');
 }
@@ -227,7 +224,7 @@ watch(
           <!-- MPESA -->
           <Card v-else-if="selectedMethod === 'MPESA'" class="border-dashed">
             <CardContent class="pt-4 space-y-4">
-              <div v-if="mpesaStatus === 'idle'">
+              <div v-if="!mpesaInitiating">
                 <label class="block text-xs text-muted-foreground mb-1">Phone Number</label>
                 <Input
                   v-model="mpesaPhone"
@@ -240,22 +237,18 @@ watch(
                 </p>
                 <Button
                   class="w-full mt-3"
-                  :disabled="!mpesaPhone || !mpesaPhone.startsWith('07')"
-                  @click="handleMpesaPay"
+                  :disabled="!mpesaPhone || !mpesaPhone.startsWith('07') || mpesaInitiating"
+                  @click="handleMpesaInitiate"
                 >
-                  Send STK Push
+                  <Loader2 v-if="mpesaInitiating" class="w-4 h-4 mr-2 animate-spin" />
+                  {{ mpesaInitiating ? 'Sending STK Push...' : 'Send STK Push' }}
                 </Button>
               </div>
-              <div v-else-if="mpesaStatus === 'processing'" class="text-center py-6">
-                <div class="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
-                <p class="text-lg font-medium">Waiting for customer...</p>
-                <p class="text-sm text-muted-foreground">STK push sent to {{ mpesaPhone }}</p>
+              <div v-else class="text-center py-6">
+                <Loader2 class="w-8 h-8 mx-auto mb-3 animate-spin text-primary" />
+                <p class="text-lg font-medium">STK Push Sent</p>
+                <p class="text-sm text-muted-foreground">Waiting for customer to complete payment on {{ mpesaPhone }}</p>
                 <p class="text-xs text-muted-foreground mt-1">KES {{ total.toLocaleString() }}</p>
-              </div>
-              <div v-else-if="mpesaStatus === 'confirmed'" class="text-center py-6 text-green-600">
-                <Check class="w-10 h-10 mx-auto mb-2" />
-                <p class="font-bold">Payment Confirmed</p>
-                <p class="text-sm text-muted-foreground">KES {{ total.toLocaleString() }}</p>
               </div>
             </CardContent>
           </Card>

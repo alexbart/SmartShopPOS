@@ -93,3 +93,19 @@ export interface ProcessSaleResult {
   paymentSuccess: boolean;
   paymentError?: string;
 }
+
+// Backend payment response
+export interface PaymentResponse {
+  id: string;
+  organizationId: string;
+  saleId: string;
+  method: string;
+  amount: number;
+  reference?: string;
+  status: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+  paidAt?: string;
+  createdAt: string;
+  idempotencyKey?: string;
+  darajaRequestId?: string;
+  darajaTransactionId?: string;
+}
