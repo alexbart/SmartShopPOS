@@ -163,6 +163,24 @@ function handleCheckout() {
   paymentDrawerOpen.value = true;
 }
 
+function handlePrintReceipt() {
+  window.print();
+}
+
+function handleEmailReceipt() {
+  notification.info(
+    'Not configured',
+    'Receipt email delivery has not been connected yet.',
+  );
+}
+
+function handleSmsReceipt() {
+  notification.info(
+    'Not configured',
+    'Receipt SMS delivery has not been connected yet.',
+  );
+}
+
 function handlePayment(payload: PaymentPayload) {
   paymentDrawerOpen.value = false;
   const sale: PosSale = {
@@ -544,10 +562,10 @@ onMounted(() => {
       <div class="max-w-md w-full max-h-[80vh] overflow-y-auto">
         <ReceiptPreview
           :receipt="receiptData"
-          @print="notification.success('Receipt printed')"
-          @download="notification.success('PDF downloaded')"
-          @email="showReceipt = false; notification.success('Receipt sent via email')"
-          @sms="showReceipt = false; notification.success('Receipt sent via SMS')"
+          @print="handlePrintReceipt"
+          @download="handlePrintReceipt"
+          @email="handleEmailReceipt"
+          @sms="handleSmsReceipt"
           @done="showReceipt = false"
         />
       </div>
