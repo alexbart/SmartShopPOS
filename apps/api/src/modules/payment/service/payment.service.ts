@@ -98,7 +98,7 @@ export class PaymentService {
     }
 
     // Validate sale + guard against overpayment + pending M-Pesa block — all in one transaction
-    const { saleTotal, paymentId } = await this._unitOfWork.execute(async (tx) => {
+    const { paymentId } = await this._unitOfWork.execute(async (tx) => {
       const paymentRepo = new PaymentRepositoryImpl(tx);
 
       // Idempotency check first
@@ -108,7 +108,11 @@ export class PaymentService {
           if (existing.organizationId !== command.organizationId) {
             throw new ConflictError('Idempotency key conflict.');
           }
-          return { saleTotal: 0, paymentId: existing.id, existing };
+          const sale = await tx.sale.findFirst({
+            where: { id: command.saleId, organizationId: command.organizationId },
+            select: { total: true },
+          });
+          return { paymentId: existing.id, existing };
         }
       }
 
@@ -152,14 +156,14 @@ export class PaymentService {
         if (msg.includes('idempotencyKey') || msg.includes('Unique constraint')) {
           if (command.idempotencyKey) {
             const winner = await paymentRepo.findByIdempotencyKey(command.idempotencyKey);
-            if (winner) return { saleTotal, paymentId: winner.id };
+            if (winner) return { paymentId: winner.id };
           }
           throw new ConflictError('Duplicate payment request.');
         }
         throw err;
       }
 
-      return { saleTotal, paymentId };
+      return { paymentId };
     });
 
     // Initiate STK push outside the transaction — network call must not hold a DB lock
@@ -196,6 +200,55 @@ export class PaymentService {
     const paymentRepo = new PaymentRepositoryImpl(this._prisma);
     const payments = await paymentRepo.findBySaleId(saleId, organizationId);
     return payments.map((p) => this._toResponse(p));
+  }
+
+  async findById(id: string, organizationId: string): Promise<PaymentResponse | null> {
+    const paymentRepo = new PaymentRepositoryImpl(this._prisma);
+    const payment = await paymentRepo.findById(id, organizationId);
+    return payment ? this._toResponse(payment) : null;
+  }
+
+  /**
+   * Called by the Daraja callback when ResultCode === 0 (success).
+   * Idempotent: if already PAID, returns without error.
+   */
+  async confirmMpesaPayment(
+    checkoutRequestId: string,
+    mpesaReceiptNumber?: string,
+  ): Promise<void> {
+    const paymentRepo = new PaymentRepositoryImpl(this._prisma);
+    const payment = await paymentRepo.findByDarajaRequestId(checkoutRequestId);
+    if (!payment) return; // unknown request — ignore
+    if (payment.status === PaymentStatuses.PAID) return; // already confirmed — idempotent
+    if (payment.status === PaymentStatuses.FAILED) return; // already failed — ignore late success
+
+    await paymentRepo.updateStatus(payment.id, PaymentStatuses.PAID, {
+      paidAt: new Date(),
+      darajaTransactionId: mpesaReceiptNumber,
+    });
+
+    await this._eventBus.publish(
+      new PaymentReceivedEvent(
+        payment.id,
+        payment.saleId,
+        payment.organizationId,
+        payment.amount,
+        'MPESA',
+      ),
+    );
+  }
+
+  /**
+   * Called by the Daraja callback when ResultCode !== 0 (cancelled/failed).
+   * Idempotent: if already FAILED or PAID, returns without error.
+   */
+  async failMpesaPayment(checkoutRequestId: string, _reason?: string): Promise<void> {
+    const paymentRepo = new PaymentRepositoryImpl(this._prisma);
+    const payment = await paymentRepo.findByDarajaRequestId(checkoutRequestId);
+    if (!payment) return;
+    if (payment.status !== PaymentStatuses.PENDING) return; // already settled — idempotent
+
+    await paymentRepo.updateStatus(payment.id, PaymentStatuses.FAILED);
   }
 
   private _toResponse(payment: {

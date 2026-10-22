@@ -33,6 +33,25 @@ export class PaymentController {
     });
   }
 
+  async findById(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+
+    const payment = await this._paymentService.findById(id, request.requestContext.organizationId);
+
+    if (!payment) {
+      return reply.status(404).send({
+        success: false,
+        message: 'Payment not found.',
+      });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Payment retrieved successfully.',
+      data: payment,
+    });
+  }
+
   async findBySaleId(request: FastifyRequest, reply: FastifyReply) {
     const { saleId } = request.params as { saleId: string };
 

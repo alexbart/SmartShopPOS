@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PaymentService } from '../service/payment.service.js';
 import { ValidationError, NotFoundError, ConflictError } from '../../../shared/errors/business-error.js';
 
@@ -16,6 +16,8 @@ function makePaymentRecord(overrides: Record<string, unknown> = {}) {
     paidAt: new Date(),
     createdAt: new Date(),
     idempotencyKey: null,
+    darajaRequestId: null,
+    darajaTransactionId: null,
     ...overrides,
   };
 }
@@ -27,11 +29,12 @@ function makeMocks({
   existingByKey = null as ReturnType<typeof makePaymentRecord> | null,
   createId = 'payment-1',
   createdRecord = null as ReturnType<typeof makePaymentRecord> | null,
+  hasPendingMpesa = false,
 } = {}) {
   const mockTx = {
     sale: {
       findFirst: vi.fn().mockResolvedValue(
-        saleOrgId ? { total: saleTotal } : null,
+        saleOrgId ? { total: saleTotal, number: 'INV-000001' } : null,
       ),
     },
     payment: {
@@ -39,6 +42,8 @@ function makeMocks({
       findFirst: vi.fn().mockResolvedValue(createdRecord ?? makePaymentRecord({ id: createId })),
       findUnique: vi.fn().mockResolvedValue(existingByKey),
       aggregate: vi.fn().mockResolvedValue({ _sum: { amount: existingPaid } }),
+      count: vi.fn().mockResolvedValue(hasPendingMpesa ? 1 : 0),
+      update: vi.fn().mockResolvedValue({}),
     },
   };
 
@@ -57,7 +62,7 @@ function makeMocks({
   return { service, mockTx, mockUnitOfWork, mockEventBus };
 }
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+// ─── PaymentService.create ────────────────────────────────────────────────────
 
 describe('PaymentService.create', () => {
   // ── Amount validation ──────────────────────────────────────────────────────
@@ -104,7 +109,6 @@ describe('PaymentService.create', () => {
 
   it('rejects payment when sale belongs to a different organization', async () => {
     const { service, mockTx } = makeMocks({ saleOrgId: 'org-a' });
-    // Sale lookup scoped to org-b returns null (sale belongs to org-a)
     mockTx.sale.findFirst.mockResolvedValue(null);
     await expect(
       service.create({ organizationId: 'org-b', saleId: 'sale-1', method: 'CASH', amount: 100 }),
@@ -116,10 +120,7 @@ describe('PaymentService.create', () => {
   it('records full payment — sale total 1000, payment 1000', async () => {
     const { service } = makeMocks({ saleTotal: 1000, existingPaid: 0 });
     const result = await service.create({
-      organizationId: 'org-a',
-      saleId: 'sale-1',
-      method: 'CASH',
-      amount: 1000,
+      organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 1000,
     });
     expect(result.id).toBe('payment-1');
     expect(result.status).toBe('PAID');
@@ -128,10 +129,7 @@ describe('PaymentService.create', () => {
   it('records partial payment — sale total 1000, payment 400', async () => {
     const { service } = makeMocks({ saleTotal: 1000, existingPaid: 0 });
     const result = await service.create({
-      organizationId: 'org-a',
-      saleId: 'sale-1',
-      method: 'CASH',
-      amount: 400,
+      organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 400,
     });
     expect(result.id).toBe('payment-1');
   });
@@ -139,10 +137,7 @@ describe('PaymentService.create', () => {
   it('records second partial payment — existing 400, new 600, total = 1000', async () => {
     const { service } = makeMocks({ saleTotal: 1000, existingPaid: 400 });
     const result = await service.create({
-      organizationId: 'org-a',
-      saleId: 'sale-1',
-      method: 'CARD',
-      amount: 600,
+      organizationId: 'org-a', saleId: 'sale-1', method: 'CARD', amount: 600,
     });
     expect(result.id).toBe('payment-1');
   });
@@ -171,37 +166,28 @@ describe('PaymentService.create', () => {
     mockTx.payment.findUnique.mockResolvedValue(existingPayment);
 
     const result = await service.create({
-      organizationId: 'org-a',
-      saleId: 'sale-1',
-      method: 'CASH',
-      amount: 1000,
+      organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 1000,
       idempotencyKey: 'key-abc',
     });
 
     expect(result.id).toBe('payment-existing');
-    // Must NOT create a new payment
     expect(mockTx.payment.create).not.toHaveBeenCalled();
   });
 
   it('handles concurrent duplicate idempotencyKey via DB unique constraint', async () => {
-    // Simulate: first lookup returns null (race), then create throws unique constraint error,
-    // then re-fetch returns the winner record
     const winnerRecord = makePaymentRecord({ id: 'payment-winner', idempotencyKey: 'key-race' });
     const { service, mockTx } = makeMocks({ saleTotal: 1000, existingPaid: 0 });
 
     mockTx.payment.findUnique
-      .mockResolvedValueOnce(null)       // first lookup: key not found (race window)
-      .mockResolvedValueOnce(winnerRecord); // re-fetch after constraint error
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(winnerRecord);
 
     mockTx.payment.create.mockRejectedValueOnce(
       new Error('Unique constraint failed on the fields: (`idempotencyKey`)'),
     );
 
     const result = await service.create({
-      organizationId: 'org-a',
-      saleId: 'sale-1',
-      method: 'CASH',
-      amount: 1000,
+      organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 1000,
       idempotencyKey: 'key-race',
     });
 
@@ -209,16 +195,14 @@ describe('PaymentService.create', () => {
     expect(mockTx.payment.create).toHaveBeenCalledTimes(1);
   });
 
-  // ── Split payments (two separate records) ─────────────────────────────────
+  // ── Split payments ─────────────────────────────────────────────────────────
 
   it('records split payment — CASH 400 then CARD 600, total = 1000', async () => {
-    // First call: 0 existing, pay 400
     const { service: service1, mockTx: tx1 } = makeMocks({ saleTotal: 1000, existingPaid: 0 });
     tx1.payment.findFirst.mockResolvedValue(makePaymentRecord({ id: 'p1', method: 'CASH', amount: 400 }));
     const r1 = await service1.create({ organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 400 });
     expect(r1.id).toBe('p1');
 
-    // Second call: 400 existing, pay 600
     const { service: service2, mockTx: tx2 } = makeMocks({ saleTotal: 1000, existingPaid: 400 });
     tx2.payment.findFirst.mockResolvedValue(makePaymentRecord({ id: 'p2', method: 'CARD', amount: 600 }));
     const r2 = await service2.create({ organizationId: 'org-a', saleId: 'sale-1', method: 'CARD', amount: 600 });
@@ -234,13 +218,31 @@ describe('PaymentService.create', () => {
   });
 });
 
-// ─── findBySaleId ─────────────────────────────────────────────────────────────
+// ─── PaymentService.create — MPESA ───────────────────────────────────────────
+
+describe('PaymentService.create — MPESA', () => {
+  it('rejects MPESA payment when phone is missing', async () => {
+    const { service } = makeMocks();
+    await expect(
+      service.create({ organizationId: 'org-a', saleId: 'sale-1', method: 'MPESA', amount: 500 }),
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it('rejects MPESA when a PENDING M-Pesa payment already exists for the sale', async () => {
+    const { service } = makeMocks({ hasPendingMpesa: true });
+    await expect(
+      service.create({
+        organizationId: 'org-a', saleId: 'sale-1', method: 'MPESA', amount: 500,
+        phone: '0712345678',
+      }),
+    ).rejects.toThrow(ConflictError);
+  });
+});
+
+// ─── PaymentService.findBySaleId ──────────────────────────────────────────────
 
 describe('PaymentService.findBySaleId', () => {
   it('returns payments scoped to organization', async () => {
-    const { service, mockTx } = makeMocks();
-    mockTx.payment.findFirst.mockResolvedValue(null); // not used here
-    // Override prisma directly for findBySaleId (uses _prisma not tx)
     const mockPrisma = {
       payment: {
         findMany: vi.fn().mockResolvedValue([
@@ -249,12 +251,10 @@ describe('PaymentService.findBySaleId', () => {
         ]),
       },
     };
-    const mockUow = { execute: vi.fn() };
-    const mockBus = { publish: vi.fn() };
     const svc = new PaymentService(
-      mockUow as unknown as ConstructorParameters<typeof PaymentService>[0],
+      { execute: vi.fn() } as unknown as ConstructorParameters<typeof PaymentService>[0],
       mockPrisma as unknown as ConstructorParameters<typeof PaymentService>[1],
-      mockBus as unknown as ConstructorParameters<typeof PaymentService>[2],
+      { publish: vi.fn() } as unknown as ConstructorParameters<typeof PaymentService>[2],
     );
 
     const results = await svc.findBySaleId('sale-1', 'org-a');
@@ -268,10 +268,7 @@ describe('PaymentService.findBySaleId', () => {
 
   it('does not return payments from a different organization', async () => {
     const mockPrisma = {
-      payment: {
-        // org-b query returns empty — org-a payments are not visible
-        findMany: vi.fn().mockResolvedValue([]),
-      },
+      payment: { findMany: vi.fn().mockResolvedValue([]) },
     };
     const svc = new PaymentService(
       { execute: vi.fn() } as unknown as ConstructorParameters<typeof PaymentService>[0],
@@ -281,5 +278,126 @@ describe('PaymentService.findBySaleId', () => {
 
     const results = await svc.findBySaleId('sale-1', 'org-b');
     expect(results).toHaveLength(0);
+  });
+});
+
+// ─── PaymentService.confirmMpesaPayment ──────────────────────────────────────
+
+describe('PaymentService.confirmMpesaPayment', () => {
+  function makeCallbackMocks(paymentRecord: ReturnType<typeof makePaymentRecord> | null) {
+    const mockPrisma = {
+      payment: {
+        findUnique: vi.fn().mockResolvedValue(paymentRecord),
+        update: vi.fn().mockResolvedValue({}),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    };
+    const mockBus = { publish: vi.fn().mockResolvedValue(undefined) };
+    const svc = new PaymentService(
+      { execute: vi.fn() } as unknown as ConstructorParameters<typeof PaymentService>[0],
+      mockPrisma as unknown as ConstructorParameters<typeof PaymentService>[1],
+      mockBus as unknown as ConstructorParameters<typeof PaymentService>[2],
+    );
+    return { svc, mockPrisma, mockBus };
+  }
+
+  it('transitions PENDING → PAID and stores MpesaReceiptNumber', async () => {
+    const pending = makePaymentRecord({
+      status: 'PENDING', method: 'MPESA',
+      darajaRequestId: 'ws_CO_123', darajaTransactionId: null,
+    });
+    const { svc, mockPrisma, mockBus } = makeCallbackMocks(pending);
+
+    await svc.confirmMpesaPayment('ws_CO_123', 'QHJ7LK9XYZ');
+
+    expect(mockPrisma.payment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'PAID', darajaTransactionId: 'QHJ7LK9XYZ' }),
+      }),
+    );
+    expect(mockBus.publish).toHaveBeenCalledTimes(1);
+  });
+
+  it('is idempotent — does nothing if payment is already PAID', async () => {
+    const paid = makePaymentRecord({ status: 'PAID', darajaRequestId: 'ws_CO_123' });
+    const { svc, mockPrisma } = makeCallbackMocks(paid);
+
+    await svc.confirmMpesaPayment('ws_CO_123', 'QHJ7LK9XYZ');
+
+    expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+  });
+
+  it('ignores unknown CheckoutRequestID', async () => {
+    const { svc, mockPrisma } = makeCallbackMocks(null);
+
+    await svc.confirmMpesaPayment('unknown-id', 'QHJ7LK9XYZ');
+
+    expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+  });
+
+  it('does not re-confirm a FAILED payment (late success callback)', async () => {
+    const failed = makePaymentRecord({ status: 'FAILED', darajaRequestId: 'ws_CO_123' });
+    const { svc, mockPrisma } = makeCallbackMocks(failed);
+
+    await svc.confirmMpesaPayment('ws_CO_123', 'QHJ7LK9XYZ');
+
+    expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+  });
+});
+
+// ─── PaymentService.failMpesaPayment ─────────────────────────────────────────
+
+describe('PaymentService.failMpesaPayment', () => {
+  function makeFailMocks(paymentRecord: ReturnType<typeof makePaymentRecord> | null) {
+    const mockPrisma = {
+      payment: {
+        findUnique: vi.fn().mockResolvedValue(paymentRecord),
+        update: vi.fn().mockResolvedValue({}),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    };
+    const svc = new PaymentService(
+      { execute: vi.fn() } as unknown as ConstructorParameters<typeof PaymentService>[0],
+      mockPrisma as unknown as ConstructorParameters<typeof PaymentService>[1],
+      { publish: vi.fn() } as unknown as ConstructorParameters<typeof PaymentService>[2],
+    );
+    return { svc, mockPrisma };
+  }
+
+  it('transitions PENDING → FAILED on cancelled STK', async () => {
+    const pending = makePaymentRecord({ status: 'PENDING', darajaRequestId: 'ws_CO_456' });
+    const { svc, mockPrisma } = makeFailMocks(pending);
+
+    await svc.failMpesaPayment('ws_CO_456', 'Request cancelled by user');
+
+    expect(mockPrisma.payment.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'FAILED' }) }),
+    );
+  });
+
+  it('is idempotent — does nothing if already FAILED', async () => {
+    const failed = makePaymentRecord({ status: 'FAILED', darajaRequestId: 'ws_CO_456' });
+    const { svc, mockPrisma } = makeFailMocks(failed);
+
+    await svc.failMpesaPayment('ws_CO_456');
+
+    expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+  });
+
+  it('is idempotent — does nothing if already PAID (duplicate failure callback)', async () => {
+    const paid = makePaymentRecord({ status: 'PAID', darajaRequestId: 'ws_CO_456' });
+    const { svc, mockPrisma } = makeFailMocks(paid);
+
+    await svc.failMpesaPayment('ws_CO_456');
+
+    expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+  });
+
+  it('ignores unknown CheckoutRequestID', async () => {
+    const { svc, mockPrisma } = makeFailMocks(null);
+
+    await svc.failMpesaPayment('unknown-id');
+
+    expect(mockPrisma.payment.update).not.toHaveBeenCalled();
   });
 });
