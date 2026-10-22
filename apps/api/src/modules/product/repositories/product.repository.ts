@@ -74,6 +74,8 @@ export interface ProductEntity {
   taxRate?: number;
   costPrice: number;
   sellingPrice: number;
+  stockQuantity: number;
+  lowStockThreshold?: number;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

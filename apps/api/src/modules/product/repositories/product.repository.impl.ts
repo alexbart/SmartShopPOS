@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import type { IProductRepository } from './product.repository.js';
+import type { ProductEntity } from './product.repository.js';
+import { Prisma } from '@prisma/client';
 
 export class ProductRepositoryImpl implements IProductRepository {
   constructor(private readonly _prisma: PrismaClient) {}
@@ -48,7 +50,7 @@ export class ProductRepositoryImpl implements IProductRepository {
     });
   }
 
-  private select() {
+  private select(): Prisma.ProductSelect {
     return {
       id: true,
       organizationId: true,
@@ -66,14 +68,26 @@ export class ProductRepositoryImpl implements IProductRepository {
       isActive: true,
       createdAt: true,
       updatedAt: true,
+      lowStockThreshold: true,
       category: { select: { name: true } },
       brand: { select: { name: true } },
       unit: { select: { name: true, abbreviation: true } },
       tax: { select: { name: true, rate: true } },
+      stocks: {
+        select: { quantity: true },
+      },
     };
   }
 
-  private mapEntity(row: Record<string, unknown>): ProductEntity {
+  private mapEntity(
+    row: Prisma.ProductGetPayload<{ select: ReturnType<ProductRepositoryImpl['select']> }>,
+  ): ProductEntity {
+    const totalStock =
+      (row.stocks as Array<{ quantity: number }> | undefined)?.reduce(
+        (sum, s) => sum + Number(s.quantity),
+        0,
+      ) ?? 0;
+
     return {
       id: row.id,
       organizationId: row.organizationId,
@@ -94,6 +108,8 @@ export class ProductRepositoryImpl implements IProductRepository {
       taxRate: row.tax?.rate ? Number(row.tax.rate) : undefined,
       costPrice: Number(row.costPrice),
       sellingPrice: Number(row.sellingPrice),
+      stockQuantity: totalStock,
+      lowStockThreshold: row.lowStockThreshold ? Number(row.lowStockThreshold) : undefined,
       isActive: row.isActive,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

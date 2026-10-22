@@ -147,6 +147,8 @@ export class ProductService {
     taxRate?: number;
     costPrice: number;
     sellingPrice: number;
+    stockQuantity: number;
+    lowStockThreshold?: number;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -171,6 +173,8 @@ export class ProductService {
       taxRate: product.taxRate,
       costPrice: product.costPrice,
       sellingPrice: product.sellingPrice,
+      stockQuantity: product.stockQuantity,
+      lowStockThreshold: product.lowStockThreshold,
       isActive: product.isActive,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
