@@ -34,11 +34,38 @@ async function main() {
     { name: 'SALE.VOID', module: 'SALE', description: 'Void sales' },
     { name: 'PAYMENT.CREATE', module: 'PAYMENT', description: 'Process payments' },
     { name: 'RECEIPT.PRINT', module: 'RECEIPT', description: 'Print receipts' },
+    // Category permissions (lowercase to match route requirements)
+    { name: 'categories:read', module: 'category', description: 'View categories' },
+    { name: 'categories:write', module: 'category', description: 'Create and edit categories' },
+    { name: 'categories:delete', module: 'category', description: 'Delete categories' },
+    // Inventory permissions
+    {
+      name: 'inventory:read',
+      module: 'inventory',
+      description: 'View inventory levels and movements',
+    },
+    { name: 'inventory:adjust', module: 'inventory', description: 'Adjust stock quantities' },
+    {
+      name: 'inventory:transfer',
+      module: 'inventory',
+      description: 'Transfer stock between warehouses',
+    },
   ];
 
   const rolePermissions: Record<string, string[]> = {
     OWNER: permissions.map((p) => p.name),
-    MANAGER: ['USER.READ', 'USER.UPDATE', 'SALE.CREATE', 'SALE.VIEW', 'PAYMENT.CREATE'],
+    MANAGER: [
+      'USER.READ',
+      'USER.UPDATE',
+      'SALE.CREATE',
+      'SALE.VIEW',
+      'PAYMENT.CREATE',
+      'categories:read',
+      'categories:write',
+      'inventory:read',
+      'inventory:adjust',
+      'inventory:transfer',
+    ],
     CASHIER: [
       'AUTH.LOGIN',
       'AUTH.LOGOUT',
@@ -46,7 +73,10 @@ async function main() {
       'SALE.VIEW',
       'PAYMENT.CREATE',
       'RECEIPT.PRINT',
+      'inventory:read',
     ],
+    INVENTORY: ['inventory:read', 'inventory:adjust', 'inventory:transfer'],
+    ACCOUNTANT: ['inventory:read'],
   };
 
   for (const role of roles) {
@@ -154,7 +184,7 @@ async function main() {
     where: { organizationId, email: ownerEmail },
   });
 
-   if (!existingUser) {
+  if (!existingUser) {
     await prisma.user.create({
       data: {
         organizationId,
