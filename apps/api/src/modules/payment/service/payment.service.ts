@@ -49,7 +49,10 @@ export class PaymentService {
       if (!sale) throw new NotFoundError('Sale not found.');
 
       const saleTotal = Number(sale.total);
-      const totalPaid = await paymentRepo.getTotalPaidForSale(command.saleId, command.organizationId);
+      const totalPaid = await paymentRepo.getTotalPaidForSale(
+        command.saleId,
+        command.organizationId,
+      );
 
       if (totalPaid + command.amount > saleTotal) {
         throw new ConflictError(
@@ -85,7 +88,13 @@ export class PaymentService {
       if (!payment) throw new NotFoundError('Payment not found after creation.');
 
       await this._eventBus.publish(
-        new PaymentReceivedEvent(paymentId, command.saleId, command.organizationId, command.amount, command.method),
+        new PaymentReceivedEvent(
+          paymentId,
+          command.saleId,
+          command.organizationId,
+          command.amount,
+          command.method,
+        ),
       );
 
       return this._toResponse(payment);
@@ -108,10 +117,6 @@ export class PaymentService {
           if (existing.organizationId !== command.organizationId) {
             throw new ConflictError('Idempotency key conflict.');
           }
-          const sale = await tx.sale.findFirst({
-            where: { id: command.saleId, organizationId: command.organizationId },
-            select: { total: true },
-          });
           return { paymentId: existing.id, existing };
         }
       }
@@ -123,7 +128,10 @@ export class PaymentService {
       if (!sale) throw new NotFoundError('Sale not found.');
 
       const saleTotal = Number(sale.total);
-      const totalPaid = await paymentRepo.getTotalPaidForSale(command.saleId, command.organizationId);
+      const totalPaid = await paymentRepo.getTotalPaidForSale(
+        command.saleId,
+        command.organizationId,
+      );
 
       if (totalPaid + command.amount > saleTotal) {
         throw new ConflictError(
@@ -212,10 +220,7 @@ export class PaymentService {
    * Called by the Daraja callback when ResultCode === 0 (success).
    * Idempotent: if already PAID, returns without error.
    */
-  async confirmMpesaPayment(
-    checkoutRequestId: string,
-    mpesaReceiptNumber?: string,
-  ): Promise<void> {
+  async confirmMpesaPayment(checkoutRequestId: string, mpesaReceiptNumber?: string): Promise<void> {
     const paymentRepo = new PaymentRepositoryImpl(this._prisma);
     const payment = await paymentRepo.findByDarajaRequestId(checkoutRequestId);
     if (!payment) return; // unknown request — ignore
