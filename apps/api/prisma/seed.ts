@@ -34,6 +34,17 @@ async function main() {
     { name: 'SALE.VOID', module: 'SALE', description: 'Void sales' },
     { name: 'PAYMENT.CREATE', module: 'PAYMENT', description: 'Process payments' },
     { name: 'RECEIPT.PRINT', module: 'RECEIPT', description: 'Print receipts' },
+    // M-Pesa evidence permissions
+    {
+      name: 'payment.evidence.capture',
+      module: 'PAYMENT',
+      description: 'Capture and view manual M-Pesa SMS evidence',
+    },
+    {
+      name: 'payment.evidence.review',
+      module: 'PAYMENT',
+      description: 'Review or reject manual M-Pesa SMS evidence',
+    },
     // Category permissions (lowercase to match route requirements)
     { name: 'categories:read', module: 'category', description: 'View categories' },
     { name: 'categories:write', module: 'category', description: 'Create and edit categories' },
@@ -65,6 +76,8 @@ async function main() {
       'inventory:read',
       'inventory:adjust',
       'inventory:transfer',
+      'payment.evidence.capture',
+      'payment.evidence.review',
     ],
     CASHIER: [
       'AUTH.LOGIN',
@@ -74,9 +87,10 @@ async function main() {
       'PAYMENT.CREATE',
       'RECEIPT.PRINT',
       'inventory:read',
+      'payment.evidence.capture',
     ],
     INVENTORY: ['inventory:read', 'inventory:adjust', 'inventory:transfer'],
-    ACCOUNTANT: ['inventory:read'],
+    ACCOUNTANT: ['inventory:read', 'payment.evidence.capture', 'payment.evidence.review'],
   };
 
   for (const role of roles) {
