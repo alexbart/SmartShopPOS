@@ -47,6 +47,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/modules/customers/CustomersPage.vue'),
       },
       {
+        path: 'customers/:id',
+        name: 'customer-detail',
+        component: () => import('@/modules/customers/components/CustomerDetail.vue'),
+      },
+      {
         path: 'cash-drawer',
         name: 'cash-drawer',
         component: () => import('@/modules/finance/CashDrawerPage.vue'),
@@ -86,7 +91,7 @@ const routes: RouteRecordRaw[] = [
         name: 'reports-sales',
         component: () => import('@/modules/reports/SalesReportsPage.vue'),
       },
-       {
+      {
         path: 'workflow/pending',
         name: 'workflow-pending',
         component: () => import('@/modules/workflow/PendingApprovals.vue'),
