@@ -3,7 +3,13 @@ import { nanoid } from 'nanoid';
 import { useQuery } from '@tanstack/vue-query';
 import { apiClient } from '@/shared/lib/api-client';
 import type { Product } from '@/shared/types';
-import type { PosCartItem, ReceiptData, Customer, PaymentMethod, RecordedPaymentMethod } from './types';
+import type {
+  PosCartItem,
+  ReceiptData,
+  Customer,
+  PaymentMethod,
+  RecordedPaymentMethod,
+} from './types';
 
 const CART_STORAGE_KEY = 'pos-cart';
 const POS_STATE_KEY = 'pos-state';
@@ -55,7 +61,12 @@ export function useCart() {
     queryKey: ['taxes'],
     queryFn: async () => {
       const res = await apiClient.get('/taxes');
-      return res.data.data.items as Array<{ id: string; name: string; code: string; rate: number }>;
+      return (res.data as any).data.items as Array<{
+        id: string;
+        name: string;
+        code: string;
+        rate: number;
+      }>;
     },
     staleTime: 300_000,
   });
@@ -191,7 +202,10 @@ export function useCart() {
   // total = net subtotal (discounts already deducted) + tax — no second discount deduction
   const total = computed(() => Math.max(0, subtotal.value + tax.value));
 
-  function toReceiptData(paymentMethod: PaymentMethod | RecordedPaymentMethod = 'CASH', cashier: string = 'Cashier'): ReceiptData {
+  function toReceiptData(
+    paymentMethod: PaymentMethod | RecordedPaymentMethod = 'CASH',
+    cashier: string = 'Cashier',
+  ): ReceiptData {
     return {
       number: `INV-${Date.now().toString().slice(-6)}`,
       items: items.value.map((item) => ({
@@ -207,6 +221,8 @@ export function useCart() {
       paymentMethod,
       timestamp: new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' }),
       cashier,
+      customerId: customerId.value ?? undefined,
+      customerName: customerName.value ?? undefined,
     };
   }
 
