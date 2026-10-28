@@ -2,7 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { AuthController } from '../controllers/auth.controller.js';
 import { AuthService } from '../services/auth.service.js';
 import { AuthRepositoryImpl } from '../repositories/auth.repository.impl.js';
-import { createAuthenticateHook } from '../middleware/auth.middleware.js';
+import { createAuthenticateHook, createAuthorizeHook } from '../middleware/auth.middleware.js';
 import { getPrisma } from '../../../shared/database/prisma.js';
 import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
 import { PasswordService } from '../../../shared/services/password/password.service.js';
@@ -371,21 +371,207 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     handler: async (request, reply) => authController.logout(request, reply),
   });
 
-  fastify.post('/forgot-password', async (request, reply) =>
-    authController.forgotPassword(request, reply),
-  );
-  fastify.post('/reset-password', async (request, reply) =>
-    authController.resetPassword(request, reply),
-  );
-  fastify.patch('/profile', async (request, reply) => authController.updateProfile(request, reply));
-  fastify.patch('/password', async (request, reply) =>
-    authController.changePassword(request, reply),
-  );
-  fastify.get('/sessions', async (request, reply) => authController.getSessions(request, reply));
-  fastify.delete('/sessions/:id', async (request, reply) =>
-    authController.deleteSession(request, reply),
-  );
-  fastify.delete('/sessions', async (request, reply) =>
-    authController.deleteAllSessions(request, reply),
-  );
+  // User management routes
+  const authenticateHook = createAuthenticateHook(jwtService, authRepository);
+  const authorizeUserRead = createAuthorizeHook(['user:read']);
+  const authorizeUserCreate = createAuthorizeHook(['user:create']);
+  const authorizeUserUpdate = createAuthorizeHook(['user:update']);
+  const authorizeUserDelete = createAuthorizeHook(['user:delete']);
+
+  fastify.get('/users', {
+    preHandler: [authenticateHook, authorizeUserRead],
+    schema: {
+      tags: ['users'],
+      description: 'List users with pagination and filters',
+      summary: 'List Users',
+      querystring: {
+        type: 'object',
+        properties: {
+          page: { type: 'integer', minimum: 1, default: 1 },
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          search: { type: 'string' },
+          status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'PENDING', 'SUSPENDED'] },
+          roleId: { type: 'string' },
+          branchId: { type: 'string' },
+          sortBy: {
+            type: 'string',
+            enum: ['firstName', 'lastName', 'email', 'createdAt', 'lastLoginAt'],
+          },
+          sortOrder: { type: 'string', enum: ['asc', 'desc'] },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Users retrieved successfully.' },
+            data: {
+              type: 'object',
+              properties: {
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      firstName: { type: 'string' },
+                      lastName: { type: 'string' },
+                      email: { type: 'string' },
+                      phone: { type: 'string', nullable: true },
+                      status: { type: 'string' },
+                      role: { type: 'string', nullable: true },
+                      branchName: { type: 'string', nullable: true },
+                      lastLoginAt: { type: 'string', format: 'date-time', nullable: true },
+                      createdAt: { type: 'string', format: 'date-time' },
+                    },
+                  },
+                },
+                total: { type: 'integer' },
+                page: { type: 'integer' },
+                limit: { type: 'integer' },
+                pages: { type: 'integer' },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.findUsers(request, reply),
+  });
+
+  fastify.post('/users', {
+    preHandler: [authenticateHook, authorizeUserCreate],
+    schema: {
+      tags: ['users'],
+      description: 'Create a new user',
+      summary: 'Create User',
+      body: {
+        type: 'object',
+        required: ['firstName', 'lastName', 'email', 'password'],
+        properties: {
+          firstName: { type: 'string', minLength: 2 },
+          lastName: { type: 'string', minLength: 2 },
+          email: { type: 'string', format: 'email' },
+          phone: { type: 'string' },
+          password: { type: 'string', minLength: 12 },
+          roleId: { type: 'string' },
+          branchId: { type: 'string' },
+          isActive: { type: 'boolean' },
+        },
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'User created successfully.' },
+            data: {
+              type: 'object',
+              properties: {
+                userId: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.createUser(request, reply),
+  });
+
+  fastify.patch('/users/:id', {
+    preHandler: [authenticateHook, authorizeUserUpdate],
+    schema: {
+      tags: ['users'],
+      description: 'Update a user',
+      summary: 'Update User',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+        },
+      },
+      body: {
+        type: 'object',
+        properties: {
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+          email: { type: 'string', format: 'email' },
+          phone: { type: 'string' },
+          isActive: { type: 'boolean' },
+          roleId: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'User updated successfully.' },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.updateUser(request, reply),
+  });
+
+  fastify.patch('/users/:id/deactivate', {
+    preHandler: [authenticateHook, authorizeUserDelete],
+    schema: {
+      tags: ['users'],
+      description: 'Deactivate a user',
+      summary: 'Deactivate User',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'User deactivated successfully.' },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.deactivateUser(request, reply),
+  });
+
+  fastify.post('/users/:id/reset-password', {
+    preHandler: [authenticateHook, authorizeUserUpdate],
+    schema: {
+      tags: ['users'],
+      description: 'Reset user password',
+      summary: 'Reset Password',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+        },
+      },
+      body: {
+        type: 'object',
+        required: ['password'],
+        properties: {
+          password: { type: 'string', minLength: 12 },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Password reset successfully.' },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.resetPassword(request, reply),
+  });
 };

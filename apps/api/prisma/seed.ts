@@ -26,6 +26,12 @@ async function main() {
     { name: 'USER.READ', module: 'USER', description: 'Read users' },
     { name: 'USER.CREATE', module: 'USER', description: 'Create users' },
     { name: 'USER.UPDATE', module: 'USER', description: 'Update users' },
+    { name: 'USER.DELETE', module: 'USER', description: 'Deactivate users' },
+    // User permissions (lowercase with colon for consistency with categories/inventory)
+    { name: 'user:read', module: 'USER', description: 'Read users' },
+    { name: 'user:create', module: 'USER', description: 'Create users' },
+    { name: 'user:update', module: 'USER', description: 'Update users' },
+    { name: 'user:delete', module: 'USER', description: 'Deactivate users' },
     { name: 'CUSTOMER.VIEW', module: 'CUSTOMER', description: 'View customers' },
     { name: 'CUSTOMER.CREATE', module: 'CUSTOMER', description: 'Create customers' },
     { name: 'CUSTOMER.UPDATE', module: 'CUSTOMER', description: 'Update customers' },
@@ -67,7 +73,9 @@ async function main() {
     OWNER: permissions.map((p) => p.name),
     MANAGER: [
       'USER.READ',
+      'USER.CREATE',
       'USER.UPDATE',
+      'USER.DELETE',
       'SALE.CREATE',
       'SALE.VIEW',
       'PAYMENT.CREATE',
@@ -78,6 +86,10 @@ async function main() {
       'inventory:transfer',
       'payment.evidence.capture',
       'payment.evidence.review',
+      'user:read',
+      'user:create',
+      'user:update',
+      'user:delete',
     ],
     CASHIER: [
       'AUTH.LOGIN',

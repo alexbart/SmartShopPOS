@@ -7,6 +7,9 @@ import type { IOrganizationCodeService } from '../../../shared/services/organiza
 import type { IUnitOfWork } from '../../../shared/database/unit-of-work.js';
 import type { RefreshResponse } from '../responses/refresh.response.js';
 import type { MeResponse } from '../responses/me.response.js';
+import type { FindUsersQuery } from '../repositories/models/find-users.query.js';
+import type { UpdateUserModel } from '../repositories/models/update-user.model.js';
+import type { ResetPasswordModel } from '../repositories/models/reset-password.model.js';
 import { generateRequestId } from '../utils/request.js';
 
 export class AuthService {
@@ -370,28 +373,136 @@ export class AuthService {
     } as const;
   }
 
-  async logout(refreshToken: string): Promise<void> {
-    const requestId = generateRequestId();
+  async findUsers(query: FindUsersQuery): Promise<{
+    items: Array<{
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string | null;
+      status: string;
+      role: string | null;
+      branchName: string | null;
+      lastLoginAt: Date | null;
+      createdAt: Date;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  }> {
+    return this._repository.findUsers(query);
+  }
 
-    let payload: { userId: string; sessionId: string; jti: string };
-    try {
-      payload = await this._jwtService.verifyRefreshToken(refreshToken);
-    } catch {
-      return;
-    }
+  async createUser(command: {
+    organizationId: string;
+    branchId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    password: string;
+    roleId?: string;
+    isActive?: boolean;
+    createdBy: string;
+  }): Promise<{ userId: string }> {
+    const passwordHash = await this._passwordService.hash(command.password);
 
-    const session = await this._repository.findSessionById(payload.sessionId);
-    if (session) {
-      await this._repository.createAuditLog({
-        organizationId: session.organizationId,
-        actorId: session.userId,
-        action: 'LOGOUT',
-        entity: 'Session',
-        entityId: session.id,
-        requestId,
+    const userId = await this._unitOfWork.execute(async () => {
+      const userId = await this._repository.createUser({
+        organizationId: command.organizationId,
+        branchId: command.branchId,
+        firstName: command.firstName,
+        lastName: command.lastName,
+        email: command.email,
+        phone: command.phone,
+        passwordHash,
+        isActive: command.isActive ?? true,
       });
 
-      await this._repository.revokeSession(session.id);
-    }
+      if (command.roleId) {
+        await this._repository.assignRole({
+          userId,
+          roleId: command.roleId,
+        });
+      }
+
+      // Audit log
+      await this._repository.createAuditLog({
+        organizationId: command.organizationId,
+        actorId: command.createdBy,
+        action: 'CREATE',
+        entity: 'User',
+        entityId: userId,
+        newValues: {
+          firstName: command.firstName,
+          lastName: command.lastName,
+          email: command.email,
+        },
+      });
+
+      return userId;
+    });
+
+    return { userId };
+  }
+
+  async updateUser(command: UpdateUserModel): Promise<void> {
+    const requestId = generateRequestId();
+
+    await this._unitOfWork.execute(async () => {
+      await this._repository.updateUser(command);
+
+      await this._repository.createAuditLog({
+        organizationId: command.organizationId,
+        actorId: command.updatedBy,
+        action: 'UPDATE',
+        entity: 'User',
+        entityId: command.userId,
+        requestId,
+      });
+    });
+  }
+
+  async deactivateUser(
+    userId: string,
+    organizationId: string,
+    deactivatedBy: string,
+  ): Promise<void> {
+    const requestId = generateRequestId();
+
+    await this._unitOfWork.execute(async () => {
+      await this._repository.deactivateUser(userId, deactivatedBy);
+
+      await this._repository.createAuditLog({
+        organizationId,
+        actorId: deactivatedBy,
+        action: 'UPDATE',
+        entity: 'User',
+        entityId: userId,
+        oldValues: { status: 'ACTIVE' },
+        newValues: { status: 'INACTIVE' },
+        requestId,
+      });
+    });
+  }
+
+  async resetPassword(command: ResetPasswordModel): Promise<void> {
+    const requestId = generateRequestId();
+
+    await this._unitOfWork.execute(async () => {
+      await this._repository.resetPassword(command);
+
+      await this._repository.createAuditLog({
+        organizationId: command.organizationId,
+        actorId: command.updatedBy,
+        action: 'UPDATE',
+        entity: 'User',
+        entityId: command.userId,
+        oldValues: { passwordHash: 'REDACTED' },
+        newValues: { passwordHash: 'REDACTED' },
+        requestId,
+      });
+    });
   }
 }
