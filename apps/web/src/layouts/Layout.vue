@@ -30,7 +30,6 @@ import {
   QrCode,
   Banknote,
   CheckCircle,
-  PiggyBank,
   Building,
   Shield,
   Paintbrush,

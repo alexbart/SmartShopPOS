@@ -1,4 +1,4 @@
-import { PrismaClient, UserStatus, SessionStatus, AuditAction } from '@prisma/client';
+import { PrismaClient, UserStatus, SessionStatus, AuditAction, Prisma } from '@prisma/client';
 import type { IAuthRepository } from './auth.repository.js';
 import type { CreateOrganizationModel } from './models/create-organization.model.js';
 import type { CreateBranchModel } from './models/create-branch.model.js';
@@ -10,6 +10,9 @@ import type { FindOrganizationByNameQuery } from './models/find-organization-by-
 import type { FindOrganizationByCodeQuery } from './models/find-organization-by-code.query.js';
 import type { FindUserByEmailQuery } from './models/find-user-by-email.query.js';
 import type { FindRoleByNameQuery } from './models/find-role-by-name.query.js';
+import type { FindUsersQuery } from './models/find-users.query.js';
+import type { UpdateUserModel } from './models/update-user.model.js';
+import type { ResetPasswordModel } from './models/reset-password.model.js';
 
 export class AuthRepositoryImpl implements IAuthRepository {
   constructor(private readonly _prisma: PrismaClient) {}
@@ -45,7 +48,7 @@ export class AuthRepositoryImpl implements IAuthRepository {
     return user;
   }
 
-  async findRoleByName(_query: FindRoleByNameQuery) {
+  async findRoleByName(_query: FindRoleByNameQuery): Promise<{ id: string } | null> {
     const role = await this._prisma.role.findFirst({
       where: { name: _query.name, deletedAt: null },
       select: { id: true },
@@ -134,8 +137,8 @@ export class AuthRepositoryImpl implements IAuthRepository {
         action: _model.action as AuditAction,
         entity: _model.entity,
         entityId: _model.entityId,
-        oldValues: _model.oldValues as Record<string, unknown>,
-        newValues: _model.newValues as Record<string, unknown>,
+        oldValues: (_model.oldValues as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+        newValues: (_model.newValues as Prisma.InputJsonValue) ?? Prisma.JsonNull,
         ipAddress: _model.ipAddress,
         userAgent: _model.userAgent,
         requestId: _model.requestId,
@@ -160,8 +163,6 @@ export class AuthRepositoryImpl implements IAuthRepository {
         passwordHash: true,
         status: true,
         branchId: true,
-        firstName: true,
-        lastName: true,
       },
     });
 
@@ -232,13 +233,23 @@ export class AuthRepositoryImpl implements IAuthRepository {
     };
   }
 
-  async findUserWithRolesById(_userId: string) {
+  async findUserWithRolesById(
+    _userId: string,
+  ): Promise<{ id: string; email: string; roles: string[]; permissions: string[] } | null> {
     const user = await this._prisma.user.findFirst({
       where: { id: _userId, deletedAt: null },
       include: {
         roles: {
           include: {
-            role: true,
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -249,11 +260,202 @@ export class AuthRepositoryImpl implements IAuthRepository {
     }
 
     const roles = user.roles.map((userRole) => userRole.role.name);
+    const permissions = user.roles.flatMap((userRole) =>
+      userRole.role.permissions.map((rp) => rp.permission.name),
+    );
 
     return {
       id: user.id,
       email: user.email,
       roles,
+      permissions,
     };
+  }
+
+  async findUsers(_query: FindUsersQuery) {
+    const {
+      organizationId,
+      page = 1,
+      limit = 20,
+      search,
+      status,
+      roleId,
+      branchId,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = _query;
+
+    const where: Record<string, unknown> = {
+      organizationId,
+      deletedAt: null,
+    };
+
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (status) {
+      where.status = status.toUpperCase();
+    }
+
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
+    if (roleId) {
+      where.roles = {
+        some: { roleId },
+      };
+    }
+
+    const orderBy: Record<string, 'asc' | 'desc'> = {};
+    const validSortFields = ['firstName', 'lastName', 'email', 'createdAt', 'lastLoginAt'];
+    if (validSortFields.includes(sortBy)) {
+      orderBy[sortBy] = sortOrder;
+    } else {
+      orderBy.createdAt = 'desc';
+    }
+
+    const [items, total] = await Promise.all([
+      this._prisma.user.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          branch: { select: { name: true } },
+          roles: {
+            include: {
+              role: { select: { name: true } },
+            },
+          },
+        },
+      }),
+      this._prisma.user.count({ where }),
+    ]);
+
+    return {
+      items: items.map((user) => ({
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        status: user.status,
+        role: user.roles[0]?.role.name ?? null,
+        branchName: user.branch?.name ?? null,
+        lastLoginAt: user.lastLoginAt,
+        createdAt: user.createdAt,
+      })),
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+    };
+  }
+
+  async updateUser(_model: UpdateUserModel) {
+    const { userId, organizationId, updatedBy: _updatedBy, roleId, ...data } = _model;
+
+    const user = await this._prisma.user.findFirst({
+      where: { id: userId, organizationId, deletedAt: null },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const updateData: Record<string, unknown> = { ...data, updatedBy: _updatedBy };
+
+    if (data.email) {
+      data.email = data.email.toLowerCase();
+    }
+
+    if (data.isActive !== undefined) {
+      (data as Record<string, unknown>).status = data.isActive ? 'ACTIVE' : 'INACTIVE';
+      delete data.isActive;
+    }
+
+    if (roleId) {
+      // Remove existing roles
+      await this._prisma.userRole.deleteMany({
+        where: { userId },
+      });
+      // Assign new role
+      await this._prisma.userRole.create({
+        data: { userId, roleId },
+      });
+    }
+
+    // Remove updatedBy as it's not a field in the User model - we use updatedAt instead
+    const dataToUpdate = { ...updateData };
+    delete dataToUpdate.updatedBy;
+    dataToUpdate.updatedAt = new Date();
+
+    await this._prisma.user.update({
+      where: { id: userId },
+      data: dataToUpdate,
+    });
+  }
+
+  async deactivateUser(_userId: string, _deactivatedBy: string) {
+    const user = await this._prisma.user.findFirst({
+      where: { id: _userId, deletedAt: null },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    await this._prisma.user.update({
+      where: { id: _userId },
+      data: {
+        status: 'INACTIVE',
+        updatedAt: new Date(),
+      },
+    });
+
+    // Revoke all sessions
+    await this._prisma.session.updateMany({
+      where: { userId: _userId, status: 'ACTIVE' },
+      data: { status: 'LOGGED_OUT', lastActivityAt: new Date() },
+    });
+  }
+
+  async resetPassword(_model: ResetPasswordModel) {
+    const { userId, organizationId, newPassword } = _model;
+
+    const user = await this._prisma.user.findFirst({
+      where: { id: userId, organizationId, deletedAt: null },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Hash the new password
+    const { PasswordService } =
+      await import('../../../shared/services/password/password.service.js');
+    const passwordService = new PasswordService();
+    const passwordHash = await passwordService.hash(newPassword);
+
+    await this._prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        updatedAt: new Date(),
+      },
+    });
+
+    // Revoke all sessions except current one
+    await this._prisma.session.updateMany({
+      where: { userId, status: 'ACTIVE' },
+      data: { status: 'LOGGED_OUT', lastActivityAt: new Date() },
+    });
   }
 }

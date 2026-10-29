@@ -3,9 +3,9 @@ import { StockService } from '../services/stock.service.js';
 import { StockMovementRepositoryImpl } from '../repositories/stock-movement.repository.impl.js';
 import type { StockMovementType } from '../repositories/stock-movement.repository.js';
 import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export class InventoryController {
   private _stockService: StockService;

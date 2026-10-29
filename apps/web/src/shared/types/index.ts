@@ -77,6 +77,35 @@ export interface Warehouse {
   isDefault: boolean;
 }
 
+export interface StockLevel {
+  productId: string;
+  productName: string;
+  productCode: string;
+  productSku: string;
+  categoryName?: string;
+  brandName?: string;
+  imageUrl?: string;
+  sellingPrice: number;
+  costPrice: number;
+  quantity: number;
+  reservedQuantity: number;
+  available: number;
+  lowStockThreshold: number;
+  status: 'in_stock' | 'low_stock' | 'out_of_stock';
+}
+
+export interface StockMovement {
+  id: string;
+  productId: string;
+  warehouseId: string;
+  type: string;
+  quantity: number;
+  referenceType?: string;
+  referenceId?: string;
+  remarks?: string;
+  createdAt: string;
+}
+
 export interface PurchaseOrder {
   id: string;
   orderNumber: string;

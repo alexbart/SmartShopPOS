@@ -8,4 +8,7 @@ export interface PaymentResponse {
   status: string;
   paidAt?: Date;
   createdAt: Date;
+  idempotencyKey?: string;
+  darajaRequestId?: string;
+  darajaTransactionId?: string;
 }

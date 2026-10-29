@@ -55,7 +55,6 @@ const currentStepIndex = computed(() =>
         }"></div>
 
         <div class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full border-2" :class="{
-          'bg-primary border-primary text-primary-foreground': index < currentStepIndex,
           'bg-primary border-primary text-primary-foreground': index === currentStepIndex,
           'bg-background border-muted text-muted-foreground': index > currentStepIndex,
         }">

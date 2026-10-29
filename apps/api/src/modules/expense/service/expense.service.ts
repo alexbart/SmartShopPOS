@@ -15,7 +15,9 @@ export class ExpenseService {
     private readonly _workflowService?: WorkflowService,
   ) {}
 
-  async createExpense(command: CreateExpenseCommand): Promise<{ id: string; needsApproval: boolean }> {
+  async createExpense(
+    command: CreateExpenseCommand,
+  ): Promise<{ id: string; needsApproval: boolean }> {
     if (Number(command.amount) <= 0) {
       throw new Error('Expense amount must be greater than zero.');
     }
@@ -25,7 +27,7 @@ export class ExpenseService {
       categoryId: command.categoryId,
       amount: command.amount,
       description: command.description,
-      expenseDate: command.expenseDate,
+      expenseDate: command.expenseDate ?? new Date(),
       paidById: command.paidById,
       paymentReference: command.paymentReference,
       createdBy: command.createdBy,
@@ -55,10 +57,7 @@ export class ExpenseService {
     return this._repository.findById(id, organizationId);
   }
 
-  async listExpenses(
-    organizationId: string,
-    filters: ExpenseFilters,
-  ): Promise<ExpenseEntity[]> {
+  async listExpenses(organizationId: string, filters: ExpenseFilters): Promise<ExpenseEntity[]> {
     return this._repository.findByOrganization(organizationId, filters);
   }
 

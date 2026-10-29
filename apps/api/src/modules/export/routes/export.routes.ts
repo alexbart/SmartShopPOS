@@ -3,9 +3,9 @@ import { ExportController } from '../controller/export.controller.js';
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 const exportController = new ExportController();
 
@@ -49,7 +49,11 @@ export const exportRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const result = await exportController.export(
-          { report: report as string, format: format as string, ...filters },
+          {
+            report: report as string,
+            format: format as import('../service/export.service.js').ExportFormat,
+            ...filters,
+          },
           orgId as string,
         );
 

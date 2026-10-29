@@ -46,6 +46,7 @@ export class SalesReportRepositoryImpl implements ISalesReportRepository {
         skip: (filters.page - 1) * filters.limit,
         take: filters.limit,
         select: {
+          id: true,
           number: true,
           total: true,
           createdAt: true,

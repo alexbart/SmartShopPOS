@@ -60,6 +60,10 @@ export const permissions = [
   { name: 'product.bulk.import', module: 'product', description: 'Import products in bulk' },
   { name: 'product.bulk.export', module: 'product', description: 'Export products' },
   { name: 'product.images.manage', module: 'product', description: 'Manage product images' },
+  // category
+  { name: 'categories:read', module: 'category', description: 'View categories' },
+  { name: 'categories:write', module: 'category', description: 'Create and edit categories' },
+  { name: 'categories:delete', module: 'category', description: 'Delete categories' },
   // inventory
   { name: 'inventory.read', module: 'inventory', description: 'View inventory levels' },
   { name: 'inventory.adjust', module: 'inventory', description: 'Adjust stock quantities' },

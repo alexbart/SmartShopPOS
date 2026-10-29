@@ -155,7 +155,7 @@ export class FinanceReportRepositoryImpl implements IFinanceReportRepository {
     const payments = await this._prisma.payment.findMany({
       where,
       select: {
-        paymentMethod: true,
+        method: true,
         amount: true,
         createdAt: true,
       },
@@ -164,7 +164,7 @@ export class FinanceReportRepositoryImpl implements IFinanceReportRepository {
     const byMethod: Record<string, { amount: number; count: number; date: string }> = {};
 
     payments.forEach((p) => {
-      const key = `${p.paymentMethod}|${p.createdAt.toISOString().split('T')[0]}`;
+      const key = `${p.method}|${p.createdAt.toISOString().split('T')[0]}`;
       if (!byMethod[key]) {
         byMethod[key] = { amount: 0, count: 0, date: p.createdAt.toISOString().split('T')[0] };
       }

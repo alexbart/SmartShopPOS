@@ -2,12 +2,12 @@ import 'reflect-metadata';
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { buildApp } from '../../../app.js';
 import type { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { WorkflowAction } from '../../../shared/constants/domain-constants.js';
 import { WorkflowRepositoryImpl } from '../../workflow/repository/workflow.repository.impl.js';
 import { WorkflowService } from '../../workflow/service/workflow.service.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 describe('Workflow & Approval integration tests', () => {
   let app: FastifyInstance;

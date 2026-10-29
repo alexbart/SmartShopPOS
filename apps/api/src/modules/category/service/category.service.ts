@@ -4,65 +4,56 @@ import type { UpdateCategoryCommand } from '../commands/update-category.command.
 import type { CategoryQuery } from '../repositories/category.repository.js';
 import type { CategoryResponse } from '../responses/category.response.js';
 import type { CategoryListResponse } from '../responses/category-list.response.js';
-import { BaseService } from '../../../shared/services/base.service.js';
+import { ConflictError, NotFoundError } from '../../../shared/errors/business-error.js';
 
-export class CategoryService extends BaseService<ICategoryRepository> {
-  constructor(repository: ICategoryRepository) {
-    super(repository);
-  }
+export class CategoryService {
+  constructor(protected readonly _repository: ICategoryRepository) {}
 
   async create(command: CreateCategoryCommand): Promise<CategoryResponse> {
     const existingByCode = await this._repository.findByCode(command.code, command.organizationId);
     if (existingByCode) {
-      throw new Error('Category code already exists.') as Error & {
-        code: string;
-        statusCode: number;
-      };
+      throw new ConflictError('Category code already exists.');
     }
 
-    const existingByName = await this._repository.findByCode(command.name, command.organizationId);
-    if (existingByName) {
-      throw new Error('Category name already exists.') as Error & {
-        code: string;
-        statusCode: number;
-      };
-    }
-
-    return (await super.create(command)) as CategoryResponse;
+    const id = await this._repository.create(command);
+    const entity = await this._repository.findById(id, command.organizationId);
+    if (!entity) throw new NotFoundError('Category not found after creation.');
+    return this.toResponse(entity);
   }
 
   async update(command: UpdateCategoryCommand): Promise<CategoryResponse> {
     const existing = await this._repository.findById(command.id, command.organizationId);
     if (!existing) {
-      throw new Error('Category not found.') as Error & { code: string; statusCode: number };
+      throw new NotFoundError('Category not found.');
     }
 
     if (command.code && command.code !== existing.code) {
       const duplicate = await this._repository.findByCode(command.code, command.organizationId);
       if (duplicate && duplicate.id !== command.id) {
-        throw new Error('Category code already exists.') as Error & {
-          code: string;
-          statusCode: number;
-        };
+        throw new ConflictError('Category code already exists.');
       }
     }
 
-    if (command.name && command.name !== existing.name) {
-      const duplicate = await this._repository.findByCode(command.name, command.organizationId);
-      if (duplicate && duplicate.id !== command.id) {
-        throw new Error('Category name already exists.') as Error & {
-          code: string;
-          statusCode: number;
-        };
-      }
-    }
+    await this._repository.update(command);
+    const updated = await this._repository.findById(command.id, command.organizationId);
+    if (!updated) throw new NotFoundError('Category not found after update.');
+    return this.toResponse(updated);
+  }
 
-    return (await super.update(command)) as CategoryResponse;
+  async findById(id: string, organizationId: string): Promise<CategoryResponse> {
+    const entity = await this._repository.findById(id, organizationId);
+    if (!entity) throw new NotFoundError('Category not found.');
+    return this.toResponse(entity);
+  }
+
+  async delete(id: string, organizationId: string): Promise<void> {
+    const entity = await this._repository.findById(id, organizationId);
+    if (!entity) throw new NotFoundError('Category not found.');
+    await this._repository.softDelete(id, organizationId);
   }
 
   async findAll(query: CategoryQuery): Promise<CategoryListResponse> {
     const { items, total } = await this._repository.findAll(query);
-
     return {
       items: items.map((category) => this.toResponse(category)),
       page: query.page,

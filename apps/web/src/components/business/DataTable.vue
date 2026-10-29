@@ -96,15 +96,14 @@ function handleRowClick(row: any, event: MouseEvent) {
             v-if="selectedRows !== undefined"
             class="no-row-click"
           >
-            <Checkbox
-              :value="true"
-              :checked="selectedRows?.some(r => r[rowKey] === row[rowKey])"
-              @update:checked="(checked: boolean) => {
-                if (checked) emit('selectRowKey', row[rowKey]);
-              }"
-              aria-label="Select row"
-              class="translate-y-0.5"
-            />
+<Checkbox
+                :checked="selectedRows?.some(r => r[rowKey] === row[rowKey])"
+                @update:checked="(checked: boolean) => {
+                  if (checked) emit('selectRowKey', row[rowKey]);
+                }"
+                aria-label="Select row"
+                class="translate-y-0.5"
+              />
           </TableCell>
           <TableCell
             v-for="col in columns"

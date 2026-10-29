@@ -10,7 +10,7 @@ import DataTable from '@/components/business/DataTable.vue';
 const router = useRouter();
 
 const searchQuery = ref('');
-const statusFilter = ref<string | null>(null);
+const statusFilter = ref<string | undefined>(undefined);
 
 const { pos, total, isLoading } = usePurchaseOrders(() => ({
   page: 1,

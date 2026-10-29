@@ -1,4 +1,7 @@
-import type { ReportFilter, ReportPaginatedResponse } from '../../../shared/types/report-filter.js';
+import type {
+  ReportFilter,
+  ReportPaginatedResponse,
+} from '../../../../shared/types/report-filter.js';
 
 export interface PurchaseReportFilters extends ReportFilter {
   supplierId?: string;

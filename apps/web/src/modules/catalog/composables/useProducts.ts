@@ -52,7 +52,7 @@ export function useProducts() {
       params.page = String(page.value);
       params.limit = '20';
       const res = await apiClient.get('/products', { params });
-      return res.data.data as PaginatedResponse<Product>;
+      return (res.data as { data: PaginatedResponse<Product> }).data as PaginatedResponse<Product>;
     },
   });
 

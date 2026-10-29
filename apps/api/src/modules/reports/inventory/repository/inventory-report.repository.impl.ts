@@ -10,7 +10,7 @@ import type {
   OutOfStockFilters,
   OutOfStockItem,
 } from './inventory-report.repository.js';
-import type { ReportPaginatedResponse } from '../../../shared/types/report-filter.js';
+import type { ReportPaginatedResponse } from '../../../../shared/types/report-filter.js';
 
 export class InventoryReportRepositoryImpl implements IInventoryReportRepository {
   constructor(private readonly _prisma: PrismaClient) {}

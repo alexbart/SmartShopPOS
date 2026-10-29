@@ -3,11 +3,11 @@ import { TaxController } from '../controllers/tax.controller.js';
 import { TaxService } from '../service/tax.service.js';
 import { TaxRepositoryImpl } from '../repositories/tax.repository.impl.js';
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export const taxRoutes: FastifyPluginAsync = async (fastify) => {
   const taxRepository = new TaxRepositoryImpl(prisma);

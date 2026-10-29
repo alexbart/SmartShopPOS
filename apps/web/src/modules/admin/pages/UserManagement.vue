@@ -114,7 +114,7 @@ function handleDeactivate(user: UserType) {
           <div class="flex gap-2 mt-3 pt-3 border-t">
             <button
               @click="handleResetPassword(user)"
-              :disabled="resetPasswordMutation.isPending"
+              :disabled="resetPasswordMutation.isPending.value"
               class="btn btn-outline btn-sm flex-1 touch-target"
             >
               <Key class="w-3 h-3 mr-1" />

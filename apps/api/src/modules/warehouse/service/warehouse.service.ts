@@ -113,7 +113,7 @@ export class WarehouseService {
     branchId: string;
     code: string;
     name: string;
-    description?: string;
+    description?: string | null;
     isDefault: boolean;
     isActive: boolean;
     createdAt: Date;
@@ -125,7 +125,7 @@ export class WarehouseService {
       branchId: warehouse.branchId,
       code: warehouse.code,
       name: warehouse.name,
-      description: warehouse.description,
+      description: warehouse.description ?? undefined,
       isDefault: warehouse.isDefault,
       isActive: warehouse.isActive,
       createdAt: warehouse.createdAt,

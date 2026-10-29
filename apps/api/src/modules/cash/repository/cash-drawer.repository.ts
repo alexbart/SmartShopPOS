@@ -26,10 +26,10 @@ export interface CashDrawerSummary {
 export interface CashMovementItem {
   id: string;
   type: string;
-  amount: number;
-  referenceType?: string;
-  notes?: string;
-  performedBy?: string;
+  amount: number | { toNumber(): number };
+  referenceType?: string | null;
+  notes?: string | null;
+  performedBy?: string | null;
   createdAt: Date;
 }
 
@@ -37,13 +37,23 @@ export interface ICashDrawerRepository {
   // eslint-disable-next-line no-unused-vars
   getCurrentSession(organizationId: string, branchId: string): Promise<CashDrawerSummary | null>;
   // eslint-disable-next-line no-unused-vars
-  openSession(organizationId: string, branchId: string, userId: string, openingFloat: number): Promise<CashDrawerSummary>;
+  openSession(
+    organizationId: string,
+    branchId: string,
+    userId: string,
+    openingFloat: number,
+  ): Promise<CashDrawerSummary>;
   // eslint-disable-next-line no-unused-vars
   closeSession(sessionId: string, countedCash: number): Promise<CashDrawerSummary>;
   // eslint-disable-next-line no-unused-vars
   addCashIn(sessionId: string, amount: number, notes?: string, performedBy?: string): Promise<void>;
   // eslint-disable-next-line no-unused-vars
-  addCashOut(sessionId: string, amount: number, notes?: string, performedBy?: string): Promise<void>;
+  addCashOut(
+    sessionId: string,
+    amount: number,
+    notes?: string,
+    performedBy?: string,
+  ): Promise<void>;
   // eslint-disable-next-line no-unused-vars
   getMovements(organizationId: string, sessionId: string): Promise<CashMovementItem[]>;
 }

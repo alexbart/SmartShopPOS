@@ -19,7 +19,7 @@ import CycleCountView from '@/modules/inventory/components/CycleCountView.vue';
 import CycleCountDialog from '@/modules/inventory/components/CycleCountDialog.vue';
 import { useWarehouses, useStockLevels, useStockMovements } from '@/modules/inventory/composables/useInventory';
 import { useProducts } from '@/modules/catalog/composables/useProducts';
-import type { Product } from '@/shared/types';
+import type { Product, StockLevel } from '@/shared/types';
 import { notification } from '@/stores/notification';
 
 const activeTab = ref('overview');
@@ -40,6 +40,7 @@ const tabs = [
 const warehouseId = () => selectedWarehouse.value ?? null;
 
 const { data: warehouses } = useWarehouses();
+const warehouseOptions = computed(() => warehouses.value ?? []);
 const { products: allProducts, isLoading: productsLoading } = useProducts();
 const { stockData, isLoading: stockLoading } = useStockLevels(warehouseId);
 const { data: movementsData } = useStockMovements(() => ({
@@ -49,7 +50,31 @@ const { data: movementsData } = useStockMovements(() => ({
 }));
 
 const products = computed(() => (allProducts.value ?? []) as Product[]);
-const stocks = computed(() => stockData?.value ?? []);
+const stocks = computed<StockLevel[]>(() =>
+  products.value.map((product) => {
+    const stock = stockData.value?.find((item) => item.productId === product.id);
+    const quantity = stock?.quantity ?? product.stockQuantity ?? 0;
+    const reservedQuantity = stock?.reservedQuantity ?? 0;
+    const available = quantity - reservedQuantity;
+
+    return {
+      productId: product.id,
+      productName: product.name,
+      productCode: product.code,
+      productSku: product.sku ?? '',
+      categoryName: product.categoryName,
+      brandName: product.brandName,
+      imageUrl: product.imageUrl,
+      sellingPrice: Number(product.sellingPrice),
+      costPrice: Number(product.costPrice),
+      quantity,
+      reservedQuantity,
+      available,
+      lowStockThreshold: product.lowStockThreshold ?? 0,
+      status: quantity <= 0 ? 'out_of_stock' : available <= (product.lowStockThreshold ?? 0) ? 'low_stock' : 'in_stock',
+    };
+  }),
+);
 const movements = computed(() => movementsData?.value?.items ?? []);
 
 const lowStockCount = computed(() => {
@@ -201,7 +226,7 @@ onMounted(() => {
 
     <template #filters>
       <InventoryFilters
-        :warehouses="warehouses"
+        :warehouses="warehouseOptions"
         :selected-warehouse="selectedWarehouse"
         @update:warehouse="selectedWarehouse = $event"
         @receive-goods="handleReceiveGoods"
@@ -235,7 +260,7 @@ onMounted(() => {
     <StockMovementTimeline
       v-else-if="activeTab === 'movements'"
       :movements="movements"
-      :warehouses="warehouses"
+      :warehouses="warehouseOptions"
       :selected-warehouse="selectedWarehouse"
     />
 
@@ -273,8 +298,8 @@ onMounted(() => {
     </template>
   </CatalogWorkspace>
 
-  <GoodsReceivingWizard v-model:open="showReceivingWizard" :warehouses="warehouses" />
-  <TransferStockDialog v-model:open="showTransferDialog" :warehouses="warehouses" :products="products" />
-  <AdjustmentDialog v-model:open="showAdjustmentDialog" :warehouses="warehouses" :products="products" />
+  <GoodsReceivingWizard v-model:open="showReceivingWizard" :warehouses="warehouseOptions" />
+  <TransferStockDialog v-model:open="showTransferDialog" :warehouses="warehouseOptions" :products="products" />
+  <AdjustmentDialog v-model:open="showAdjustmentDialog" :warehouses="warehouseOptions" :products="products" />
   <CycleCountDialog v-model:open="showCycleCount" :products="products" />
 </template>

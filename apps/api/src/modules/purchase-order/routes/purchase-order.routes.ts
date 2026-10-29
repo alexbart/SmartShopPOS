@@ -9,9 +9,9 @@ import { NumberSequenceService } from '../../../shared/services/number-sequence/
 import { StockService } from '../../inventory/services/stock.service.js';
 import { WorkflowService } from '../../workflow/service/workflow.service.js';
 import { WorkflowRepositoryImpl } from '../../workflow/repository/workflow.repository.impl.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 const unitOfWork = new UnitOfWork();
 const numberSequenceService = new NumberSequenceService(prisma);
 const stockService = new StockService(unitOfWork, prisma);

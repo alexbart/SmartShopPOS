@@ -132,21 +132,23 @@ export class ProductService {
     organizationId: string;
     name: string;
     code: string;
-    description?: string;
-    sku?: string;
-    barcode?: string;
-    categoryId?: string;
-    categoryName?: string;
-    brandId?: string;
-    brandName?: string;
+    description?: string | null;
+    sku?: string | null;
+    barcode?: string | null;
+    categoryId?: string | null;
+    categoryName?: string | null;
+    brandId?: string | null;
+    brandName?: string | null;
     unitId: string;
-    unitName?: string;
-    unitAbbreviation?: string;
-    taxId?: string;
-    taxName?: string;
+    unitName?: string | null;
+    unitAbbreviation?: string | null;
+    taxId?: string | null;
+    taxName?: string | null;
     taxRate?: number;
     costPrice: number;
     sellingPrice: number;
+    stockQuantity: number;
+    lowStockThreshold?: number;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -156,21 +158,23 @@ export class ProductService {
       organizationId: product.organizationId,
       name: product.name,
       code: product.code,
-      description: product.description,
-      sku: product.sku,
-      barcode: product.barcode,
-      categoryId: product.categoryId,
-      categoryName: product.categoryName,
-      brandId: product.brandId,
-      brandName: product.brandName,
+      description: product.description ?? undefined,
+      sku: product.sku ?? undefined,
+      barcode: product.barcode ?? undefined,
+      categoryId: product.categoryId ?? undefined,
+      categoryName: product.categoryName ?? undefined,
+      brandId: product.brandId ?? undefined,
+      brandName: product.brandName ?? undefined,
       unitId: product.unitId,
-      unitName: product.unitName,
-      unitAbbreviation: product.unitAbbreviation,
-      taxId: product.taxId,
-      taxName: product.taxName,
+      unitName: product.unitName ?? undefined,
+      unitAbbreviation: product.unitAbbreviation ?? undefined,
+      taxId: product.taxId ?? undefined,
+      taxName: product.taxName ?? undefined,
       taxRate: product.taxRate,
       costPrice: product.costPrice,
       sellingPrice: product.sellingPrice,
+      stockQuantity: product.stockQuantity,
+      lowStockThreshold: product.lowStockThreshold,
       isActive: product.isActive,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,

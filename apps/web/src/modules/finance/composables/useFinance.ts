@@ -18,6 +18,7 @@ export interface CashDrawerSession {
   openedAt: string;
   closedAt: string | null;
   movements?: CashMovement[];
+  session?: CashDrawerSession;
 }
 
 export interface CashMovement {
@@ -235,6 +236,7 @@ export function useExpenseCategories() {
 }
 
 export function useBanking() {
+  const queryClient = useQueryClient();
   const { data: accountsData, isLoading: accountsLoading } = useQuery({
     queryKey: ['bank-accounts'],
     queryFn: async () => {
@@ -275,6 +277,7 @@ export function useBanking() {
     deposits,
     accountsLoading,
     depositsLoading,
+    isLoading: computed(() => accountsLoading.value || depositsLoading.value),
     depositMutation,
   };
 }

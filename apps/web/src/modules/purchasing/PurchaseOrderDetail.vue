@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import {
@@ -67,7 +67,7 @@ function getItemProgress(item: any) {
     :action-button="canSubmit(po) ? {
       label: 'Submit for Approval',
       icon: Send,
-      loading: submitMutation.isPending,
+      loading: submitMutation.isPending.value,
       onClick: () => submitMutation.mutate(),
     } : undefined"
     :tabs="[]"
@@ -86,11 +86,11 @@ function getItemProgress(item: any) {
       <button
         v-if="canCancel(po)"
         @click="cancelMutation.mutate()"
-        :disabled="cancelMutation.isPending"
+        :disabled="cancelMutation.isPending.value"
         class="btn btn-outline btn-sm text-red-600 touch-target"
       >
         <Trash2 class="w-3 h-3 mr-1" />
-        {{ cancelMutation.isPending ? 'Cancelling...' : 'Cancel Order' }}
+        {{ cancelMutation.isPending.value ? 'Cancelling...' : 'Cancel Order' }}
       </button>
     </template>
 
@@ -320,4 +320,3 @@ function getItemProgress(item: any) {
     </div>
   </div>
 </template>
-

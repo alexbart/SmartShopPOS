@@ -34,13 +34,44 @@ export class ExcelFormatter {
       worksheet.addRow(values);
     }
 
-    worksheet.columns.forEach((col) => {
-      let max = 15;
-      col.eachCell((cell) => {
-        const len = cell.value ? cell.value.toString().length : 0;
-        if (len > max) max = len;
+    worksheet.columns?.forEach((col) => {
+      let maxLen = 15; // Minimum column width
+
+      // Fixed line 40 by adding optional chaining directly to eachCell invocation
+      col.eachCell?.({ includeEmpty: false }, (cell) => {
+        if (!cell) return;
+        const value = cell.value;
+        if (value === null || value === undefined) return;
+
+        let v: unknown = value;
+
+        // 1. Handle ExcelJS Formula or Rich Text objects
+        if (v && typeof v === 'object' && !(v instanceof Date)) {
+          if ('result' in v) {
+            v = (v as { result: unknown }).result;
+          } else if ('richText' in v) {
+            v = (v as { richText: { text: string }[] }).richText.map((t) => t.text).join('');
+          } else if ('text' in v) {
+            v = (v as { text: unknown }).text;
+          }
+        }
+
+        // 2. Format Dates cleanly
+        if (v instanceof Date) {
+          v = v.toLocaleDateString();
+        }
+
+        if (v !== null && v !== undefined) {
+          const lines = String(v).split('\n');
+          lines.forEach((line) => {
+            if (line.length > maxLen) {
+              maxLen = line.length;
+            }
+          });
+        }
       });
-      col.width = max + 2;
+
+      col.width = maxLen + 3;
     });
 
     const buffer = await workbook.xlsx.writeBuffer();

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { reactive, computed, ref } from 'vue';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
 import { useRouter, useRoute } from 'vue-router';
@@ -149,11 +149,10 @@ const total = computed(() =>
         <span class="text-xl font-bold">KES {{ total.toLocaleString() }}</span>
       </div>
 
-      <button type="submit" :disabled="saveMutation.isPending" class="btn btn-primary w-full">
-        <Save v-if="!saveMutation.isPending" class="w-4 h-4 mr-2" />
-        {{ saveMutation.isPending ? 'Saving...' : isEditing ? 'Update Order' : 'Save Purchase Order' }}
+      <button type="submit" :disabled="saveMutation.isPending.value" class="btn btn-primary w-full">
+        <Save v-if="!saveMutation.isPending.value" class="w-4 h-4 mr-2" />
+        {{ saveMutation.isPending.value ? 'Saving...' : isEditing ? 'Update Order' : 'Save Purchase Order' }}
       </button>
     </form>
   </WorkspaceShell>
 </template>
-

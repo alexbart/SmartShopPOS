@@ -9,7 +9,7 @@ import type {
   TopCustomerItem,
   TopCustomersFilters,
 } from './repository/customer-report.repository.js';
-import type { ReportPaginatedResponse } from '../../../../shared/types/report-filter.js';
+import type { ReportPaginatedResponse } from '../../../shared/types/report-filter.js';
 
 export class CustomerSummaryReportDefinition implements ReportDefinition<
   CustomerSummaryFilters,

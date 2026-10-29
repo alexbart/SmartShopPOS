@@ -11,6 +11,16 @@ export const envSchema = z.object({
   REDIS_URL: z.string().url().optional(),
   JWT_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
+  // Daraja — optional so the app starts without them; STK push will fail cleanly if absent
+  MPESA_CONSUMER_KEY: z.string().optional(),
+  MPESA_CONSUMER_SECRET: z.string().optional(),
+  MPESA_SHORTCODE: z.string().optional(),
+  MPESA_PASSKEY: z.string().optional(),
+  MPESA_CALLBACK_URL: z.string().url().optional(),
+  MPESA_TRANSACTION_TYPE: z
+    .enum(['CustomerPayBillOnline', 'CustomerBuyGoodsOnline'])
+    .default('CustomerPayBillOnline'),
+  MPESA_ENVIRONMENT: z.enum(['sandbox', 'production']).default('sandbox'),
 });
 
 export const env = envSchema.parse({
@@ -21,4 +31,11 @@ export const env = envSchema.parse({
   REDIS_URL: process.env.REDIS_URL,
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
+  MPESA_CONSUMER_KEY: process.env.MPESA_CONSUMER_KEY,
+  MPESA_CONSUMER_SECRET: process.env.MPESA_CONSUMER_SECRET,
+  MPESA_SHORTCODE: process.env.MPESA_SHORTCODE,
+  MPESA_PASSKEY: process.env.MPESA_PASSKEY,
+  MPESA_CALLBACK_URL: process.env.MPESA_CALLBACK_URL,
+  MPESA_TRANSACTION_TYPE: process.env.MPESA_TRANSACTION_TYPE,
+  MPESA_ENVIRONMENT: process.env.MPESA_ENVIRONMENT,
 });

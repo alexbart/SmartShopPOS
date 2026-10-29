@@ -5,14 +5,14 @@ import { SalesReportRepositoryImpl } from '../repository/sales-report.repository
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { registerSalesReport } from '../sales-report.registration.js';
 import { registerPurchaseReports } from '../purchase/purchase-report.registration.js';
 import { PurchaseReportRepositoryImpl } from '../purchase/repository/purchase-report.repository.impl.js';
 import { registerFinanceReports } from '../finance/finance-report-definitions.js';
 import { FinanceReportRepositoryImpl } from '../finance/repository/finance-report.repository.impl.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 registerSalesReport(new SalesReportRepositoryImpl(prisma));
 registerPurchaseReports(new PurchaseReportRepositoryImpl(prisma));

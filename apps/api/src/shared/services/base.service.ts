@@ -1,3 +1,6 @@
+import { NotFoundError } from '../errors/business-error.js';
+import type { IRepository } from '../repositories/base.repository.js';
+
 export abstract class BaseService<TRepository extends IRepository> {
   constructor(protected readonly _repository: TRepository) {}
 
@@ -9,10 +12,7 @@ export abstract class BaseService<TRepository extends IRepository> {
     const id = await this._repository.create(_command);
     const entity = await this._repository.findById(id, _command.organizationId);
     if (!entity) {
-      throw new Error('Entity not found after creation.') as Error & {
-        code: string;
-        statusCode: number;
-      };
+      throw new NotFoundError('Entity not found after creation.');
     }
     return this.toResponse(entity);
   }
@@ -22,15 +22,12 @@ export abstract class BaseService<TRepository extends IRepository> {
   ): Promise<unknown> {
     const existing = await this._repository.findById(_command.id, _command.organizationId);
     if (!existing) {
-      throw new Error('Entity not found.') as Error & { code: string; statusCode: number };
+      throw new NotFoundError('Entity not found.');
     }
     await this._repository.update(_command);
     const updated = await this._repository.findById(_command.id, _command.organizationId);
     if (!updated) {
-      throw new Error('Entity not found after update.') as Error & {
-        code: string;
-        statusCode: number;
-      };
+      throw new NotFoundError('Entity not found after update.');
     }
     return this.toResponse(updated);
   }
@@ -38,7 +35,7 @@ export abstract class BaseService<TRepository extends IRepository> {
   async findById(_id: string, _organizationId: string): Promise<unknown> {
     const entity = await this._repository.findById(_id, _organizationId);
     if (!entity) {
-      throw new Error('Entity not found.') as Error & { code: string; statusCode: number };
+      throw new NotFoundError('Entity not found.');
     }
     return this.toResponse(entity);
   }
@@ -46,7 +43,7 @@ export abstract class BaseService<TRepository extends IRepository> {
   async delete(_id: string, _organizationId: string): Promise<void> {
     const entity = await this._repository.findById(_id, _organizationId);
     if (!entity) {
-      throw new Error('Entity not found.') as Error & { code: string; statusCode: number };
+      throw new NotFoundError('Entity not found.');
     }
     await this._repository.softDelete(_id, _organizationId);
   }

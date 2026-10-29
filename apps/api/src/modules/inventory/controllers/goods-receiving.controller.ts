@@ -1,10 +1,11 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { StockService } from '../services/stock.service.js';
 import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { MovementTypes } from '../../../shared/constants/domain-constants.js';
+import type { AdjustStockDto } from '../dto/adjust-stock.dto.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export class GoodsReceivingController {
   private _stockService: StockService;
@@ -90,13 +91,7 @@ export class GoodsReceivingController {
   }
 
   async adjustStock(request: FastifyRequest, reply: FastifyReply) {
-    const body = request.body as {
-      warehouseId: string;
-      productId: string;
-      quantity: number;
-      type: 'ADJUSTMENT' | 'DAMAGE' | 'EXPIRED';
-      remarks?: string;
-    };
+    const body = request.body as AdjustStockDto;
 
     await this._stockService.adjust({
       organizationId: request.requestContext.organizationId,

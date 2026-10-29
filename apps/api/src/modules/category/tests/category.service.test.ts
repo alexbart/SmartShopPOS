@@ -1,15 +1,21 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type MockInstance } from 'vitest';
 import { CategoryService } from '../service/category.service.js';
 import type { ICategoryRepository } from '../repositories/category.repository.js';
 
-const createMockRepository = (): ICategoryRepository => ({
-  create: vi.fn(),
-  update: vi.fn(),
-  findById: vi.fn(),
-  findByCode: vi.fn(),
-  findAll: vi.fn(),
-  softDelete: vi.fn(),
-});
+type MockedRepository = {
+  [K in keyof ICategoryRepository]: MockInstance;
+};
+
+const createMockRepository = (): ICategoryRepository & MockedRepository =>
+  ({
+    create: vi.fn(),
+    update: vi.fn(),
+    findById: vi.fn(),
+    findByCode: vi.fn(),
+    findAll: vi.fn(),
+    softDelete: vi.fn(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }) as any;
 
 describe('CategoryService', () => {
   it('should create a category', async () => {

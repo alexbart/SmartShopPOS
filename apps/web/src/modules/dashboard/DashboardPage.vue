@@ -7,7 +7,7 @@ const { data: dashboard, isLoading } = useQuery({
   queryKey: ['dashboard'],
   queryFn: async () => {
     const response = await apiClient.get('/dashboard');
-    return response.data.data;
+    return (response.data as any).data;
   },
 });
 </script>
@@ -53,7 +53,7 @@ const { data: dashboard, isLoading } = useQuery({
           <div v-else class="space-y-2">
             <div v-for="s in dashboard.recentSales" :key="s.id" class="flex justify-between">
               <span class="text-sm">{{ s.customerName || 'Walk-in' }}</span>
-              <span class="text-sm font-medium text-gray-900">KES {{ s.total.toLocaleString() }}</span>
+              <span class="text-sm font-medium text-gray-900">KES {{ s.amount.toLocaleString() }}</span>
             </div>
           </div>
         </div>

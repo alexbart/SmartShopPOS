@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import type { PaymentMethod, SplitPayment } from '@/modules/sales/composables/types';
+import type { PaymentMethod, PaymentPayload, SplitPayment } from '@/modules/sales/composables/types';
 import {
   Banknote,
   CreditCard,
@@ -8,7 +8,7 @@ import {
   Landmark,
   Plus,
   X,
-  Check,
+  Loader2,
 } from '@lucide/vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'close'): void;
-  (e: 'pay', payload: { method: PaymentMethod; tendered?: number; change?: number; split?: SplitPayment[] }): void;
+  (e: 'pay', payload: PaymentPayload): void;
 }>();
 
 const selectedMethod = ref<PaymentMethod>('CASH');
@@ -35,35 +35,35 @@ const splitCard = ref(0);
 const splitMpesa = ref(0);
 const showSplit = ref(false);
 const mpesaPhone = ref('');
-const mpesaStatus = ref<'idle' | 'processing' | 'confirmed'>('idle');
+const mpesaInitiating = ref(false);
+const bankReference = ref('');
 
 const change = computed(() => Math.max(0, (tendered.value || 0) - props.total));
 const splitTotal = computed(() => splitCash.value + splitCard.value + splitMpesa.value);
 
 const paymentMethods = [
-  { value: 'CASH', label: 'Cash', icon: Banknote, desc: 'Cash payment' },
-  { value: 'CARD', label: 'Card', icon: CreditCard, desc: 'Card terminal' },
-  { value: 'MPESA', label: 'M-Pesa', icon: Smartphone, desc: 'Mobile money' },
-  { value: 'BANK', label: 'Bank', icon: Landmark, desc: 'Bank transfer' },
-  { value: 'SPLIT', label: 'Split', icon: Plus, desc: 'Multiple methods' },
+  { value: 'CASH', label: 'Cash', icon: Banknote },
+  { value: 'CARD', label: 'Card', icon: CreditCard },
+  { value: 'MPESA', label: 'M-Pesa', icon: Smartphone },
+  { value: 'BANK', label: 'Bank', icon: Landmark },
+  { value: 'SPLIT', label: 'Split', icon: Plus },
 ];
 
-const visibleMethods = computed(() => {
-  if (selectedMethod.value === 'SPLIT') {
-    return paymentMethods.filter((m) => m.value !== 'SPLIT');
-  }
-  return paymentMethods;
-});
+const visibleMethods = computed(() =>
+  selectedMethod.value === 'SPLIT'
+    ? paymentMethods.filter((m) => m.value !== 'SPLIT')
+    : paymentMethods,
+);
 
 function selectMethod(method: PaymentMethod) {
   selectedMethod.value = method;
-  if (method === 'SPLIT') showSplit.value = true;
-  else showSplit.value = false;
+  showSplit.value = method === 'SPLIT';
   tendered.value = 0;
   splitCash.value = 0;
   splitCard.value = 0;
   splitMpesa.value = 0;
-  mpesaStatus.value = 'idle';
+  mpesaInitiating.value = false;
+  bankReference.value = '';
 }
 
 function handlePay() {
@@ -71,25 +71,46 @@ function handlePay() {
     if (tendered.value < props.total) return;
     emit('pay', {
       method: 'CASH',
+      amount: props.total,
       tendered: tendered.value,
       change: change.value,
     });
+  } else if (selectedMethod.value === 'CARD') {
+    emit('pay', {
+      method: 'CARD',
+      amount: props.total,
+    });
+  } else if (selectedMethod.value === 'BANK') {
+    emit('pay', {
+      method: 'BANK',
+      amount: props.total,
+      reference: bankReference.value || undefined,
+    });
   } else if (selectedMethod.value === 'SPLIT') {
     if (splitTotal.value < props.total) return;
+    const splitEntries: SplitPayment[] = [
+      { method: 'CASH' as const, amount: splitCash.value },
+      { method: 'CARD' as const, amount: splitCard.value },
+      { method: 'MPESA' as const, amount: splitMpesa.value },
+    ].filter((s) => s.amount > 0);
     emit('pay', {
       method: 'SPLIT',
-      split: [
-        { method: 'CASH', amount: splitCash.value },
-        { method: 'CARD', amount: splitCard.value },
-        { method: 'MPESA', amount: splitMpesa.value },
-      ],
+      amount: props.total,
+      split: splitEntries,
     });
-  } else if (selectedMethod.value === 'MPESA') {
-    if (!mpesaPhone.value) return;
-    emit('pay', { method: 'MPESA', tendered: mpesaPhone.value as any });
-  } else {
-    emit('pay', { method: selectedMethod.value });
   }
+  // MPESA is handled via handleMpesaInitiate
+}
+
+function handleMpesaInitiate() {
+  if (!mpesaPhone.value || !mpesaPhone.value.startsWith('07')) return;
+  mpesaInitiating.value = true;
+  emit('pay', {
+    method: 'MPESA',
+    amount: props.total,
+    phone: mpesaPhone.value,
+  });
+  // Drawer will close via parent after emit
 }
 
 function resetAndClose() {
@@ -100,23 +121,16 @@ function resetAndClose() {
   splitMpesa.value = 0;
   showSplit.value = false;
   mpesaPhone.value = '';
-  mpesaStatus.value = 'idle';
+  mpesaInitiating.value = false;
+  bankReference.value = '';
   emit('close');
-}
-
-function handleMpesaPay() {
-  mpesaStatus.value = 'processing';
-  setTimeout(() => {
-    mpesaStatus.value = 'confirmed';
-    emit('pay', { method: 'MPESA', tendered: mpesaPhone.value as any });
-  }, 2000);
 }
 
 watch(
   () => props.total,
-  () => {
-    if (tendered.value < props.total) {
-      tendered.value = props.total;
+  (newTotal) => {
+    if (tendered.value < newTotal) {
+      tendered.value = newTotal;
     }
   },
 );
@@ -135,10 +149,7 @@ watch(
       >
         <div class="flex items-center justify-between p-4 border-b">
           <h3 class="text-lg font-semibold">Complete Payment</h3>
-          <button
-            @click="resetAndClose"
-            class="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
-          >
+          <button @click="resetAndClose" class="p-1.5 rounded-lg hover:bg-muted text-muted-foreground">
             <X class="w-5 h-5" />
           </button>
         </div>
@@ -146,11 +157,10 @@ watch(
         <div class="p-4 space-y-4 overflow-y-auto flex-1">
           <div class="text-center py-2">
             <p class="text-sm text-muted-foreground uppercase">Total Amount</p>
-            <p class="text-4xl font-bold text-primary mt-1">
-              KES {{ total.toLocaleString() }}
-            </p>
+            <p class="text-4xl font-bold text-primary mt-1">KES {{ total.toLocaleString() }}</p>
           </div>
 
+          <!-- Method selector -->
           <div v-if="!showSplit" class="grid grid-cols-5 gap-2">
             <button
               v-for="m in visibleMethods"
@@ -191,6 +201,7 @@ watch(
             </button>
           </div>
 
+          <!-- CASH -->
           <Card v-if="selectedMethod === 'CASH'" class="border-dashed">
             <CardContent class="pt-4 space-y-3">
               <div>
@@ -205,16 +216,15 @@ watch(
               </div>
               <div class="flex justify-between items-center">
                 <span class="text-muted-foreground">Change</span>
-                <span class="text-3xl font-bold text-green-600">
-                  KES {{ change.toLocaleString() }}
-                </span>
+                <span class="text-3xl font-bold text-green-600">KES {{ change.toLocaleString() }}</span>
               </div>
             </CardContent>
           </Card>
 
+          <!-- MPESA -->
           <Card v-else-if="selectedMethod === 'MPESA'" class="border-dashed">
             <CardContent class="pt-4 space-y-4">
-              <div v-if="mpesaStatus === 'idle'">
+              <div v-if="!mpesaInitiating">
                 <label class="block text-xs text-muted-foreground mb-1">Phone Number</label>
                 <Input
                   v-model="mpesaPhone"
@@ -222,63 +232,78 @@ watch(
                   placeholder="07XXXXXXXX"
                   class="text-center h-12"
                 />
+                <p class="text-xs text-muted-foreground mt-2">
+                  Amount: KES {{ total.toLocaleString() }}
+                </p>
                 <Button
                   class="w-full mt-3"
-                  :disabled="!mpesaPhone || !mpesaPhone.startsWith('07')"
-                  @click="handleMpesaPay"
+                  :disabled="!mpesaPhone || !mpesaPhone.startsWith('07') || mpesaInitiating"
+                  @click="handleMpesaInitiate"
                 >
-                  Send STK Push
+                  <Loader2 v-if="mpesaInitiating" class="w-4 h-4 mr-2 animate-spin" />
+                  {{ mpesaInitiating ? 'Sending STK Push...' : 'Send STK Push' }}
                 </Button>
               </div>
-              <div v-else-if="mpesaStatus === 'processing'" class="text-center py-6">
-                <div class="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
-                <p class="text-lg font-medium">Waiting for customer...</p>
-                <p class="text-sm text-muted-foreground">STK push sent to {{ mpesaPhone }}</p>
-              </div>
-              <div v-else-if="mpesaStatus === 'confirmed'" class="text-center py-6 text-green-600">
-                <Check class="w-10 h-10 mx-auto mb-2" />
-                <p class="font-bold">Payment Confirmed</p>
+              <div v-else class="text-center py-6">
+                <Loader2 class="w-8 h-8 mx-auto mb-3 animate-spin text-primary" />
+                <p class="text-lg font-medium">STK Push Sent</p>
+                <p class="text-sm text-muted-foreground">Waiting for customer to complete payment on {{ mpesaPhone }}</p>
+                <p class="text-xs text-muted-foreground mt-1">KES {{ total.toLocaleString() }}</p>
               </div>
             </CardContent>
           </Card>
 
+          <!-- CARD -->
           <Card v-else-if="selectedMethod === 'CARD'" class="border-dashed">
             <CardContent class="pt-4 text-center py-6">
               <CreditCard class="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
               <p class="font-medium mb-1">Terminal Connected</p>
               <p class="text-sm text-muted-foreground">Tap or insert card to process payment</p>
+              <p class="text-sm font-semibold mt-2">KES {{ total.toLocaleString() }}</p>
             </CardContent>
           </Card>
 
+          <!-- BANK -->
           <Card v-else-if="selectedMethod === 'BANK'" class="border-dashed">
             <CardContent class="pt-4 space-y-3">
-              <label class="block text-xs text-muted-foreground">Reference Number</label>
-              <Input type="text" placeholder="Enter bank transfer reference" class="h-10" />
+              <label class="block text-xs text-muted-foreground">Reference Number (optional)</label>
+              <Input
+                v-model="bankReference"
+                type="text"
+                placeholder="Enter bank transfer reference"
+                class="h-10"
+              />
+              <p class="text-xs text-muted-foreground">Amount: KES {{ total.toLocaleString() }}</p>
             </CardContent>
           </Card>
 
+          <!-- SPLIT -->
           <Card v-else-if="selectedMethod === 'SPLIT'" class="border-dashed">
             <CardContent class="pt-4 space-y-3">
               <div class="space-y-2">
                 <div class="flex items-center gap-2">
-                  <Banknote class="w-4 h-4 text-muted-foreground" />
-                  <label class="text-xs text-muted-foreground">Cash</label>
-                  <Input v-model.number="splitCash" type="number" placeholder="0" class="flex-1 h-8" />
+                  <Banknote class="w-4 h-4 text-muted-foreground shrink-0" />
+                  <label class="text-xs text-muted-foreground w-12">Cash</label>
+                  <Input v-model.number="splitCash" type="number" placeholder="0" class="flex-1 h-8" min="0" />
                 </div>
                 <div class="flex items-center gap-2">
-                  <CreditCard class="w-4 h-4 text-muted-foreground" />
-                  <label class="text-xs text-muted-foreground">Card</label>
-                  <Input v-model.number="splitCard" type="number" placeholder="0" class="flex-1 h-8" />
+                  <CreditCard class="w-4 h-4 text-muted-foreground shrink-0" />
+                  <label class="text-xs text-muted-foreground w-12">Card</label>
+                  <Input v-model.number="splitCard" type="number" placeholder="0" class="flex-1 h-8" min="0" />
                 </div>
                 <div class="flex items-center gap-2">
-                  <Smartphone class="w-4 h-4 text-muted-foreground" />
-                  <label class="text-xs text-muted-foreground">M-Pesa</label>
-                  <Input v-model.number="splitMpesa" type="number" placeholder="0" class="flex-1 h-8" />
+                  <Smartphone class="w-4 h-4 text-muted-foreground shrink-0" />
+                  <label class="text-xs text-muted-foreground w-12">M-Pesa</label>
+                  <Input v-model.number="splitMpesa" type="number" placeholder="0" class="flex-1 h-8" min="0" />
                 </div>
               </div>
-              <div class="flex justify-between text-sm pt-2">
-                <span class="text-muted-foreground">Total entered</span>
-                <span class="font-medium">KES {{ splitTotal.toLocaleString() }}</span>
+              <div class="flex justify-between text-sm pt-2 border-t">
+                <span class="text-muted-foreground">Entered</span>
+                <span
+                  :class="splitTotal >= total ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'"
+                >
+                  KES {{ splitTotal.toLocaleString() }} / {{ total.toLocaleString() }}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -292,11 +317,11 @@ watch(
               Cancel
             </Button>
             <Button
+              v-if="selectedMethod !== 'MPESA'"
               class="flex-1 touch-target h-12 text-lg"
               :disabled="
                 (selectedMethod === 'CASH' && tendered < total) ||
-                (selectedMethod === 'SPLIT' && splitTotal < total) ||
-                (selectedMethod === 'MPESA' && !mpesaPhone)
+                (selectedMethod === 'SPLIT' && splitTotal < total)
               "
               @click="handlePay"
             >

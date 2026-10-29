@@ -8,19 +8,19 @@ const theme = useThemeStore();
 
 const form = ref({
   businessName: theme.theme?.businessName || 'SmartShopPOS',
-  primaryColor: theme.theme?.primaryColor || '#3b82f6',
-  secondaryColor: theme.theme?.secondaryColor || '#64748a',
-  accentColor: theme.theme?.accentColor || '#10b981',
-  sidebarStyle: theme.theme?.sidebarStyle || 'full',
-  roundedCorners: theme.theme?.roundedCorners ?? true,
-  cardRadius: theme.theme?.cardRadius || '0.5rem',
-  fontPrimary: theme.theme?.fontPrimary || 'Inter',
+  primaryColor: theme.theme.primary,
+  secondaryColor: theme.theme.secondary,
+  accentColor: theme.theme.accent,
+  sidebarStyle: 'full',
+  roundedCorners: true,
+  cardRadius: theme.theme.radius,
+  fontPrimary: theme.theme.fontFamily,
 });
 
 const primaryPresets = ['#3b82f6', '#8b5cf6', '#ef4444', '#f59e0b', '#10b981', '#06b6d4'];
 const secondaryPresets = ['#64748a', '#94a3b8', '#cbd5e1', '#94a3b8', '#cbd5e1', '#94a3b8'];
 
-watch(primaryColor, (val) => {
+watch(() => form.value.primaryColor, (val) => {
   document.documentElement.style.setProperty('--color-primary', hexToHsl(val));
 });
 
@@ -48,22 +48,17 @@ function hexToHsl(hex: string) {
 }
 
 function handleSave() {
-  theme.setTheme({
+  theme.updateTheme({
     businessName: form.value.businessName,
-    primaryColor: form.value.primaryColor,
-    secondaryColor: form.value.secondaryColor,
-    accentColor: form.value.accentColor,
-    sidebarStyle: form.value.sidebarStyle,
-    roundedCorners: form.value.roundedCorners,
-    cardRadius: form.value.cardRadius,
-    fontPrimary: form.value.fontPrimary,
+    primary: form.value.primaryColor,
+    secondary: form.value.secondaryColor,
+    accent: form.value.accentColor,
+    radius: form.value.cardRadius,
+    fontFamily: form.value.fontPrimary,
   });
   theme.loadTheme();
 }
 
-function primaryColor() {
-  return form.value.primaryColor;
-}
 </script>
 
 <template>

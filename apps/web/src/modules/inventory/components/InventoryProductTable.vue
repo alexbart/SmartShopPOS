@@ -48,7 +48,7 @@ const sortedProducts = computed(() => {
       return aVal === bVal ? 0 : aVal < bVal ? -1 : 1;
     }
     if (aVal !== bVal) {
-      return aVal - bVal;
+      return Number(aVal) - Number(bVal);
     }
     return a.name.localeCompare(b.name);
   });

@@ -1,11 +1,23 @@
-import { reportRegistry, type ReportDefinition, type ReportColumn, type ReportPaginatedResponse } from '../../../shared/report-registry.js';
-import type { FinanceReportRepositoryImpl } from '../repository/finance-report.repository.impl.js';
-import type { FinanceReportFilters } from '../repository/finance-report.repository.js';
-import type { DailyCashSummaryRow, ExpenseReportRow, ProfitSummaryRow, CashDrawerVarianceRow, SalesByPaymentMethodRow } from '../repository/finance-report.repository.js';
+import {
+  reportRegistry,
+  type ReportDefinition,
+  type ReportColumn,
+  type ReportPaginatedResponse,
+} from '../../../shared/report-registry.js';
+import type { FinanceReportRepositoryImpl } from './repository/finance-report.repository.impl.js';
+import type { FinanceReportFilters } from './repository/finance-report.repository.js';
+import type {
+  DailyCashSummaryRow,
+  ExpenseReportRow,
+  ProfitSummaryRow,
+  CashDrawerVarianceRow,
+  SalesByPaymentMethodRow,
+} from './repository/finance-report.repository.js';
 
-export class DailyCashSummaryReportDefinition
-  implements ReportDefinition<FinanceReportFilters, ReportPaginatedResponse<DailyCashSummaryRow>>
-{
+export class DailyCashSummaryReportDefinition implements ReportDefinition<
+  FinanceReportFilters,
+  ReportPaginatedResponse<DailyCashSummaryRow>
+> {
   name = 'daily-cash-summary';
   title = 'Daily Cash Summary';
   columns: ReportColumn[] = [
@@ -24,15 +36,18 @@ export class DailyCashSummaryReportDefinition
   constructor(private readonly _repository: FinanceReportRepositoryImpl) {}
 
   // eslint-disable-next-line no-unused-vars
-  async execute(filters: FinanceReportFilters): Promise<ReportPaginatedResponse<DailyCashSummaryRow>> {
+  async execute(
+    filters: FinanceReportFilters,
+  ): Promise<ReportPaginatedResponse<DailyCashSummaryRow>> {
     const data = await this._repository.dailyCashSummary(filters);
     return { data, total: data.length };
   }
 }
 
-export class ExpenseReportDefinition
-  implements ReportDefinition<FinanceReportFilters, ReportPaginatedResponse<ExpenseReportRow>>
-{
+export class ExpenseReportDefinition implements ReportDefinition<
+  FinanceReportFilters,
+  ReportPaginatedResponse<ExpenseReportRow>
+> {
   name = 'expense-report';
   title = 'Expense Report';
   columns: ReportColumn[] = [
@@ -52,9 +67,10 @@ export class ExpenseReportDefinition
   }
 }
 
-export class ProfitSummaryReportDefinition
-  implements ReportDefinition<FinanceReportFilters, ReportPaginatedResponse<ProfitSummaryRow>>
-{
+export class ProfitSummaryReportDefinition implements ReportDefinition<
+  FinanceReportFilters,
+  ReportPaginatedResponse<ProfitSummaryRow>
+> {
   name = 'profit-summary';
   title = 'Profit Summary';
   columns: ReportColumn[] = [
@@ -75,9 +91,10 @@ export class ProfitSummaryReportDefinition
   }
 }
 
-export class CashDrawerVarianceReportDefinition
-  implements ReportDefinition<FinanceReportFilters, ReportPaginatedResponse<CashDrawerVarianceRow>>
-{
+export class CashDrawerVarianceReportDefinition implements ReportDefinition<
+  FinanceReportFilters,
+  ReportPaginatedResponse<CashDrawerVarianceRow>
+> {
   name = 'cash-drawer-variance';
   title = 'Cash Drawer Variance';
   columns: ReportColumn[] = [
@@ -91,15 +108,18 @@ export class CashDrawerVarianceReportDefinition
   constructor(private readonly _repository: FinanceReportRepositoryImpl) {}
 
   // eslint-disable-next-line no-unused-vars
-  async execute(filters: FinanceReportFilters): Promise<ReportPaginatedResponse<CashDrawerVarianceRow>> {
+  async execute(
+    filters: FinanceReportFilters,
+  ): Promise<ReportPaginatedResponse<CashDrawerVarianceRow>> {
     const data = await this._repository.cashDrawerVariance(filters);
     return { data, total: data.length };
   }
 }
 
-export class SalesByPaymentMethodReportDefinition
-  implements ReportDefinition<FinanceReportFilters, ReportPaginatedResponse<SalesByPaymentMethodRow>>
-{
+export class SalesByPaymentMethodReportDefinition implements ReportDefinition<
+  FinanceReportFilters,
+  ReportPaginatedResponse<SalesByPaymentMethodRow>
+> {
   name = 'sales-by-payment-method';
   title = 'Sales by Payment Method';
   columns: ReportColumn[] = [
@@ -112,7 +132,9 @@ export class SalesByPaymentMethodReportDefinition
   constructor(private readonly _repository: FinanceReportRepositoryImpl) {}
 
   // eslint-disable-next-line no-unused-vars
-  async execute(filters: FinanceReportFilters): Promise<ReportPaginatedResponse<SalesByPaymentMethodRow>> {
+  async execute(
+    filters: FinanceReportFilters,
+  ): Promise<ReportPaginatedResponse<SalesByPaymentMethodRow>> {
     const data = await this._repository.salesByPaymentMethod(filters);
     return { data, total: data.length };
   }

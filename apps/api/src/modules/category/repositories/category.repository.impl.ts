@@ -1,39 +1,60 @@
 import { PrismaClient } from '@prisma/client';
-import type { ICategoryRepository } from './category.repository.js';
+import type {
+  ICategoryRepository,
+  CreateCategoryModel,
+  UpdateCategoryModel,
+  CategoryQuery,
+} from './category.repository.js';
+import { Prisma } from '@prisma/client';
+import { ConflictError } from '../../../shared/errors/business-error.js';
 
 export class CategoryRepositoryImpl implements ICategoryRepository {
   constructor(private readonly _prisma: PrismaClient) {}
 
-  async create(_model: Parameters<ICategoryRepository['create']>[0]) {
-    const category = await this._prisma.category.create({
-      data: {
-        organizationId: _model.organizationId,
-        name: _model.name,
-        code: _model.code,
-        description: _model.description,
-        color: _model.color,
-        createdBy: _model.createdBy,
-      },
-      select: { id: true },
-    });
+  async create(_model: CreateCategoryModel) {
+    try {
+      const category = await this._prisma.category.create({
+        data: {
+          organizationId: _model.organizationId,
+          name: _model.name,
+          code: _model.code,
+          description: _model.description,
+          color: _model.color,
+          createdBy: _model.createdBy,
+        },
+        select: { id: true },
+      });
 
-    return category.id;
+      return category.id;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictError('Category code already exists.');
+      }
+      throw error;
+    }
   }
 
-  async update(_model: Parameters<ICategoryRepository['update']>[0]) {
-    const data: Record<string, unknown> = {};
+  async update(_model: UpdateCategoryModel) {
+    try {
+      const data: Record<string, unknown> = {};
 
-    if (_model.name !== undefined) data.name = _model.name;
-    if (_model.code !== undefined) data.code = _model.code;
-    if (_model.description !== undefined) data.description = _model.description;
-    if (_model.color !== undefined) data.color = _model.color;
-    if (_model.isActive !== undefined) data.isActive = _model.isActive;
-    if (_model.updatedBy !== undefined) data.updatedBy = _model.updatedBy;
+      if (_model.name !== undefined) data.name = _model.name;
+      if (_model.code !== undefined) data.code = _model.code;
+      if (_model.description !== undefined) data.description = _model.description;
+      if (_model.color !== undefined) data.color = _model.color;
+      if (_model.isActive !== undefined) data.isActive = _model.isActive;
+      if (_model.updatedBy !== undefined) data.updatedBy = _model.updatedBy;
 
-    await this._prisma.category.update({
-      where: { id: _model.id },
-      data,
-    });
+      await this._prisma.category.update({
+        where: { id: _model.id },
+        data,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictError('Category code already exists.');
+      }
+      throw error;
+    }
   }
 
   async findById(_id: string, _organizationId: string) {
@@ -74,7 +95,7 @@ export class CategoryRepositoryImpl implements ICategoryRepository {
     return category;
   }
 
-  async findAll(_query: Parameters<ICategoryRepository['findAll']>[0]) {
+  async findAll(_query: CategoryQuery) {
     const where: Record<string, unknown> = {
       organizationId: _query.organizationId,
       deletedAt: null,

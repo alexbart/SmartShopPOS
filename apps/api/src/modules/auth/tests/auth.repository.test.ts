@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { IAuthRepository } from '../repositories/auth.repository.js';
 import type {
   FindOrganizationByNameQuery,
@@ -14,29 +14,29 @@ import { AuthRepositoryImpl } from '../repositories/auth.repository.impl.js';
 
 type MockPrisma = {
   organization: {
-    findFirst: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
+    findFirst: MockInstance;
+    create: MockInstance;
   };
   branch: {
-    create: ReturnType<typeof vi.fn>;
+    create: MockInstance;
   };
   user: {
-    findFirst: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
+    findFirst: MockInstance;
+    create: MockInstance;
   };
   role: {
-    findFirst: ReturnType<typeof vi.fn>;
+    findFirst: MockInstance;
   };
   userRole: {
-    create: ReturnType<typeof vi.fn>;
+    create: MockInstance;
   };
   session: {
-    findFirst: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
+    findFirst: MockInstance;
+    create: MockInstance;
+    update: MockInstance;
   };
   auditLog: {
-    create: ReturnType<typeof vi.fn>;
+    create: MockInstance;
   };
 };
 
@@ -69,7 +69,9 @@ const createMockPrisma = (): MockPrisma => ({
 });
 
 const createMockRepository = (prisma: MockPrisma): IAuthRepository => {
-  return new AuthRepositoryImpl(prisma as unknown as Parameters<typeof AuthRepositoryImpl>[0]);
+  return new AuthRepositoryImpl(
+    prisma as unknown as ConstructorParameters<typeof AuthRepositoryImpl>[0],
+  );
 };
 
 describe('AuthRepository', () => {

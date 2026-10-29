@@ -2,12 +2,15 @@ import { FastifyPluginAsync } from 'fastify';
 import { CategoryController } from '../controllers/category.controller.js';
 import { CategoryService } from '../service/category.service.js';
 import { CategoryRepositoryImpl } from '../repositories/category.repository.impl.js';
-import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
-import { PrismaClient } from '@prisma/client';
+import {
+  createAuthenticateHook,
+  createAuthorizeHook,
+} from '../../auth/middleware/auth.middleware.js';
+import { getPrisma } from '../../../shared/database/prisma.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export const categoryRoutes: FastifyPluginAsync = async (fastify) => {
   const categoryRepository = new CategoryRepositoryImpl(prisma);
@@ -18,7 +21,7 @@ export const categoryRoutes: FastifyPluginAsync = async (fastify) => {
   const authenticateHook = createAuthenticateHook(jwtService, authRepository);
 
   fastify.get('/', {
-    preHandler: [authenticateHook],
+    preHandler: [authenticateHook, createAuthorizeHook(['categories:read'])],
     schema: {
       tags: ['categories'],
       description: 'List categories',
@@ -50,15 +53,10 @@ export const categoryRoutes: FastifyPluginAsync = async (fastify) => {
                     },
                   },
                 },
-                pagination: {
-                  type: 'object',
-                  properties: {
-                    page: { type: 'number' },
-                    limit: { type: 'number' },
-                    total: { type: 'number' },
-                    pages: { type: 'number' },
-                  },
-                },
+                page: { type: 'number' },
+                limit: { type: 'number' },
+                total: { type: 'number' },
+                pages: { type: 'number' },
               },
             },
           },
@@ -82,7 +80,7 @@ export const categoryRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.get('/:id', {
-    preHandler: [authenticateHook],
+    preHandler: [authenticateHook, createAuthorizeHook(['categories:read'])],
     schema: {
       tags: ['categories'],
       description: 'Get category by ID',
@@ -142,7 +140,7 @@ export const categoryRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.post('/', {
-    preHandler: [authenticateHook],
+    preHandler: [authenticateHook, createAuthorizeHook(['categories:write'])],
     schema: {
       tags: ['categories'],
       description: 'Create category',
@@ -213,7 +211,7 @@ export const categoryRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.patch('/:id', {
-    preHandler: [authenticateHook],
+    preHandler: [authenticateHook, createAuthorizeHook(['categories:write'])],
     schema: {
       tags: ['categories'],
       description: 'Update category',
@@ -297,7 +295,7 @@ export const categoryRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.delete('/:id', {
-    preHandler: [authenticateHook],
+    preHandler: [authenticateHook, createAuthorizeHook(['categories:delete'])],
     schema: {
       tags: ['categories'],
       description: 'Delete category',

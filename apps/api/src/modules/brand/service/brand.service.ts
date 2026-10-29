@@ -81,7 +81,9 @@ export class BrandService {
   }
 
   async findAll(query: BrandQuery): Promise<BrandListResponse> {
-    const { items, total } = await this._repository.findAll(query);
+    const result = await this._repository.findAll(query);
+    const items = Array.isArray(result) ? result : result.items;
+    const total = Array.isArray(result) ? result.length : result.total;
 
     return {
       items: items.map((brand) => this.toResponse(brand)),
@@ -106,9 +108,9 @@ export class BrandService {
     organizationId: string;
     name: string;
     code: string;
-    description?: string;
-    logoUrl?: string;
-    website?: string;
+    description?: string | null;
+    logoUrl?: string | null;
+    website?: string | null;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -118,9 +120,9 @@ export class BrandService {
       organizationId: brand.organizationId,
       name: brand.name,
       code: brand.code,
-      description: brand.description,
-      logoUrl: brand.logoUrl,
-      website: brand.website,
+      description: brand.description ?? undefined,
+      logoUrl: brand.logoUrl ?? undefined,
+      website: brand.website ?? undefined,
       isActive: brand.isActive,
       createdAt: brand.createdAt,
       updatedAt: brand.updatedAt,

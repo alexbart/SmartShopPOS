@@ -48,12 +48,12 @@ export interface SupplierEntity {
   organizationId: string;
   code: string;
   name: string;
-  contactPerson?: string;
-  email?: string;
-  phone?: string;
-  taxPin?: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  taxPin?: string | null;
   creditLimit?: number;
-  paymentTerms?: string;
+  paymentTerms?: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

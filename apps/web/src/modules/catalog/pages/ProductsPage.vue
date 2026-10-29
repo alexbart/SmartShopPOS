@@ -73,7 +73,7 @@ const { data: categoriesData } = useQuery({
   queryKey: ['categories'],
   queryFn: async () => {
     const res = await apiClient.get('/categories');
-    return res.data.data.items as Category[];
+    return (res.data as { data: { items: Category[] } }).data.items as Category[];
   },
 });
 
@@ -81,7 +81,7 @@ const { data: brandsData } = useQuery({
   queryKey: ['brands'],
   queryFn: async () => {
     const res = await apiClient.get('/brands');
-    return res.data.data.items as Brand[];
+    return (res.data as { data: { items: Brand[] } }).data.items as Brand[];
   },
 });
 

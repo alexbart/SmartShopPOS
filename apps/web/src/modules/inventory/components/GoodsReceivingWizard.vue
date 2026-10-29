@@ -296,7 +296,7 @@ function handleClose() {
             <Button
               v-else
               @click="confirmReceiving"
-              :loading="receiveMutation.isPending"
+              :loading="receiveMutation.isPending.value"
             >
               Receive Goods
             </Button>

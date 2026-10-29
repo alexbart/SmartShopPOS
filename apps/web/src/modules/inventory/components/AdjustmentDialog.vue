@@ -35,6 +35,12 @@ const adjustmentNotes = ref('');
 
 const adjustMutation = useAdjustStock();
 
+function setAdjustmentType(type: string) {
+  if (type === 'ADJUSTMENT' || type === 'DAMAGE' || type === 'EXPIRED') {
+    adjustmentType.value = type;
+  }
+}
+
 const reasonOptions = [
   { value: 'DAMAGE', label: 'Damaged goods' },
   { value: 'EXPIRED', label: 'Expired products' },
@@ -190,7 +196,7 @@ function canConfirm() {
                         <button
                           v-for="type in ['ADJUSTMENT', 'DAMAGE', 'EXPIRED']"
                           :key="type"
-                          @click="adjustmentType = type as typeof adjustmentType.value"
+                          @click="setAdjustmentType(type)"
                           :class="[
                             'p-2 rounded border text-sm transition-all',
                             adjustmentType === type
@@ -265,7 +271,7 @@ function canConfirm() {
           <Button
             @click="confirmAdjustment"
             :disabled="!canConfirm()"
-            :loading="adjustMutation.isPending"
+            :loading="adjustMutation.isPending.value"
           >
             <AlertCircle class="w-4 h-4 mr-2" />
             Record Adjustment

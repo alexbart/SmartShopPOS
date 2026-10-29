@@ -89,7 +89,7 @@ export class BankingRepositoryImpl implements IBankingRepository {
   }
 
   async createDeposit(command: CreateDepositCommand): Promise<DepositEntity> {
-    return this._prisma.$transaction(async (tx) => {
+    return (this._prisma as PrismaClient).$transaction(async (tx) => {
       const session = await tx.cashDrawerSession.findFirst({
         where: { id: command.cashDrawerSessionId, status: 'OPEN' },
       });
@@ -161,7 +161,7 @@ export class BankingRepositoryImpl implements IBankingRepository {
     bankName: string;
     accountNumber: string;
     accountType: string;
-    balance: number;
+    balance: number | { toNumber(): number };
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;

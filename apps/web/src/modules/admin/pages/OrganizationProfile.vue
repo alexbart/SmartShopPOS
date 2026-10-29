@@ -84,9 +84,9 @@ function handleSave() {
             <button v-if="!editing" @click="editing = true" class="btn btn-outline touch-target">
               Edit
             </button>
-            <button v-if="editing" @click="handleSave" :disabled="updateMutation.isPending" class="btn btn-primary touch-target">
+            <button v-if="editing" @click="handleSave" :disabled="updateMutation.isPending.value" class="btn btn-primary touch-target">
               <Save class="w-4 h-4 mr-2" />
-              {{ updateMutation.isPending ? 'Saving...' : 'Save' }}
+              {{ updateMutation.isPending.value ? 'Saving...' : 'Save' }}
             </button>
           </div>
         </div>

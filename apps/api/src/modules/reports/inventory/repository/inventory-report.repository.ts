@@ -1,4 +1,7 @@
-import type { ReportFilter, ReportPaginatedResponse } from '../../../shared/types/report-filter.js';
+import type {
+  ReportFilter,
+  ReportPaginatedResponse,
+} from '../../../../shared/types/report-filter.js';
 
 export interface StockReportFilters extends ReportFilter {
   warehouseId?: string;

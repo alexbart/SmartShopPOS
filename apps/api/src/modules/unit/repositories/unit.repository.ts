@@ -42,8 +42,8 @@ export interface UnitEntity {
   organizationId: string;
   name: string;
   code: string;
-  description?: string;
-  abbreviation?: string;
+  description?: string | null;
+  abbreviation?: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

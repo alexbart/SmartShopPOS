@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { Shield, Plus, Save, Trash2, Users } from '@lucide/vue';
+import { ref } from 'vue';
+import { Shield, Plus, Save, Users } from '@lucide/vue';
 import { useRoles } from '../composables/useAdmin.js';
+import type { Role } from '../composables/types.js';
 import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
 
 const { roles, allPermissionsGrouped, createRoleMutation, updateRoleMutation } = useRoles();
 
-const editingRole = ref(null);
+const editingRole = ref<Role | null>(null);
 const showNewRole = ref(false);
 const newRoleName = ref('');
 const newRoleDescription = ref('');
 const selectedPermissions = ref<Set<string>>(new Set());
 
-function startEdit(role) {
+function startEdit(role: Role) {
   editingRole.value = { ...role };
   selectedPermissions.value = new Set((role.permissions || []).map((p: any) => p.id || p));
 }
@@ -90,8 +91,8 @@ function saveNewRole() {
         </div>
         <PermissionGrid :permissions="allPermissionsGrouped" :selected="selectedPermissions" @toggle="togglePermission" />
         <div class="flex gap-2">
-          <button @click="saveNewRole" :disabled="createRoleMutation.isPending || !newRoleName" class="btn btn-primary">
-            {{ createRoleMutation.isPending ? 'Creating...' : 'Create Role' }}
+          <button @click="saveNewRole" :disabled="createRoleMutation.isPending.value || !newRoleName" class="btn btn-primary">
+            {{ createRoleMutation.isPending.value ? 'Creating...' : 'Create Role' }}
           </button>
           <button @click="showNewRole = false" class="btn btn-outline">Cancel</button>
         </div>
@@ -128,7 +129,7 @@ function saveNewRole() {
             </div>
             <PermissionGrid :permissions="allPermissionsGrouped" :selected="selectedPermissions" @toggle="togglePermission" />
             <div class="flex gap-2">
-              <button @click="saveRole" :disabled="updateRoleMutation.isPending" class="btn btn-primary">
+              <button @click="saveRole" :disabled="updateRoleMutation.isPending.value" class="btn btn-primary">
                 <Save class="w-3 h-3 mr-1" />
                 Save
               </button>

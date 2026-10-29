@@ -2,7 +2,7 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/vue-query';
 import { useRouter, useRoute } from 'vue-router';
-import { Save, ChevronLeft, ChevronRight, Package, X } from '@lucide/vue';
+import { Save, ChevronLeft, ChevronRight, Package, X, AlertTriangle } from '@lucide/vue';
 import { useForm } from 'vee-validate';
 import { toTypedSchema } from '@vee-validate/zod';
 import { z } from 'zod';
@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import ImageUploader from '@/modules/catalog/components/ImageUploader.vue';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import AdjustStockDialog from '@/modules/catalog/components/AdjustStockDialog.vue';
+import { useInventory } from '@/modules/catalog/composables/useInventory';
 
 const steps = [
   { key: 1, title: 'Basic Info', description: 'Name, SKU, barcode' },
@@ -30,7 +32,6 @@ const route = useRoute();
 const queryClient = useQueryClient();
 const activeStep = ref(1);
 const isEditing = computed(() => !!route.params.id);
-const productId = computed(() => route.params.id as string | undefined);
 
 const productSchema = toTypedSchema(
   z.object({
@@ -71,39 +72,73 @@ const form = useForm({
   },
 });
 
+interface Category { id: string; name: string; code: string; description?: string; color?: string; isActive: boolean; }
+interface Unit { id: string; name: string; abbreviation: string; }
+interface Brand { id: string; name: string; }
+interface Tax { id: string; name: string; rate: number; }
+interface Warehouse { id: string; name: string; code: string; isDefault: boolean; }
+
+interface ProductData {
+  id: string;
+  name: string;
+  code: string;
+  sku: string;
+  barcode: string;
+  description: string;
+  sellingPrice: number;
+  costPrice: number;
+  stockQuantity: number;
+  lowStockThreshold: number;
+  unitId: string;
+  categoryId: string;
+  brandId: string;
+  taxId: string;
+  isActive: boolean;
+}
+
 // Reference data
-const { data: categoriesData } = useQuery({
+const { data: categoriesData } = useQuery<Category[]>({
   queryKey: ['categories'],
   queryFn: async () => (await apiClient.get('/categories')).data.data.items,
   staleTime: 60_000,
 });
-const { data: unitsData } = useQuery({
+const { data: unitsData } = useQuery<Unit[]>({
   queryKey: ['units'],
   queryFn: async () => (await apiClient.get('/units')).data.data.items,
   staleTime: 60_000,
 });
-const { data: brandsData } = useQuery({
+const { data: brandsData } = useQuery<Brand[]>({
   queryKey: ['brands'],
   queryFn: async () => (await apiClient.get('/brands')).data.data.items,
   staleTime: 60_000,
 });
-const { data: taxesData } = useQuery({
+const { data: taxesData } = useQuery<Tax[]>({
   queryKey: ['taxes'],
   queryFn: async () => (await apiClient.get('/taxes')).data.data.items,
   staleTime: 60_000,
 });
 
+// Warehouses for stock adjustment
+const { data: warehousesData } = useQuery<Warehouse[]>({
+  queryKey: ['warehouses'],
+  queryFn: async () => (await apiClient.get('/warehouses')).data.data.items,
+  staleTime: 60_000,
+});
+
 // Fetch existing product when editing
-const { data: existingProduct, isLoading: isLoadingProduct } = useQuery({
-  queryKey: ['product', productId],
-  queryFn: async () => (await apiClient.get(`/products/${productId.value}`)).data.data,
+const { data: existingProduct, isLoading: isLoadingProduct } = useQuery<ProductData>({
+  queryKey: ['product', route.params.id],
+  queryFn: async () => {
+    const res = await apiClient.get(`/products/${route.params.id}`);
+    return (res.data as any).data;
+  },
   enabled: isEditing,
   staleTime: 0,
 });
 
 // Populate form when product data arrives — this is the core fix
 watch(
-  existingProduct,
+  () => existingProduct.value,
   (product) => {
     if (!product) return;
     nextTick(() => {
@@ -161,14 +196,30 @@ watch(
   { deep: true },
 );
 
+// Inventory adjustment
+const { adjustStock } = useInventory();
+const showAdjustDialog = ref(false);
+
+async function handleAdjustStock(payload: any) {
+  try {
+    await adjustStock.mutateAsync(payload);
+    // Refresh product data to get updated stock
+    queryClient.invalidateQueries({ queryKey: ['product', route.params.id] });
+    showAdjustDialog.value = false;
+  } catch (error) {
+    // Error handled by mutation
+  }
+}
+
+// Save mutation
 const saveMutation = useMutation({
   mutationFn: (payload: any) =>
     isEditing.value
-      ? apiClient.put(`/products/${productId.value}`, payload)
+      ? apiClient.put(`/products/${route.params.id}`, payload)
       : apiClient.post('/products', payload),
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
-    queryClient.invalidateQueries({ queryKey: ['product', productId.value] });
+    queryClient.invalidateQueries({ queryKey: ['product', route.params.id] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     if (!isEditing.value) localStorage.removeItem(draftKey.value);
     notification.success(isEditing.value ? 'Product updated' : 'Product created');
@@ -404,15 +455,34 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
           </CardHeader>
           <CardContent class="space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField v-slot="{ componentField }" name="stockQuantity" :form="form">
+              <!-- Edit mode: Read-only stock with Adjust button -->
+              <FormField v-if="!isEditing" v-slot="{ componentField }" name="stockQuantity" :form="form">
                 <FormItem>
-                  <FormLabel>Stock Quantity</FormLabel>
+                  <FormLabel>Opening Stock Quantity</FormLabel>
                   <FormControl>
                     <Input type="number" placeholder="0" min="0" v-bind="componentField" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               </FormField>
+
+              <div v-else class="sm:col-span-2">
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Current Stock</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">
+                      {{ form.values.stockQuantity ?? 0 }} units
+                    </p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Low stock threshold: {{ form.values.lowStockThreshold ?? 0 }} units
+                    </p>
+                  </div>
+                  <Button variant="outline" @click="showAdjustDialog = true" :disabled="!warehousesData?.length">
+                    <AlertTriangle class="w-4 h-4 mr-2" />
+                    Adjust Stock
+                  </Button>
+                </div>
+              </div>
 
               <FormField v-slot="{ componentField }" name="lowStockThreshold" :form="form">
                 <FormItem>
@@ -559,6 +629,15 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
           </Button>
         </div>
       </div>
+
+      <!-- Adjust Stock Dialog -->
+      <AdjustStockDialog
+        v-model:open="showAdjustDialog"
+        :product-id="route.params.id as string"
+        :current-stock="form.values.stockQuantity ?? 0"
+        :warehouses="warehousesData as any"
+        @success="(payload) => handleAdjustStock(payload)"
+      />
     </template>
   </div>
 </template>

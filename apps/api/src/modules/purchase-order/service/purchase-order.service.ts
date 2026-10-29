@@ -164,8 +164,8 @@ export class PurchaseOrderService {
         action: 'UPDATE',
         entity: 'PurchaseOrder',
         entityId: command.id,
-        oldValues: existing,
-        newValues: updated,
+        oldValues: existing as unknown as Record<string, unknown>,
+        newValues: updated as unknown as Record<string, unknown>,
       });
 
       return updated;
@@ -209,7 +209,20 @@ export class PurchaseOrderService {
         });
 
         if (approval.status === 'PENDING') {
-          newStatus = 'PENDING_APPROVAL';
+          newStatus = PurchaseOrderStatuses.SUBMITTED; // will be overridden below
+          await updateRepo.updateStatus(id, 'PENDING_APPROVAL');
+          const updated = await updateRepo.findById(id, organizationId);
+          if (!updated) throw new NotFoundError('Purchase order not found after submission.');
+          await auditRepo.create({
+            organizationId,
+            actorId: requestedBy ?? existing.createdBy,
+            action: 'SUBMIT',
+            entity: 'PurchaseOrder',
+            entityId: id,
+            oldValues: { status: existing.status },
+            newValues: { status: 'PENDING_APPROVAL', totalAmount },
+          });
+          return updated;
         }
       }
 
@@ -285,7 +298,7 @@ export class PurchaseOrderService {
       PurchaseOrderStatuses.PARTIALLY_RECEIVED,
     ];
 
-    if (!validStatuses.includes(existing.status)) {
+    if (!validStatuses.includes(existing.status as (typeof validStatuses)[number])) {
       throw new ConflictError(`Purchase order in ${existing.status} status cannot receive goods.`);
     }
 

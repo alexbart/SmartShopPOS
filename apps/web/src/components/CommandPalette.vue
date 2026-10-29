@@ -18,7 +18,6 @@ import {
   Shield,
   Building,
   Paintbrush,
-  Activity,
 } from '@lucide/vue';
 
 interface Command {

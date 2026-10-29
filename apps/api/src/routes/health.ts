@@ -30,7 +30,8 @@ interface HealthStatus {
 export const healthRoute: FastifyPluginAsync = async (fastify, _options) => {
   let redisStatus: 'up' | 'down' | 'disabled' = 'disabled';
 
-  const cacheService = fastify.decorators?.cacheService as CacheService | undefined;
+  const cacheService = (fastify as unknown as Record<string, unknown>).cacheService as
+    CacheService | undefined;
   if (cacheService && env.REDIS_ENABLED) {
     try {
       await cacheService.get('health-check');

@@ -3,7 +3,7 @@ export interface IBrandRepository {
   update(_model: UpdateBrandModel): Promise<void>;
   findById(_id: string, _organizationId: string): Promise<BrandEntity | null>;
   findByCode(_code: string, _organizationId: string): Promise<BrandEntity | null>;
-  findAll(_query: BrandQuery): Promise<BrandEntity[]>;
+  findAll(_query: BrandQuery): Promise<{ items: BrandEntity[]; total: number }>;
   softDelete(_id: string, _organizationId: string): Promise<void>;
 }
 
@@ -44,9 +44,9 @@ export interface BrandEntity {
   organizationId: string;
   name: string;
   code: string;
-  description?: string;
-  logoUrl?: string;
-  website?: string;
+  description?: string | null;
+  logoUrl?: string | null;
+  website?: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

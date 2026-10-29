@@ -11,7 +11,7 @@ import type {
   OutOfStockFilters,
   OutOfStockItem,
 } from './repository/inventory-report.repository.js';
-import type { ReportPaginatedResponse } from '../../../../shared/types/report-filter.js';
+import type { ReportPaginatedResponse } from '../../../shared/types/report-filter.js';
 
 export class StockReportDefinition implements ReportDefinition<
   StockReportFilters,

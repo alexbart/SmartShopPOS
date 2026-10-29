@@ -164,11 +164,11 @@ async function handleReceive() {
                   </button>
                   <button
                     @click="handleReceive"
-                    :disabled="receiveMutation.isPending"
+                    :disabled="receiveMutation.isPending.value"
                     class="btn btn-primary touch-target"
                   >
-                    <Package v-if="!receiveMutation.isPending" class="w-4 h-4 mr-1" />
-                    {{ receiveMutation.isPending ? 'Receiving...' : 'Confirm Receipt' }}
+                    <Package v-if="!receiveMutation.isPending.value" class="w-4 h-4 mr-1" />
+                    {{ receiveMutation.isPending.value ? 'Receiving...' : 'Confirm Receipt' }}
                   </button>
                 </div>
               </div>

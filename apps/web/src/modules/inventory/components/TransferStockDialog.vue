@@ -224,7 +224,7 @@ function canConfirm() {
           <Button
             @click="confirmTransfer"
             :disabled="!canConfirm()"
-            :loading="transferMutation.isPending"
+            :loading="transferMutation.isPending.value"
           >
             <Move3D class="w-4 h-4 mr-2" />
             Transfer Stock

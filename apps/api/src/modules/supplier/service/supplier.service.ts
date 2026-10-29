@@ -112,12 +112,12 @@ export class SupplierService {
     organizationId: string;
     code: string;
     name: string;
-    contactPerson?: string;
-    email?: string;
-    phone?: string;
-    taxPin?: string;
+    contactPerson?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    taxPin?: string | null;
     creditLimit?: number;
-    paymentTerms?: string;
+    paymentTerms?: string | null;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -127,12 +127,12 @@ export class SupplierService {
       organizationId: supplier.organizationId,
       code: supplier.code,
       name: supplier.name,
-      contactPerson: supplier.contactPerson,
-      email: supplier.email,
-      phone: supplier.phone,
-      taxPin: supplier.taxPin,
+      contactPerson: supplier.contactPerson ?? undefined,
+      email: supplier.email ?? undefined,
+      phone: supplier.phone ?? undefined,
+      taxPin: supplier.taxPin ?? undefined,
       creditLimit: supplier.creditLimit,
-      paymentTerms: supplier.paymentTerms,
+      paymentTerms: supplier.paymentTerms ?? undefined,
       isActive: supplier.isActive,
       createdAt: supplier.createdAt,
       updatedAt: supplier.updatedAt,

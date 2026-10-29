@@ -1,8 +1,18 @@
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
-import type { Organization, User, Role, Branch, Tax, AuditEntry, Integration, HealthStatus } from './types.js';
+import type {
+  Organization,
+  User,
+  Role,
+  Branch,
+  Tax,
+  AuditEntry,
+  Integration,
+  HealthStatus,
+  Permission,
+} from './types.js';
 
 export function useOrganization() {
   const queryClient = useQueryClient();
@@ -11,7 +21,7 @@ export function useOrganization() {
     queryKey: ['organization'],
     queryFn: async () => {
       const res = await apiClient.get('/organization');
-      return res.data.data as Organization;
+      return (res.data as { data: Organization }).data as Organization;
     },
     staleTime: 60_000,
   });
@@ -36,11 +46,15 @@ export function useOrganization() {
 export function useUsers() {
   const queryClient = useQueryClient();
 
-  const { data: usersData, isLoading, error } = useQuery({
+  const {
+    data: usersData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
       const res = await apiClient.get('/users');
-      return res.data.data as User[];
+      return (res.data as { data: User[] }).data as User[];
     },
     staleTime: 60_000,
   });
@@ -48,8 +62,13 @@ export function useUsers() {
   const users = computed(() => usersData.value ?? []);
 
   const createUserMutation = useMutation({
-    mutationFn: (payload: { email: string; firstName: string; lastName: string; role: string; branchId?: string }) =>
-      apiClient.post('/users', payload),
+    mutationFn: (payload: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      branchId?: string;
+    }) => apiClient.post('/users', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       notification.success('User created');
@@ -57,7 +76,8 @@ export function useUsers() {
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: (payload: { id: string } & Partial<User>) => apiClient.patch(`/users/${payload.id}`, payload),
+    mutationFn: (payload: { id: string } & Partial<User>) =>
+      apiClient.patch(`/users/${payload.id}`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       notification.success('User updated');
@@ -97,7 +117,7 @@ export function useRoles() {
     queryKey: ['roles'],
     queryFn: async () => {
       const res = await apiClient.get('/roles');
-      return res.data.data as Role[];
+      return (res.data as { data: Role[] }).data as Role[];
     },
     staleTime: 60_000,
   });
@@ -106,7 +126,7 @@ export function useRoles() {
     queryKey: ['permissions'],
     queryFn: async () => {
       const res = await apiClient.get('/permissions');
-      return res.data.data as Permission[];
+      return (res.data as { data: Permission[] }).data as Permission[];
     },
     staleTime: 60_000,
   });
@@ -124,8 +144,12 @@ export function useRoles() {
   });
 
   const updateRoleMutation = useMutation({
-    mutationFn: (payload: { id: string; name: string; description?: string; permissionIds: string[] }) =>
-      apiClient.patch(`/roles/${payload.id}`, payload),
+    mutationFn: (payload: {
+      id: string;
+      name: string;
+      description?: string;
+      permissionIds: string[];
+    }) => apiClient.patch(`/roles/${payload.id}`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       notification.success('Role updated');
@@ -159,7 +183,8 @@ export function useBranches() {
     queryKey: ['branches'],
     queryFn: async () => {
       const res = await apiClient.get('/warehouses');
-      const responseData = res.data.data;
+      const responseData = (res.data as { data: { items?: Branch[] } }).data;
+      if (!responseData) return [];
       return responseData.items ?? responseData ?? [];
     },
     staleTime: 60_000,
@@ -188,7 +213,8 @@ export function useTaxes() {
     queryKey: ['taxes'],
     queryFn: async () => {
       const res = await apiClient.get('/taxes');
-      const responseData = res.data.data;
+      const responseData = (res.data as { data: { items?: Tax[] } }).data;
+      if (!responseData) return [];
       return responseData.items ?? responseData ?? [];
     },
     staleTime: 60_000,
@@ -202,11 +228,13 @@ export function useTaxes() {
   };
 }
 
-export function useAuditLog(params: () => {
-  page?: number;
-  limit?: number;
-  resource?: string;
-}) {
+export function useAuditLog(
+  params: () => {
+    page?: number;
+    limit?: number;
+    resource?: string;
+  },
+) {
   const { data: auditData, isLoading } = useQuery({
     queryKey: ['audit-log', params],
     queryFn: async () => {
@@ -217,7 +245,10 @@ export function useAuditLog(params: () => {
       if (p.resource) q.set('resource', p.resource);
 
       const res = await apiClient.get(`/audit?${q.toString()}`);
-      return res.data.data as { items: AuditEntry[]; total: number };
+      return (res.data as { data: { items: AuditEntry[]; total: number } }).data as {
+        items: AuditEntry[];
+        total: number;
+      };
     },
     staleTime: 60_000,
   });
@@ -237,7 +268,7 @@ export function useHealth() {
     queryKey: ['health'],
     queryFn: async () => {
       const res = await apiClient.get('/health');
-      return res.data as HealthStatus[];
+      return (res.data as { data: HealthStatus[] }).data as HealthStatus[];
     },
     staleTime: 30_000,
   });
@@ -310,7 +341,8 @@ export function useAdminDashboard() {
       pendingInvites: pendingUsers,
       openBranches,
       totalEmployees: employeeCount,
-      organizationName: organization.value?.businessName || organization.value?.name || 'SmartShopPOS',
+      organizationName:
+        organization.value?.businessName || organization.value?.name || 'SmartShopPOS',
       license: 'Business Edition',
     };
   });
@@ -323,4 +355,14 @@ export function useAdminDashboard() {
   };
 }
 
-export type { Organization, User, Role, Permission, Branch, Tax, AuditEntry, Integration, HealthStatus } from './types.js';
+export type {
+  Organization,
+  User,
+  Role,
+  Permission,
+  Branch,
+  Tax,
+  AuditEntry,
+  Integration,
+  HealthStatus,
+} from './types.js';

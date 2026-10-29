@@ -43,7 +43,7 @@ export interface WarehouseEntity {
   branchId: string;
   code: string;
   name: string;
-  description?: string;
+  description?: string | null;
   isDefault: boolean;
   isActive: boolean;
   createdAt: Date;

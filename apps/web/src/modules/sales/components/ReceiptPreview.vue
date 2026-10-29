@@ -42,6 +42,14 @@ function downloadPdf() {
         <p>{{ receipt.customerName }}</p>
       </div>
 
+      <div
+        v-if="receipt.customerId"
+        class="mb-3 text-sm"
+      >
+        <p class="font-medium">Customer ID:</p>
+        <p class="text-xs text-muted-foreground">{{ receipt.customerId }}</p>
+      </div>
+
       <div class="space-y-2 text-sm">
         <div
           v-for="(item, i) in receipt.items"

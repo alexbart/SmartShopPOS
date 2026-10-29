@@ -5,9 +5,9 @@ import { CartRepositoryImpl } from '../repositories/cart.repository.impl.js';
 import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export const cartRoutes: FastifyPluginAsync = async (fastify) => {
   const cartRepository = new CartRepositoryImpl(prisma);
@@ -26,10 +26,14 @@ export const cartRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/:cartId/items', { preHandler: [authenticateHook] }, async (request, reply) =>
     cartController.addItem(request, reply),
   );
-  fastify.delete('/:cartId/items/:itemId', { preHandler: [authenticateHook] }, async (request, reply) =>
-    cartController.removeItem(request, reply),
+  fastify.delete(
+    '/:cartId/items/:itemId',
+    { preHandler: [authenticateHook] },
+    async (request, reply) => cartController.removeItem(request, reply),
   );
-  fastify.patch('/:cartId/items/:itemId', { preHandler: [authenticateHook] }, async (request, reply) =>
-    cartController.updateItem(request, reply),
+  fastify.patch(
+    '/:cartId/items/:itemId',
+    { preHandler: [authenticateHook] },
+    async (request, reply) => cartController.updateItem(request, reply),
   );
 };

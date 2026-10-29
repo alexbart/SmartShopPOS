@@ -40,6 +40,7 @@ export interface Role {
   name: string;
   description?: string;
   permissions: Permission[];
+  _count?: { users: number };
   createdAt?: string;
   updatedAt?: string;
 }

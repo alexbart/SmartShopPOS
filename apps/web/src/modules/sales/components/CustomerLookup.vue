@@ -21,7 +21,7 @@ const { data: customersData } = useQuery({
   queryKey: ['customers-pos'],
   queryFn: async () => {
     const res = await apiClient.get('/customers', { params: { limit: '200' } });
-    return res.data.data.items as Customer[];
+    return (res.data as any).data.items as Customer[];
   },
   staleTime: 120_000,
 });

@@ -8,7 +8,7 @@ import type {
   TopCustomersFilters,
   TopCustomerItem,
 } from './customer-report.repository.js';
-import type { ReportPaginatedResponse } from '../../../shared/types/report-filter.js';
+import type { ReportPaginatedResponse } from '../../../../shared/types/report-filter.js';
 
 export class CustomerReportRepositoryImpl implements ICustomerReportRepository {
   constructor(private readonly _prisma: PrismaClient) {}

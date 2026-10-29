@@ -7,9 +7,9 @@ import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
 import { createCacheService } from '../../../shared/services/cache/cache.factory.js';
 import { env } from '../../../config/env.js';
-import { PrismaClient } from '@prisma/client';
+import { getPrisma } from '../../../shared/database/prisma.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrisma();
 
 export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
   const dashboardRepository = new DashboardRepositoryImpl(prisma);

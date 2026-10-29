@@ -1,12 +1,19 @@
 import { PrismaClient } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
-import type { ICashDrawerRepository, CashDrawerSummary, CashMovementItem } from './cash-drawer.repository.js';
+import type {
+  ICashDrawerRepository,
+  CashDrawerSummary,
+  CashMovementItem,
+} from './cash-drawer.repository.js';
 import { NotFoundError, ConflictError } from '../../../shared/errors/business-error.js';
 
 export class CashDrawerRepositoryImpl implements ICashDrawerRepository {
   constructor(private readonly _prisma: PrismaClient | Prisma.TransactionClient) {}
 
-  async getCurrentSession(organizationId: string, branchId: string): Promise<CashDrawerSummary | null> {
+  async getCurrentSession(
+    organizationId: string,
+    branchId: string,
+  ): Promise<CashDrawerSummary | null> {
     const session = await this._prisma.cashDrawerSession.findFirst({
       where: {
         organizationId,
@@ -35,7 +42,12 @@ export class CashDrawerRepositoryImpl implements ICashDrawerRepository {
     return this._toSummary(session);
   }
 
-  async openSession(organizationId: string, branchId: string, userId: string, openingFloat: number): Promise<CashDrawerSummary> {
+  async openSession(
+    organizationId: string,
+    branchId: string,
+    userId: string,
+    openingFloat: number,
+  ): Promise<CashDrawerSummary> {
     const existing = await this._prisma.cashDrawerSession.findFirst({
       where: {
         organizationId,
@@ -135,7 +147,7 @@ export class CashDrawerRepositoryImpl implements ICashDrawerRepository {
 
     const variance = Number(countedCash) - Number(session.expectedCash);
 
-    await this._prisma.$transaction(async (tx) => {
+    await (this._prisma as PrismaClient).$transaction(async (tx) => {
       await tx.cashDrawerSession.update({
         where: { id: sessionId },
         data: {
@@ -185,7 +197,12 @@ export class CashDrawerRepositoryImpl implements ICashDrawerRepository {
     return this._toSummary(updated);
   }
 
-  async addCashIn(sessionId: string, amount: number, notes?: string, performedBy?: string): Promise<void> {
+  async addCashIn(
+    sessionId: string,
+    amount: number,
+    performedBy: string,
+    notes?: string,
+  ): Promise<void> {
     const session = await this._prisma.cashDrawerSession.findFirst({
       where: { id: sessionId, status: 'OPEN' },
     });
@@ -194,7 +211,7 @@ export class CashDrawerRepositoryImpl implements ICashDrawerRepository {
       throw new NotFoundError('Open cash drawer session not found.');
     }
 
-    await this._prisma.$transaction(async (tx) => {
+    await (this._prisma as PrismaClient).$transaction(async (tx) => {
       await tx.cashDrawerSession.update({
         where: { id: sessionId },
         data: {
@@ -209,14 +226,19 @@ export class CashDrawerRepositoryImpl implements ICashDrawerRepository {
           sessionId,
           type: 'CASH_IN',
           amount,
-          notes,
+          notes: notes ?? null,
           performedBy,
         },
       });
     });
   }
 
-  async addCashOut(sessionId: string, amount: number, notes?: string, performedBy?: string): Promise<void> {
+  async addCashOut(
+    sessionId: string,
+    amount: number,
+    performedBy: string,
+    notes?: string,
+  ): Promise<void> {
     const session = await this._prisma.cashDrawerSession.findFirst({
       where: { id: sessionId, status: 'OPEN' },
     });
@@ -225,7 +247,7 @@ export class CashDrawerRepositoryImpl implements ICashDrawerRepository {
       throw new NotFoundError('Open cash drawer session not found.');
     }
 
-    await this._prisma.$transaction(async (tx) => {
+    await (this._prisma as PrismaClient).$transaction(async (tx) => {
       await tx.cashDrawerSession.update({
         where: { id: sessionId },
         data: {
@@ -240,7 +262,7 @@ export class CashDrawerRepositoryImpl implements ICashDrawerRepository {
           sessionId,
           type: 'CASH_OUT',
           amount,
-          notes,
+          notes: notes ?? null,
           performedBy,
         },
       });
@@ -268,15 +290,15 @@ export class CashDrawerRepositoryImpl implements ICashDrawerRepository {
     id: string;
     cashDrawer: { name: string };
     status: string;
-    openingFloat: number;
-    closingFloat: number | null;
-    totalSales: number;
-    totalRefunds: number;
-    totalCashIn: number;
-    totalCashOut: number;
-    expectedCash: number;
-    countedCash: number | null;
-    variance: number | null;
+    openingFloat: number | { toNumber(): number };
+    closingFloat: number | { toNumber(): number } | null;
+    totalSales: number | { toNumber(): number };
+    totalRefunds: number | { toNumber(): number };
+    totalCashIn: number | { toNumber(): number };
+    totalCashOut: number | { toNumber(): number };
+    expectedCash: number | { toNumber(): number };
+    countedCash: number | { toNumber(): number } | null;
+    variance: number | { toNumber(): number } | null;
     openedAt: Date;
     closedAt: Date | null;
     movements: CashMovementItem[];
@@ -298,7 +320,7 @@ export class CashDrawerRepositoryImpl implements ICashDrawerRepository {
         variance: session.variance ? Number(session.variance) : null,
         openedAt: session.openedAt,
         closedAt: session.closedAt,
-        movements: session.movements,
+        movements: session.movements as CashMovementItem[],
       },
     };
   }

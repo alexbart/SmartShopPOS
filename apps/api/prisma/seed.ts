@@ -26,6 +26,12 @@ async function main() {
     { name: 'USER.READ', module: 'USER', description: 'Read users' },
     { name: 'USER.CREATE', module: 'USER', description: 'Create users' },
     { name: 'USER.UPDATE', module: 'USER', description: 'Update users' },
+    { name: 'USER.DELETE', module: 'USER', description: 'Deactivate users' },
+    // User permissions (lowercase with colon for consistency with categories/inventory)
+    { name: 'user:read', module: 'USER', description: 'Read users' },
+    { name: 'user:create', module: 'USER', description: 'Create users' },
+    { name: 'user:update', module: 'USER', description: 'Update users' },
+    { name: 'user:delete', module: 'USER', description: 'Deactivate users' },
     { name: 'CUSTOMER.VIEW', module: 'CUSTOMER', description: 'View customers' },
     { name: 'CUSTOMER.CREATE', module: 'CUSTOMER', description: 'Create customers' },
     { name: 'CUSTOMER.UPDATE', module: 'CUSTOMER', description: 'Update customers' },
@@ -34,11 +40,57 @@ async function main() {
     { name: 'SALE.VOID', module: 'SALE', description: 'Void sales' },
     { name: 'PAYMENT.CREATE', module: 'PAYMENT', description: 'Process payments' },
     { name: 'RECEIPT.PRINT', module: 'RECEIPT', description: 'Print receipts' },
+    // M-Pesa evidence permissions
+    {
+      name: 'payment.evidence.capture',
+      module: 'PAYMENT',
+      description: 'Capture and view manual M-Pesa SMS evidence',
+    },
+    {
+      name: 'payment.evidence.review',
+      module: 'PAYMENT',
+      description: 'Review or reject manual M-Pesa SMS evidence',
+    },
+    // Category permissions (lowercase to match route requirements)
+    { name: 'categories:read', module: 'category', description: 'View categories' },
+    { name: 'categories:write', module: 'category', description: 'Create and edit categories' },
+    { name: 'categories:delete', module: 'category', description: 'Delete categories' },
+    // Inventory permissions
+    {
+      name: 'inventory:read',
+      module: 'inventory',
+      description: 'View inventory levels and movements',
+    },
+    { name: 'inventory:adjust', module: 'inventory', description: 'Adjust stock quantities' },
+    {
+      name: 'inventory:transfer',
+      module: 'inventory',
+      description: 'Transfer stock between warehouses',
+    },
   ];
 
   const rolePermissions: Record<string, string[]> = {
     OWNER: permissions.map((p) => p.name),
-    MANAGER: ['USER.READ', 'USER.UPDATE', 'SALE.CREATE', 'SALE.VIEW', 'PAYMENT.CREATE'],
+    MANAGER: [
+      'USER.READ',
+      'USER.CREATE',
+      'USER.UPDATE',
+      'USER.DELETE',
+      'SALE.CREATE',
+      'SALE.VIEW',
+      'PAYMENT.CREATE',
+      'categories:read',
+      'categories:write',
+      'inventory:read',
+      'inventory:adjust',
+      'inventory:transfer',
+      'payment.evidence.capture',
+      'payment.evidence.review',
+      'user:read',
+      'user:create',
+      'user:update',
+      'user:delete',
+    ],
     CASHIER: [
       'AUTH.LOGIN',
       'AUTH.LOGOUT',
@@ -46,7 +98,11 @@ async function main() {
       'SALE.VIEW',
       'PAYMENT.CREATE',
       'RECEIPT.PRINT',
+      'inventory:read',
+      'payment.evidence.capture',
     ],
+    INVENTORY: ['inventory:read', 'inventory:adjust', 'inventory:transfer'],
+    ACCOUNTANT: ['inventory:read', 'payment.evidence.capture', 'payment.evidence.review'],
   };
 
   for (const role of roles) {
@@ -154,7 +210,7 @@ async function main() {
     where: { organizationId, email: ownerEmail },
   });
 
-   if (!existingUser) {
+  if (!existingUser) {
     await prisma.user.create({
       data: {
         organizationId,
