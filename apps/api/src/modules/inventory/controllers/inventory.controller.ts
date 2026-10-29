@@ -1,0 +1,84 @@
+import type { FastifyRequest, FastifyReply } from 'fastify';
+import { StockService } from '../services/stock.service.js';
+import { StockMovementRepositoryImpl } from '../repositories/stock-movement.repository.impl.js';
+import type { StockMovementType } from '../repositories/stock-movement.repository.js';
+import { UnitOfWork } from '../../../shared/database/unit-of-work.js';
+import { getPrisma } from '../../../shared/database/prisma.js';
+
+const prisma = getPrisma();
+
+export class InventoryController {
+  private _stockService: StockService;
+
+  constructor() {
+    const unitOfWork = new UnitOfWork();
+    this._stockService = new StockService(unitOfWork, prisma);
+  }
+
+  async getStockLevel(request: FastifyRequest, reply: FastifyReply) {
+    const { warehouseId, productId } = request.params as { warehouseId: string; productId: string };
+
+    const result = await this._stockService.getStockLevel({
+      organizationId: request.requestContext.organizationId,
+      warehouseId,
+      productId,
+    });
+
+    if (!result) {
+      return reply.status(404).send({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Stock not found.',
+        },
+      });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Stock level retrieved successfully.',
+      data: result,
+    });
+  }
+
+  async listStock(request: FastifyRequest, reply: FastifyReply) {
+    const { warehouseId } = request.params as { warehouseId: string };
+
+    const result = await this._stockService.listStock({
+      organizationId: request.requestContext.organizationId,
+      warehouseId,
+    });
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Stock levels retrieved successfully.',
+      data: result,
+    });
+  }
+
+  async listMovements(request: FastifyRequest, reply: FastifyReply) {
+    const query = request.query as {
+      warehouseId?: string;
+      productId?: string;
+      type?: string;
+      page?: string;
+      limit?: string;
+    };
+
+    const movementRepo = new StockMovementRepositoryImpl(prisma);
+    const result = await movementRepo.findAll({
+      organizationId: request.requestContext.organizationId,
+      warehouseId: query.warehouseId,
+      productId: query.productId,
+      type: query.type as StockMovementType,
+      page: Number(query.page ?? 1),
+      limit: Number(query.limit ?? 50),
+    });
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Stock movements retrieved successfully.',
+      data: result,
+    });
+  }
+}

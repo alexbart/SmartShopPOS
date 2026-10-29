@@ -1,0 +1,35 @@
+import { FastifyPluginAsync } from 'fastify';
+import { DashboardController } from '../controller/dashboard.controller.js';
+import { DashboardService } from '../service/dashboard.service.js';
+import { DashboardRepositoryImpl } from '../repository/dashboard.repository.impl.js';
+import { createAuthenticateHook } from '../../auth/middleware/auth.middleware.js';
+import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
+import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';
+import { createCacheService } from '../../../shared/services/cache/cache.factory.js';
+import { env } from '../../../config/env.js';
+import { getPrisma } from '../../../shared/database/prisma.js';
+
+const prisma = getPrisma();
+
+export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
+  const dashboardRepository = new DashboardRepositoryImpl(prisma);
+  const cacheService = createCacheService(env, fastify.log);
+  const dashboardService = new DashboardService(dashboardRepository, cacheService);
+  const dashboardController = new DashboardController(dashboardService);
+  const jwtService = new JwtService();
+  const authRepository = new AuthRepositoryImpl(prisma);
+  const authenticateHook = createAuthenticateHook(jwtService, authRepository);
+
+  fastify.get(
+    '/',
+    {
+      preHandler: [authenticateHook],
+      schema: {
+        description: 'Get dashboard overview for the authenticated organization',
+        tags: ['Dashboard'],
+        summary: 'Dashboard',
+      },
+    },
+    async (request, reply) => dashboardController.getDashboard(request, reply),
+  );
+};

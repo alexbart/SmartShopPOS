@@ -54,6 +54,24 @@ temp/
 # AI generated
 *.ai
 
+# Prisma build artifacts
+prisma/seed.js
+prisma/seed.d.ts
+prisma/seed.d.ts.map
+prisma/seed.js.map
+prisma/seeds/*.js
+prisma/seeds/*.d.ts
+prisma/seeds/*.d.ts.map
+prisma/seeds/*.js.map
+prisma/utils/*.js
+prisma/utils/*.d.ts
+prisma/utils/*.d.ts.map
+prisma/utils/*.js.map
+
+# Temp files
+test-api.*
+get-token.cmd
+
 # Docker
 docker-compose.override.yml
 
