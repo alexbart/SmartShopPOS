@@ -1,7 +1,20 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-dotenv.config();
+// Resolve the current file's directory.
+// This works in both src/config and dist/config.
+const currentFile = fileURLToPath(import.meta.url);
+const currentDir = path.dirname(currentFile);
+
+// Navigate from config/ to the API root.
+const apiRoot = path.resolve(currentDir, '..', '..');
+
+// Explicitly load apps/api/.env instead of the project-root .env.
+dotenv.config({
+  path: path.join(apiRoot, '.env'),
+});
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -11,7 +24,9 @@ export const envSchema = z.object({
   REDIS_URL: z.string().url().optional(),
   JWT_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
-  // Daraja — optional so the app starts without them; STK push will fail cleanly if absent
+
+  // Daraja — optional so the app starts without them;
+  // STK push will fail cleanly if absent.
   MPESA_CONSUMER_KEY: z.string().optional(),
   MPESA_CONSUMER_SECRET: z.string().optional(),
   MPESA_SHORTCODE: z.string().optional(),
