@@ -229,16 +229,26 @@ model AuditLog {
   createdAt      DateTime     @default(now()) @db.Timestamp(6)
   branchId       String?      @db.Uuid
   roleId         String?      @db.Uuid
-  actor          User?        @relation(fields: [actorId], references: [id])
-  branch         Branch?      @relation(fields: [branchId], references: [id])
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  role           Role?        @relation(fields: [roleId], references: [id])
+  actorName      String?      @db.VarChar(255)
+  roles          Json?
+  outcome        String       @default("SUCCESS") @db.VarChar(20)
+  route          String?      @db.VarChar(500)
+  method         String?      @db.VarChar(10)
+  summary        String?      @db.VarChar(500)
+  previousHash   String?      @db.VarChar(64)
+  eventHash      String?      @db.VarChar(64)
+  chainSequence  BigInt?
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  branch         Branch?      @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  role           Role?        @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
   @@index([organizationId], map: "audit_logs_org_id_idx")
   @@index([actorId], map: "audit_logs_actor_id_idx")
   @@index([entity, entityId], map: "audit_logs_entity_idx")
   @@index([action])
   @@index([createdAt], map: "audit_logs_created_at_idx")
+  @@unique([organizationId, chainSequence], map: "audit_logs_org_chain_sequence_key")
   @@map("audit_logs")
 }
 
@@ -955,8 +965,12 @@ enum AuditAction {
   CREATE
   UPDATE
   DELETE
+  READ
   LOGIN
   LOGOUT
+  AUTH_FAILURE
+  ACCESS_DENIED
+  FAILED
   SUBMIT
   CANCEL
   RECEIVE_GOODS

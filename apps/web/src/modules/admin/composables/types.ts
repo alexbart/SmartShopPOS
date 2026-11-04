@@ -81,12 +81,27 @@ export interface Tax {
 
 export interface AuditEntry {
   id: string;
-  userId: string;
-  user?: User;
+  actorId?: string | null;
+  actorName?: string | null;
+  user?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'> | null;
   action: string;
   resource: string;
   resourceId?: string;
-  details?: Record<string, any>;
+  details?: {
+    oldValues?: unknown;
+    newValues?: unknown;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    branch?: { id: string; name: string } | null;
+    route?: string | null;
+    method?: string | null;
+    outcome?: string;
+    summary?: string | null;
+    previousHash?: string | null;
+    eventHash?: string | null;
+    roles?: string[];
+  };
+  requestId?: string | null;
   createdAt: string;
 }
 

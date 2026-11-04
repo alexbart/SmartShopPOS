@@ -252,22 +252,36 @@ export function useAuditLog(
   params: () => {
     page?: number;
     limit?: number;
-    resource?: string;
+    search?: string;
+    action?: string;
+    entity?: string;
+    outcome?: string;
+    from?: string;
+    to?: string;
   },
 ) {
   const { data: auditData, isLoading } = useQuery({
-    queryKey: ['audit-log', params],
+    queryKey: computed(() => ['audit-log', params()]),
     queryFn: async () => {
       const p = params();
       const q = new URLSearchParams();
       if (p.page) q.set('page', String(p.page));
       if (p.limit) q.set('limit', String(p.limit));
-      if (p.resource) q.set('resource', p.resource);
+      if (p.search) q.set('search', p.search);
+      if (p.action) q.set('action', p.action);
+      if (p.entity) q.set('entity', p.entity);
+      if (p.outcome) q.set('outcome', p.outcome);
+      if (p.from) q.set('from', p.from);
+      if (p.to) q.set('to', p.to);
 
       const res = await apiClient.get(`/audit?${q.toString()}`);
-      return (res.data as { data: { items: AuditEntry[]; total: number } }).data as {
+      return (
+        res.data as { data: { items: AuditEntry[]; total: number; page: number; pages: number } }
+      ).data as {
         items: AuditEntry[];
         total: number;
+        page: number;
+        pages: number;
       };
     },
     staleTime: 60_000,
@@ -279,6 +293,7 @@ export function useAuditLog(
   return {
     entries,
     total,
+    pages: computed(() => auditData.value?.pages ?? 0),
     auditLoading: isLoading,
   };
 }

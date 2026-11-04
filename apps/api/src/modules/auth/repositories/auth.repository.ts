@@ -66,6 +66,18 @@ export interface IAuthRepository {
   findUserWithRolesById(
     _userId: string,
   ): Promise<{ id: string; email: string; roles: string[]; permissions: string[] } | null>;
+  findUserAuditSnapshot(
+    _userId: string,
+    _organizationId: string,
+  ): Promise<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    branchId: string;
+    status: string;
+    roles: string[];
+  } | null>;
   findUsers(_query: FindUsersQuery): Promise<{
     items: Array<{
       id: string;

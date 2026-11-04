@@ -38,6 +38,8 @@ import { workflowRoutes } from './modules/workflow/index.js';
 import { themeRoutes } from './modules/theme/routes/theme.routes.js';
 import { featureFlagRoutes } from './routes/featureFlags.js';
 import { getPrisma } from './shared/database/prisma.js';
+import { auditTrailPlugin } from './plugins/auditTrail.js';
+import { auditRoutes } from './modules/audit/audit.routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -56,6 +58,7 @@ export async function buildApp() {
   await app.register(requestIdPlugin);
   await app.register(requestLoggerPlugin);
   await app.register(errorHandlerPlugin);
+  await app.register(auditTrailPlugin);
 
   await app.register(featureFlagsPlugin);
 
@@ -64,6 +67,7 @@ export async function buildApp() {
 
   await app.register(healthRoute, { prefix: '/api/v1' });
   await app.register(AuthRoutes, { prefix: '/api/v1/auth' });
+  await app.register(auditRoutes, { prefix: '/api/v1/audit' });
   await app.register(CategoryRoutes, { prefix: '/api/v1/categories' });
   await app.register(brandRoutes, { prefix: '/api/v1/brands' });
   await app.register(unitRoutes, { prefix: '/api/v1/units' });

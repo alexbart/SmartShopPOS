@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient, UserStatus, SessionStatus, AuditAction } from '@prisma/client';
+import { PrismaClient, UserStatus, SessionStatus } from '@prisma/client';
 import type { IAuthRepository } from './auth.repository.js';
 import type { CreateOrganizationModel } from './models/create-organization.model.js';
 import type { CreateBranchModel } from './models/create-branch.model.js';
@@ -6,6 +6,7 @@ import type { CreateUserModel } from './models/create-user.model.js';
 import type { AssignRoleModel } from './models/assign-role.model.js';
 import type { CreateSessionModel } from './models/create-session.model.js';
 import type { CreateAuditLogModel } from './models/create-audit-log.model.js';
+import { writeHashedAuditEvent } from '../../audit/audit-chain.js';
 import type { FindOrganizationByNameQuery } from './models/find-organization-by-name.query.js';
 import type { FindOrganizationByCodeQuery } from './models/find-organization-by-code.query.js';
 import type { FindUserByEmailQuery } from './models/find-user-by-email.query.js';
@@ -127,22 +128,7 @@ export class AuthRepositoryImpl implements IAuthRepository {
   }
 
   async createAuditLog(_model: CreateAuditLogModel) {
-    await this._prisma.auditLog.create({
-      data: {
-        organizationId: _model.organizationId,
-        actorId: _model.actorId,
-        action: _model.action as AuditAction,
-        entity: _model.entity,
-        entityId: _model.entityId,
-        oldValues: (_model.oldValues as Prisma.InputJsonValue) ?? Prisma.JsonNull,
-        newValues: (_model.newValues as Prisma.InputJsonValue) ?? Prisma.JsonNull,
-        ipAddress: _model.ipAddress,
-        userAgent: _model.userAgent,
-        requestId: _model.requestId,
-        branchId: _model.branchId,
-        roleId: _model.roleId,
-      },
-    });
+    await writeHashedAuditEvent(this._prisma, _model);
   }
 
   async updateLastLogin(_userId: string) {
@@ -213,6 +199,31 @@ export class AuthRepositoryImpl implements IAuthRepository {
       email: user.email,
       organizationId: user.organizationId,
       branchId: user.branchId,
+    };
+  }
+
+  async findUserAuditSnapshot(_userId: string, _organizationId: string) {
+    const user = await this._prisma.user.findFirst({
+      where: { id: _userId, organizationId: _organizationId },
+      select: {
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        branchId: true,
+        status: true,
+        roles: { select: { role: { select: { name: true } } } },
+      },
+    });
+    if (!user) return null;
+    return {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      branchId: user.branchId,
+      status: user.status,
+      roles: user.roles.map(({ role }) => role.name),
     };
   }
 

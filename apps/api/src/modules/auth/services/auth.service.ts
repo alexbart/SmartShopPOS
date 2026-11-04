@@ -476,6 +476,10 @@ export class AuthService {
 
   async updateUser(command: UpdateUserModel): Promise<void> {
     const requestId = generateRequestId();
+    const previous = await this._repository.findUserAuditSnapshot(
+      command.userId,
+      command.organizationId,
+    );
 
     await this._unitOfWork.execute(async () => {
       await this._repository.updateUser(command);
@@ -486,6 +490,16 @@ export class AuthService {
         action: 'UPDATE',
         entity: 'User',
         entityId: command.userId,
+        oldValues: previous ?? undefined,
+        newValues: {
+          ...(command.firstName !== undefined ? { firstName: command.firstName } : {}),
+          ...(command.lastName !== undefined ? { lastName: command.lastName } : {}),
+          ...(command.email !== undefined ? { email: command.email } : {}),
+          ...(command.phone !== undefined ? { phone: command.phone } : {}),
+          ...(command.branchId !== undefined ? { branchId: command.branchId } : {}),
+          ...(command.isActive !== undefined ? { isActive: command.isActive } : {}),
+          ...(command.roleId !== undefined ? { roleId: command.roleId } : {}),
+        },
         requestId,
       });
     });
@@ -580,6 +594,7 @@ export class AuthService {
         newValues: {
           name: command.name,
           description: command.description,
+          permissionIds: command.permissionIds ?? [],
         },
       });
 
@@ -628,6 +643,16 @@ export class AuthService {
         action: 'UPDATE',
         entity: 'Role',
         entityId: command.id,
+        oldValues: {
+          name: role.name,
+          description: role.description,
+          permissions: role.permissions.map(({ id, name }) => ({ id, name })),
+        },
+        newValues: {
+          name: command.name ?? role.name,
+          description: command.description ?? role.description,
+          permissionIds: command.permissionIds ?? role.permissions.map(({ id }) => id),
+        },
         requestId,
       });
     });
@@ -651,6 +676,11 @@ export class AuthService {
         action: 'DELETE',
         entity: 'Role',
         entityId: roleId,
+        oldValues: {
+          name: role.name,
+          description: role.description,
+          permissions: role.permissions.map(({ id, name }) => ({ id, name })),
+        },
         requestId,
       });
     });
