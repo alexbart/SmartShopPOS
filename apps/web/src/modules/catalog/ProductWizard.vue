@@ -33,6 +33,9 @@ const queryClient = useQueryClient();
 const activeStep = ref(1);
 const productId = computed(() => String(route.params.id ?? ''));
 const isEditing = computed(() => !!productId.value);
+const existingProduct = ref<ProductData | null>(null);
+const isLoadingProduct = ref(false);
+const productLoadError = ref<string | null>(null);
 
 const productSchema = toTypedSchema(
   z.object({
@@ -126,44 +129,58 @@ const { data: warehousesData } = useQuery<Warehouse[]>({
   staleTime: 60_000,
 });
 
-// Fetch existing product when editing
-const { data: existingProduct, isLoading: isLoadingProduct } = useQuery<ProductData>({
-  queryKey: computed(() => ['product', productId.value]),
-  queryFn: async () => {
-    const response = await apiClient.get<{ data: ProductData }>(`/products/${productId.value}`);
-    return response.data.data;
-  },
-  enabled: computed(() => isEditing.value),
-  staleTime: 0,
-});
+function populateProductForm(product: ProductData) {
+  form.setValues({
+    name: product.name ?? '',
+    code: product.code ?? '',
+    sku: product.sku ?? '',
+    barcode: product.barcode ?? '',
+    description: product.description ?? '',
+    sellingPrice: Number(product.sellingPrice ?? 0),
+    costPrice: Number(product.costPrice ?? 0),
+    stockQuantity: Number(product.stockQuantity ?? 0),
+    lowStockThreshold: Number(product.lowStockThreshold ?? 0),
+    unitId: product.unitId ?? '',
+    categoryId: product.categoryId ?? '',
+    brandId: product.brandId ?? '',
+    taxId: product.taxId ?? '',
+    isActive: product.isActive ?? true,
+  });
+}
 
-// Reset the form from the latest product so edit mode starts with persisted values.
+async function loadProductForEdit(id: string) {
+  isLoadingProduct.value = true;
+  productLoadError.value = null;
+  existingProduct.value = null;
+
+  try {
+    const response = await apiClient.get<{ data?: ProductData }>(`/products/${id}`);
+    const product = response.data?.data;
+    if (!product?.id) throw new Error('Product response did not contain product data.');
+
+    existingProduct.value = product;
+    await nextTick();
+    populateProductForm(product);
+  } catch (error) {
+    productLoadError.value = 'Could not load this product. Please retry or return to the product list.';
+    notification.error(productLoadError.value);
+  } finally {
+    isLoadingProduct.value = false;
+  }
+}
+
+// Match customer edit: each route ID change fetches the record, then fills the form.
 watch(
-  () => existingProduct.value,
-  (product) => {
-    if (!product) return;
-    nextTick(() => {
-      form.resetForm({
-        values: {
-          name: product.name ?? '',
-          code: product.code ?? '',
-          sku: product.sku ?? '',
-          barcode: product.barcode ?? '',
-          description: product.description ?? '',
-          sellingPrice: Number(product.sellingPrice ?? 0),
-          costPrice: Number(product.costPrice ?? 0),
-          stockQuantity: Number(product.stockQuantity ?? 0),
-          lowStockThreshold: Number(product.lowStockThreshold ?? 0),
-          unitId: product.unitId ?? '',
-          categoryId: product.categoryId ?? '',
-          brandId: product.brandId ?? '',
-          taxId: product.taxId ?? '',
-          isActive: product.isActive ?? true,
-        },
-      });
-    });
+  productId,
+  (id) => {
+    if (!id) {
+      existingProduct.value = null;
+      productLoadError.value = null;
+      return;
+    }
+    void loadProductForEdit(id);
   },
-  { immediate: true, flush: 'post' },
+  { immediate: true },
 );
 
 // Draft — only for create mode to avoid overwriting real product data
@@ -206,8 +223,7 @@ const showAdjustDialog = ref(false);
 async function handleAdjustStock(payload: any) {
   try {
     await adjustStock.mutateAsync(payload);
-    // Refresh product data to get updated stock
-    queryClient.invalidateQueries({ queryKey: ['product', productId.value] });
+    if (productId.value) await loadProductForEdit(productId.value);
     showAdjustDialog.value = false;
   } catch (error) {
     // Error handled by mutation
@@ -222,7 +238,6 @@ const saveMutation = useMutation({
       : apiClient.post('/products', payload),
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
-    queryClient.invalidateQueries({ queryKey: ['product', productId.value] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     if (!isEditing.value) localStorage.removeItem(draftKey.value);
     notification.success(isEditing.value ? 'Product updated' : 'Product created');
@@ -311,6 +326,18 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
     <div v-if="isEditing && isLoadingProduct" class="space-y-4">
       <div v-for="i in 4" :key="i" class="h-12 bg-muted rounded-lg animate-pulse" />
     </div>
+
+    <Card v-else-if="isEditing && productLoadError">
+      <CardContent class="flex flex-col items-start gap-4 py-6">
+        <p class="text-sm text-destructive">{{ productLoadError }}</p>
+        <div class="flex gap-2">
+          <Button type="button" variant="outline" @click="router.push('/products')">
+            <ChevronLeft class="mr-2 h-4 w-4" /> Back to products
+          </Button>
+          <Button type="button" @click="loadProductForEdit(productId)">Retry</Button>
+        </div>
+      </CardContent>
+    </Card>
 
     <template v-else>
       <!-- Step indicators -->
