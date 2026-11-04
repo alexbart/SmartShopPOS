@@ -2,6 +2,8 @@ export interface IDashboardRepository {
   getTodaySales(_organizationId: string): Promise<number>;
   getTodayTransactionCount(_organizationId: string): Promise<number>;
   getTodayCustomerCount(_organizationId: string): Promise<number>;
+  getSalesTrend(_organizationId: string): Promise<Array<{ date: string; amount: number }>>;
+  getPaymentMix(_organizationId: string): Promise<Array<{ method: string; amount: number }>>;
   getLowStockProducts(_organizationId: string): Promise<number>;
   getOutOfStockProducts(_organizationId: string): Promise<number>;
   getTopSellingProducts(
@@ -31,6 +33,8 @@ export interface DashboardResponse {
     lowStock: number;
     outOfStock: number;
   };
+  salesTrend: Array<{ date: string; amount: number }>;
+  paymentMix: Array<{ method: string; amount: number }>;
   topProducts: Array<{
     productId: string;
     name: string;
