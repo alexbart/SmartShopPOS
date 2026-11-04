@@ -53,7 +53,7 @@ export function useUsers() {
   } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const res = await apiClient.get('/users');
+      const res = await apiClient.get('/auth/users');
       const data = (res.data as { data: User[] | { items?: User[] } }).data;
       return Array.isArray(data) ? data : (data.items ?? []);
     },
@@ -70,7 +70,7 @@ export function useUsers() {
       password: string;
       roleId?: string;
       branchId?: string;
-    }) => apiClient.post('/users', payload),
+    }) => apiClient.post('/auth/users', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       notification.success('User created');
@@ -82,7 +82,7 @@ export function useUsers() {
       payload: { id: string } & Partial<User> & { roleId?: string; isActive?: boolean },
     ) => {
       const { id, ...data } = payload;
-      return apiClient.patch(`/users/${id}`, data);
+      return apiClient.patch(`/auth/users/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -92,14 +92,16 @@ export function useUsers() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: (payload: { userId: string; password: string }) =>
-      apiClient.post(`/users/${payload.userId}/reset-password`, { password: payload.password }),
+      apiClient.post(`/auth/users/${payload.userId}/reset-password`, {
+        password: payload.password,
+      }),
     onSuccess: () => {
       notification.success('Password reset');
     },
   });
 
   const deactivateUserMutation = useMutation({
-    mutationFn: (userId: string) => apiClient.patch(`/users/${userId}/deactivate`),
+    mutationFn: (userId: string) => apiClient.patch(`/auth/users/${userId}/deactivate`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       notification.success('User deactivated');
@@ -123,7 +125,7 @@ export function useRoles() {
   const { data: rolesData, isLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
-      const res = await apiClient.get('/roles');
+      const res = await apiClient.get('/auth/roles');
       const data = (res.data as { data: Role[] | { items?: Role[] } }).data;
       return Array.isArray(data) ? data : (data.items ?? []);
     },
@@ -133,7 +135,7 @@ export function useRoles() {
   const { data: permissionsData } = useQuery({
     queryKey: ['permissions'],
     queryFn: async () => {
-      const res = await apiClient.get('/permissions');
+      const res = await apiClient.get('/auth/permissions');
       const data = (res.data as { data: Permission[] | { items?: Permission[] } }).data;
       return Array.isArray(data) ? data : (data.items ?? []);
     },
@@ -145,7 +147,7 @@ export function useRoles() {
 
   const createRoleMutation = useMutation({
     mutationFn: (payload: { name: string; description?: string; permissionIds: string[] }) =>
-      apiClient.post('/roles', payload),
+      apiClient.post('/auth/roles', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       notification.success('Role created');
@@ -158,7 +160,7 @@ export function useRoles() {
       name: string;
       description?: string;
       permissionIds: string[];
-    }) => apiClient.patch(`/roles/${payload.id}`, payload),
+    }) => apiClient.patch(`/auth/roles/${payload.id}`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       notification.success('Role updated');
@@ -166,7 +168,7 @@ export function useRoles() {
   });
 
   const deleteRoleMutation = useMutation({
-    mutationFn: (roleId: string) => apiClient.delete(`/roles/${roleId}`),
+    mutationFn: (roleId: string) => apiClient.delete(`/auth/roles/${roleId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       notification.success('Role deleted');

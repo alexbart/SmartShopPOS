@@ -4,6 +4,7 @@ import { Shield, Plus, Save, Users, Trash2, Lock } from '@lucide/vue';
 import { useRoles } from '../composables/useAdmin.js';
 import type { Role } from '../composables/types.js';
 import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
+import PermissionGrid from '../components/PermissionGrid.vue';
 
 const { roles, allPermissionsGrouped, createRoleMutation, updateRoleMutation, deleteRoleMutation } = useRoles();
 
@@ -171,47 +172,3 @@ async function deleteRole(role: Role) {
     </div>
   </WorkspaceShell>
 </template>
-
-<script lang="ts">
-import { defineComponent, h } from 'vue';
-import { CheckSquare, Square } from '@lucide/vue';
-
-export default defineComponent({
-  name: 'PermissionGrid',
-  props: {
-    permissions: {
-      type: Object as () => Record<string, Array<{ id: string; resource: string; action: string; description?: string }>>,
-      required: true,
-    },
-    selected: {
-      type: Set,
-      required: true,
-    },
-  },
-  emits: ['toggle'],
-  setup(props, { emit }) {
-    return () => h('div', { class: 'space-y-4' },
-      Object.entries(props.permissions).map(([group, perms]) =>
-        h('div', { key: group }, [
-          h('h4', { class: 'font-medium text-sm mb-2' }, group),
-          h('div', { class: 'grid grid-cols-1 sm:grid-cols-2 gap-2' },
-            perms.map(p =>
-              h('label', { key: p.id, class: 'flex items-center gap-2 text-sm cursor-pointer' }, [
-                h('input', {
-                  type: 'checkbox',
-                  checked: props.selected.has(p.id),
-                  onClick: (e: Event) => {
-                    e.preventDefault();
-                    emit('toggle', p.id);
-                  },
-                }),
-                h('span', {}, `${p.action} ${p.resource}`),
-              ]),
-            ),
-          ),
-        ]),
-      ),
-    );
-  },
-});
-</script>
