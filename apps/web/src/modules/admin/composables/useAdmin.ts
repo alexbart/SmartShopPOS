@@ -17,13 +17,18 @@ import type {
 export function useOrganization() {
   const queryClient = useQueryClient();
 
-  const { data: orgData, isLoading } = useQuery({
+  const {
+    data: orgData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['organization'],
     queryFn: async () => {
       const res = await apiClient.get('/organization');
       return (res.data as { data: Organization }).data as Organization;
     },
     staleTime: 60_000,
+    retry: false,
   });
 
   const organization = computed(() => orgData.value ?? null);
@@ -39,6 +44,7 @@ export function useOrganization() {
   return {
     organization,
     organizationLoading: isLoading,
+    organizationError: error,
     updateMutation,
   };
 }

@@ -26,7 +26,7 @@ function redact(value: unknown, depth = 0): unknown {
 
 function getSensitiveRead(request: FastifyRequest): boolean {
   const path = request.url.split('?')[0].toLowerCase();
-  return /\/(users|roles|permissions|customers|payments|banking|finance|reports|export)(\/|$)/.test(
+  return /\/(users|roles|permissions|customers|payments|banking|finance|reports|export|organization)(\/|$)/.test(
     path,
   );
 }
@@ -35,6 +35,7 @@ function getModelForPath(path: string): string | undefined {
   const segments = path.toLowerCase().split('/').filter(Boolean);
   const resource = segments[2] === 'finance' ? segments[3] : segments[2];
   const models: Record<string, string> = {
+    organization: 'organization',
     products: 'product',
     categories: 'category',
     brands: 'brand',
@@ -106,13 +107,19 @@ export const auditTrailPlugin = fp(
       const path = request.url.split('?')[0];
       if (!path.startsWith('/api/v1/')) return;
       const modelName = getModelForPath(path);
-      const params = request.params as Record<string, unknown> | undefined;
-      const entityId = typeof params?.id === 'string' ? params.id : undefined;
       const authorization = request.headers.authorization;
-      if (!modelName || !entityId || !authorization?.startsWith('Bearer ')) return;
+      if (!modelName || !authorization?.startsWith('Bearer ')) return;
 
       try {
         const identity = await jwtService.verifyAccessToken(authorization.slice(7));
+        const params = request.params as Record<string, unknown> | undefined;
+        const entityId =
+          typeof params?.id === 'string'
+            ? params.id
+            : path === '/api/v1/organization'
+              ? identity.organizationId
+              : undefined;
+        if (!entityId) return;
         const delegate = (
           prisma as unknown as Record<
             string,
@@ -122,7 +129,10 @@ export const auditTrailPlugin = fp(
           >
         )[modelName];
         const record = await delegate.findFirst({
-          where: { id: entityId, organizationId: identity.organizationId },
+          where:
+            modelName === 'organization'
+              ? { id: identity.organizationId }
+              : { id: entityId, organizationId: identity.organizationId },
         });
         if (record) {
           (request as FastifyRequest & { auditOldValues?: unknown }).auditOldValues =

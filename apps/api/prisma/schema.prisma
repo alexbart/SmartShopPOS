@@ -14,6 +14,11 @@ model Organization {
   email                String?                @db.VarChar(255)
   phone                String?                @db.VarChar(50)
   kraPin               String?                @db.VarChar(50)
+  tagline              String?
+  businessType         String?                @db.VarChar(100)
+  vatNumber            String?                @db.VarChar(50)
+  website              String?                @db.VarChar(255)
+  receiptFooter         String?
   currency             String                 @default("KES") @db.VarChar(3)
   timezone             String                 @default("Africa/Nairobi") @db.VarChar(100)
   logoUrl              String?
