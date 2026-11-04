@@ -35,6 +35,7 @@ async function main() {
     { name: 'user:update', module: 'USER', description: 'Update users' },
     { name: 'user:delete', module: 'USER', description: 'Deactivate users' },
     { name: 'audit:read', module: 'AUDIT', description: 'View organization audit trail' },
+    { name: 'health:read', module: 'SYSTEM', description: 'View service health diagnostics' },
     { name: 'CUSTOMER.VIEW', module: 'CUSTOMER', description: 'View customers' },
     { name: 'CUSTOMER.CREATE', module: 'CUSTOMER', description: 'Create customers' },
     { name: 'CUSTOMER.UPDATE', module: 'CUSTOMER', description: 'Update customers' },

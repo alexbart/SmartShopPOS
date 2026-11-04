@@ -299,20 +299,30 @@ export function useAuditLog(
 }
 
 export function useHealth() {
-  const { data: healthData, isLoading } = useQuery({
-    queryKey: ['health'],
+  const {
+    data: healthData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['health-details'],
     queryFn: async () => {
-      const res = await apiClient.get('/health');
-      return (res.data as { data: HealthStatus[] }).data as HealthStatus[];
+      const res = await apiClient.get('/health/details');
+      return (res.data as { data: HealthStatus }).data;
     },
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 
-  const services = computed(() => healthData.value ?? []);
-
   return {
-    services,
+    health: computed(() => healthData.value ?? null),
     healthLoading: isLoading,
+    healthRefreshing: isFetching,
+    healthError: error,
+    refreshHealth: refetch,
   };
 }
 

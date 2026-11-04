@@ -114,8 +114,24 @@ export interface Integration {
   config?: Record<string, any>;
 }
 
-export interface HealthStatus {
-  service: string;
-  status: 'healthy' | 'degraded' | 'down' | 'disabled';
+export type HealthCheckStatus = 'healthy' | 'degraded' | 'down' | 'disabled';
+
+export interface HealthServiceCheck {
+  name: string;
+  status: HealthCheckStatus;
+  checkedAt: string;
+  latencyMs?: number;
   details?: string;
+}
+
+export interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'down';
+  checkedAt: string;
+  services: HealthServiceCheck[];
+  system: {
+    uptimeSeconds: number;
+    memory: { rssBytes: number; heapUsedBytes: number; heapTotalBytes: number };
+    cpu: { loadAverage: number[] | null; supported: boolean };
+  };
+  build: { version: string; buildTime?: string };
 }
