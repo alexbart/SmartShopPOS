@@ -31,7 +31,8 @@ const router = useRouter();
 const route = useRoute();
 const queryClient = useQueryClient();
 const activeStep = ref(1);
-const isEditing = computed(() => !!route.params.id);
+const productId = computed(() => String(route.params.id ?? ''));
+const isEditing = computed(() => !!productId.value);
 
 const productSchema = toTypedSchema(
   z.object({
@@ -81,18 +82,18 @@ interface Warehouse { id: string; name: string; code: string; isDefault: boolean
 interface ProductData {
   id: string;
   name: string;
-  code: string;
-  sku: string;
-  barcode: string;
-  description: string;
-  sellingPrice: number;
-  costPrice: number;
-  stockQuantity: number;
-  lowStockThreshold: number;
+  code?: string | null;
+  sku?: string | null;
+  barcode?: string | null;
+  description?: string | null;
+  sellingPrice: number | string;
+  costPrice: number | string;
+  stockQuantity?: number | string;
+  lowStockThreshold?: number | string | null;
   unitId: string;
-  categoryId: string;
-  brandId: string;
-  taxId: string;
+  categoryId?: string | null;
+  brandId?: string | null;
+  taxId?: string | null;
   isActive: boolean;
 }
 
@@ -127,40 +128,42 @@ const { data: warehousesData } = useQuery<Warehouse[]>({
 
 // Fetch existing product when editing
 const { data: existingProduct, isLoading: isLoadingProduct } = useQuery<ProductData>({
-  queryKey: ['product', route.params.id],
+  queryKey: computed(() => ['product', productId.value]),
   queryFn: async () => {
-    const res = await apiClient.get(`/products/${route.params.id}`);
-    return (res.data as any).data;
+    const response = await apiClient.get<{ data: ProductData }>(`/products/${productId.value}`);
+    return response.data.data;
   },
-  enabled: isEditing,
+  enabled: computed(() => isEditing.value),
   staleTime: 0,
 });
 
-// Populate form when product data arrives — this is the core fix
+// Reset the form from the latest product so edit mode starts with persisted values.
 watch(
   () => existingProduct.value,
   (product) => {
     if (!product) return;
     nextTick(() => {
-      form.setValues({
-        name: product.name ?? '',
-        code: product.code ?? '',
-        sku: product.sku ?? '',
-        barcode: product.barcode ?? '',
-        description: product.description ?? '',
-        sellingPrice: Number(product.sellingPrice) ?? 0,
-        costPrice: Number(product.costPrice) ?? 0,
-        stockQuantity: Number(product.stockQuantity) ?? 0,
-        lowStockThreshold: Number(product.lowStockThreshold) ?? 0,
-        unitId: product.unitId ?? '',
-        categoryId: product.categoryId ?? '',
-        brandId: product.brandId ?? '',
-        taxId: product.taxId ?? '',
-        isActive: product.isActive ?? true,
+      form.resetForm({
+        values: {
+          name: product.name ?? '',
+          code: product.code ?? '',
+          sku: product.sku ?? '',
+          barcode: product.barcode ?? '',
+          description: product.description ?? '',
+          sellingPrice: Number(product.sellingPrice ?? 0),
+          costPrice: Number(product.costPrice ?? 0),
+          stockQuantity: Number(product.stockQuantity ?? 0),
+          lowStockThreshold: Number(product.lowStockThreshold ?? 0),
+          unitId: product.unitId ?? '',
+          categoryId: product.categoryId ?? '',
+          brandId: product.brandId ?? '',
+          taxId: product.taxId ?? '',
+          isActive: product.isActive ?? true,
+        },
       });
     });
   },
-  { immediate: true },
+  { immediate: true, flush: 'post' },
 );
 
 // Draft — only for create mode to avoid overwriting real product data
@@ -204,7 +207,7 @@ async function handleAdjustStock(payload: any) {
   try {
     await adjustStock.mutateAsync(payload);
     // Refresh product data to get updated stock
-    queryClient.invalidateQueries({ queryKey: ['product', route.params.id] });
+    queryClient.invalidateQueries({ queryKey: ['product', productId.value] });
     showAdjustDialog.value = false;
   } catch (error) {
     // Error handled by mutation
@@ -215,11 +218,11 @@ async function handleAdjustStock(payload: any) {
 const saveMutation = useMutation({
   mutationFn: (payload: any) =>
     isEditing.value
-      ? apiClient.put(`/products/${route.params.id}`, payload)
+      ? apiClient.patch(`/products/${productId.value}`, payload)
       : apiClient.post('/products', payload),
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
-    queryClient.invalidateQueries({ queryKey: ['product', route.params.id] });
+    queryClient.invalidateQueries({ queryKey: ['product', productId.value] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     if (!isEditing.value) localStorage.removeItem(draftKey.value);
     notification.success(isEditing.value ? 'Product updated' : 'Product created');
@@ -634,7 +637,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
       <!-- Adjust Stock Dialog -->
       <AdjustStockDialog
         v-model:open="showAdjustDialog"
-        :product-id="route.params.id as string"
+        :product-id="productId"
         :current-stock="form.values.stockQuantity ?? 0"
         :warehouses="warehousesData as any"
         @success="(payload) => handleAdjustStock(payload)"
