@@ -45,7 +45,7 @@ export async function buildApp() {
       level: process.env.NODE_ENV === 'development' ? 'info' : 'warn',
       redact: ['req.headers.authorization'],
     },
-    requestIdLogName: 'requestId',
+    requestIdLogLabel: 'requestId',
     requestIdHeader: 'x-request-id',
   });
 
