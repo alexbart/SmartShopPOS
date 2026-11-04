@@ -5,6 +5,7 @@ import { AuthRepositoryImpl } from '../auth/repositories/auth.repository.impl.js
 import { JwtService } from '../../shared/services/jwt/jwt.service.js';
 import { getPrisma } from '../../shared/database/prisma.js';
 import { hashAuditValue } from './audit-integrity.js';
+import { PdfFormatter } from '../export/formats/pdf.js';
 
 const prisma = getPrisma();
 const validActions = new Set<string>(Object.values(AuditAction));
@@ -12,6 +13,84 @@ const validActions = new Set<string>(Object.values(AuditAction));
 export const auditRoutes: FastifyPluginAsync = async (fastify) => {
   const authenticate = createAuthenticateHook(new JwtService(), new AuthRepositoryImpl(prisma));
   const authorizeRead = createAuthorizeHook(['audit:read']);
+
+  fastify.get(
+    '/export.pdf',
+    { preHandler: [authenticate, authorizeRead] },
+    async (request, reply) => {
+      const query = request.query as Record<string, string | undefined>;
+      const search = query.search?.trim();
+      const from = query.from ? new Date(query.from) : undefined;
+      const to = query.to ? new Date(query.to) : undefined;
+      const action =
+        query.action && validActions.has(query.action) ? (query.action as AuditAction) : undefined;
+      const where: Prisma.AuditLogWhereInput = {
+        organizationId: request.requestContext.organizationId,
+        ...(action ? { action } : {}),
+        ...(query.outcome ? { outcome: query.outcome.toUpperCase() } : {}),
+        ...(query.entity ? { entity: { contains: query.entity, mode: 'insensitive' } } : {}),
+        ...(query.actorId ? { actorId: query.actorId } : {}),
+        ...(query.requestId ? { requestId: { contains: query.requestId } } : {}),
+        ...((from && !Number.isNaN(from.getTime())) || (to && !Number.isNaN(to.getTime()))
+          ? {
+              createdAt: {
+                ...(from && !Number.isNaN(from.getTime()) ? { gte: from } : {}),
+                ...(to && !Number.isNaN(to.getTime()) ? { lte: to } : {}),
+              },
+            }
+          : {}),
+        ...(search
+          ? {
+              OR: [
+                { actorName: { contains: search, mode: 'insensitive' } },
+                { entity: { contains: search, mode: 'insensitive' } },
+                { entityId: { contains: search, mode: 'insensitive' } },
+                { summary: { contains: search, mode: 'insensitive' } },
+                { requestId: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      };
+      const [events, total] = await Promise.all([
+        prisma.auditLog.findMany({
+          where,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 5000,
+        }),
+        prisma.auditLog.count({ where }),
+      ]);
+      const pdf = await new PdfFormatter().export({
+        title: `Audit Activity — latest ${events.length} of ${total}`,
+        columns: [
+          { key: 'createdAt', label: 'Timestamp' },
+          { key: 'actorName', label: 'User' },
+          { key: 'action', label: 'Action' },
+          { key: 'entity', label: 'Entity' },
+          { key: 'entityId', label: 'Record ID' },
+          { key: 'outcome', label: 'Outcome' },
+          { key: 'summary', label: 'Summary' },
+        ],
+        rows: events.map((event) => ({
+          createdAt: event.createdAt,
+          actorName: event.actorName ?? event.actorId ?? 'System / unknown user',
+          action: event.action,
+          entity: event.entity,
+          entityId: event.entityId,
+          outcome: event.outcome,
+          summary: event.summary ?? '',
+        })),
+      });
+      reply.header('Content-Type', 'application/pdf');
+      reply.header('Content-Disposition', 'attachment; filename="audit-report.pdf"');
+      reply.header(
+        'Access-Control-Expose-Headers',
+        'X-Exported-Events, X-Total-Events, Content-Disposition',
+      );
+      reply.header('X-Exported-Events', String(events.length));
+      reply.header('X-Total-Events', String(total));
+      return reply.send(pdf);
+    },
+  );
 
   fastify.get(
     '/integrity',

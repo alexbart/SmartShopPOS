@@ -82,6 +82,26 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/modules/finance/BankingPage.vue'),
       },
       {
+        path: 'reports',
+        name: 'reports-home',
+        component: () => import('@/modules/reports/ReportsHome.vue'),
+      },
+      {
+        path: 'reports/inventory',
+        name: 'reports-inventory',
+        component: () => import('@/modules/reports/InventoryReportsPage.vue'),
+      },
+      {
+        path: 'reports/purchasing',
+        name: 'reports-purchasing',
+        component: () => import('@/modules/reports/PurchasingReportsPage.vue'),
+      },
+      {
+        path: 'reports/customers',
+        name: 'reports-customers',
+        component: () => import('@/modules/reports/CustomerReportsPage.vue'),
+      },
+      {
         path: 'reports/finance',
         name: 'reports-finance',
         component: () => import('@/modules/reports/FinanceReportsPage.vue'),

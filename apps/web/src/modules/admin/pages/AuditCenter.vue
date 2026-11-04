@@ -11,6 +11,8 @@ const filters = reactive({ search: '', action: '', entity: '', outcome: '', from
 const applied = reactive({ ...filters, page: 1 });
 const integrity = ref<{ valid: boolean; checkedEvents: number; firstInvalidEventId: string | null; verifiedAt: string } | null>(null);
 const checkingIntegrity = ref(false);
+const exportingAudit = ref(false);
+const exportingAuditPdf = ref(false);
 const { entries, total, pages, auditLoading } = useAuditLog(() => ({
   ...applied,
   limit: 50,
@@ -43,6 +45,83 @@ async function verifyIntegrity() {
   } finally {
     checkingIntegrity.value = false;
   }
+}
+
+function csvCell(value: unknown): string {
+  const normalized = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value ?? '');
+  return `"${normalized.replaceAll('"', '""')}"`;
+}
+
+async function exportAuditReport() {
+  exportingAudit.value = true;
+  try {
+    const all: any[] = [];
+    let page = 1;
+    let pages = 1;
+    do {
+      const query = new URLSearchParams({ page: String(page), limit: '100' });
+      if (applied.search) query.set('search', applied.search);
+      if (applied.action) query.set('action', applied.action);
+      if (applied.entity) query.set('entity', applied.entity);
+      if (applied.outcome) query.set('outcome', applied.outcome);
+      if (applied.from) query.set('from', new Date(`${applied.from}T00:00:00`).toISOString());
+      if (applied.to) query.set('to', new Date(`${applied.to}T23:59:59.999`).toISOString());
+      const response = await apiClient.get(`/audit?${query.toString()}`);
+      const data = response.data.data;
+      all.push(...data.items);
+      pages = data.pages;
+      page += 1;
+    } while (page <= pages);
+
+    if (!all.length) { notification.info('No audit events match the current filters'); return; }
+    const records = all.map((entry) => ({
+      eventId: entry.id,
+      timestamp: entry.createdAt,
+      actor: actorName(entry),
+      actorId: entry.actorId,
+      action: entry.action,
+      resource: entry.resource,
+      resourceId: entry.resourceId,
+      outcome: entry.details?.outcome,
+      summary: entry.details?.summary,
+      branch: entry.details?.branch?.name,
+      route: `${entry.details?.method ?? ''} ${entry.details?.route ?? ''}`.trim(),
+      ipAddress: entry.details?.ipAddress,
+      requestId: entry.requestId,
+      oldValues: entry.details?.oldValues,
+      newValues: entry.details?.newValues,
+      eventHash: entry.details?.eventHash,
+    }));
+    const headers = Object.keys(records[0]);
+    const csv = [headers.map(csvCell).join(','), ...records.map((row) => headers.map((key) => csvCell((row as Record<string, unknown>)[key])).join(','))].join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = `audit-report-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url);
+    notification.success(`Exported ${records.length} audit events`);
+  } catch {
+    notification.error('Could not export the audit report');
+  } finally { exportingAudit.value = false; }
+}
+
+async function exportAuditPdf() {
+  exportingAuditPdf.value = true;
+  try {
+    const query = new URLSearchParams();
+    if (applied.search) query.set('search', applied.search);
+    if (applied.action) query.set('action', applied.action);
+    if (applied.entity) query.set('entity', applied.entity);
+    if (applied.outcome) query.set('outcome', applied.outcome);
+    if (applied.from) query.set('from', new Date(`${applied.from}T00:00:00`).toISOString());
+    if (applied.to) query.set('to', new Date(`${applied.to}T23:59:59.999`).toISOString());
+    const response = await apiClient.get(`/audit/export.pdf?${query.toString()}`, { responseType: 'blob' });
+    const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    const link = document.createElement('a'); link.href = url; link.download = 'audit-report.pdf'; link.click(); URL.revokeObjectURL(url);
+    const exported = Number(response.headers['x-exported-events'] ?? 0);
+    const totalEvents = Number(response.headers['x-total-events'] ?? exported);
+    if (totalEvents > exported) notification.warning(`PDF includes the latest ${exported} of ${totalEvents} matching events; CSV includes all matches`);
+    else notification.success('Audit PDF exported');
+  } catch {
+    notification.error('Could not export the audit PDF');
+  } finally { exportingAuditPdf.value = false; }
 }
 
 function applyFilters() {
@@ -126,6 +205,12 @@ function outcomeClass(outcome?: string): string {
           <span v-if="integrity" :class="integrity.valid ? 'text-green-700 dark:text-green-400' : 'text-destructive'">
             {{ integrity.valid ? `Verified ${integrity.checkedEvents} chained events` : `Integrity issue at ${integrity.firstInvalidEventId}` }}
           </span>
+          <Button type="button" variant="outline" :disabled="exportingAudit" @click="exportAuditReport">
+            {{ exportingAudit ? 'Preparing export…' : 'Export filtered audit report' }}
+          </Button>
+          <Button type="button" variant="outline" :disabled="exportingAuditPdf" @click="exportAuditPdf">
+            {{ exportingAuditPdf ? 'Preparing PDF…' : 'Export PDF' }}
+          </Button>
           <Button type="button" variant="outline" :disabled="checkingIntegrity" @click="verifyIntegrity">
             {{ checkingIntegrity ? 'Verifying…' : 'Verify audit integrity' }}
           </Button>

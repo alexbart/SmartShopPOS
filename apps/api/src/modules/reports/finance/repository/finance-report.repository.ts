@@ -27,15 +27,6 @@ export interface ExpenseReportRow {
   paymentReference: string;
 }
 
-export interface ProfitSummaryRow {
-  date: string;
-  revenue: number;
-  costOfGoodsSold: number;
-  grossProfit: number;
-  expenses: number;
-  netProfit: number;
-}
-
 export interface CashDrawerVarianceRow {
   date: string;
   openingFloat: number;
@@ -56,8 +47,6 @@ export interface IFinanceReportRepository {
   dailyCashSummary(filters: FinanceReportFilters): Promise<DailyCashSummaryRow[]>;
   // eslint-disable-next-line no-unused-vars
   expenseReport(filters: FinanceReportFilters): Promise<ExpenseReportRow[]>;
-  // eslint-disable-next-line no-unused-vars
-  profitSummary(filters: FinanceReportFilters): Promise<ProfitSummaryRow[]>;
   // eslint-disable-next-line no-unused-vars
   cashDrawerVariance(filters: FinanceReportFilters): Promise<CashDrawerVarianceRow[]>;
   // eslint-disable-next-line no-unused-vars
