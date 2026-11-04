@@ -6,6 +6,8 @@ export interface Product {
   barcode?: string;
   description?: string;
   sellingPrice: number;
+  wholesalePrice?: number | null;
+  discountPrice?: number | null;
   costPrice: number;
   stockQuantity: number;
   lowStockThreshold: number;

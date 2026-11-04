@@ -46,6 +46,7 @@ model Organization {
   numberSequences      NumberSequence[]
   payments             Payment[]
   products             Product[]
+  productImportJobs    ProductImportJob[]
   purchaseOrders       PurchaseOrder[]
   receipts             Receipt[]
   roles                Role[]
@@ -357,6 +358,8 @@ model Product {
   taxId              String?             @db.Uuid
   costPrice          Decimal             @db.Decimal(10, 2)
   sellingPrice       Decimal             @db.Decimal(10, 2)
+  wholesalePrice     Decimal?            @db.Decimal(10, 2)
+  discountPrice      Decimal?            @db.Decimal(10, 2)
   isActive           Boolean             @default(true)
   createdAt          DateTime            @default(now()) @db.Timestamp(6)
   updatedAt          DateTime            @updatedAt @db.Timestamp(6)
@@ -382,6 +385,45 @@ model Product {
   @@map("products")
 }
 
+model ProductImportJob {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @db.Uuid
+  warehouseId    String             @db.Uuid
+  sourceHash     String             @db.Char(64)
+  sourceName     String             @db.VarChar(255)
+  status         String             @default("RUNNING") @db.VarChar(30)
+  totalRows      Int
+  completedRows  Int                @default(0)
+  failedRows     Int                @default(0)
+  createdAt      DateTime           @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime           @updatedAt @db.Timestamp(6)
+  completedAt    DateTime?          @db.Timestamp(6)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  warehouse      Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  rows           ProductImportRow[]
+
+  @@unique([organizationId, warehouseId, sourceHash], map: "product_import_job_source_key")
+  @@index([organizationId, status])
+  @@map("product_import_jobs")
+}
+
+model ProductImportRow {
+  id         String           @id @default(uuid()) @db.Uuid
+  jobId      String           @db.Uuid
+  rowNumber  Int
+  status     String           @default("PENDING") @db.VarChar(20)
+  sourceData Json
+  productId  String?          @db.Uuid
+  error      String?
+  createdAt  DateTime         @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime         @updatedAt @db.Timestamp(6)
+  job        ProductImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, rowNumber], map: "product_import_row_job_number_key")
+  @@index([jobId, status])
+  @@map("product_import_rows")
+}
+
 model Warehouse {
   id             String          @id @default(uuid()) @db.Uuid
   organizationId String          @db.Uuid
@@ -400,6 +442,7 @@ model Warehouse {
   sales          Sale[]
   stockMovements StockMovement[]
   stocks         Stock[]
+  productImportJobs ProductImportJob[]
   branch         Branch          @relation(fields: [branchId], references: [id])
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

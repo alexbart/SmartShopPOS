@@ -46,6 +46,8 @@ const productSchema = toTypedSchema(
     description: z.string().optional(),
     sellingPrice: z.coerce.number().min(0, 'Selling price is required'),
     costPrice: z.coerce.number().min(0, 'Cost price is required'),
+    wholesalePrice: z.preprocess((value) => value === '' || value == null ? undefined : value, z.coerce.number().min(0).optional()),
+    discountPrice: z.preprocess((value) => value === '' || value == null ? undefined : value, z.coerce.number().min(0).optional()),
     stockQuantity: z.coerce.number().min(0).default(0),
     lowStockThreshold: z.coerce.number().min(0).default(0),
     unitId: z.string().min(1, 'Unit is required'),
@@ -66,6 +68,8 @@ const form = useForm({
     description: '',
     sellingPrice: 0,
     costPrice: 0,
+    wholesalePrice: '',
+    discountPrice: '',
     stockQuantity: 0,
     lowStockThreshold: 0,
     unitId: '',
@@ -91,6 +95,8 @@ interface ProductData {
   description?: string | null;
   sellingPrice: number | string;
   costPrice: number | string;
+  wholesalePrice?: number | string | null;
+  discountPrice?: number | string | null;
   stockQuantity?: number | string;
   lowStockThreshold?: number | string | null;
   unitId: string;
@@ -138,6 +144,8 @@ function populateProductForm(product: ProductData) {
     description: product.description ?? '',
     sellingPrice: Number(product.sellingPrice ?? 0),
     costPrice: Number(product.costPrice ?? 0),
+    wholesalePrice: product.wholesalePrice ?? '',
+    discountPrice: product.discountPrice ?? '',
     stockQuantity: Number(product.stockQuantity ?? 0),
     lowStockThreshold: Number(product.lowStockThreshold ?? 0),
     unitId: product.unitId ?? '',
@@ -281,6 +289,8 @@ async function handleSubmit() {
     description: v.description || undefined,
     sellingPrice: Number(v.sellingPrice),
     costPrice: Number(v.costPrice),
+    wholesalePrice: v.wholesalePrice === '' || v.wholesalePrice == null ? null : Number(v.wholesalePrice),
+    discountPrice: v.discountPrice === '' || v.discountPrice == null ? null : Number(v.discountPrice),
     lowStockThreshold: Number(v.lowStockThreshold ?? 0),
     unitId: v.unitId,
     categoryId: v.categoryId || undefined,
@@ -451,6 +461,30 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                   <FormControl>
                     <Input type="number" placeholder="0.00" step="0.01" min="0" v-bind="componentField" />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+
+              <FormField v-slot="{ componentField }" name="wholesalePrice">
+                <FormItem>
+                  <FormLabel>Wholesale Price (KES)</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="Optional" step="0.01" min="0" v-bind="componentField" />
+                  </FormControl>
+                  <FormDescription>Optional bulk or trade price.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+
+              <FormField v-slot="{ componentField }" name="discountPrice">
+                <FormItem>
+                  <FormLabel>Discount Selling Price (KES)</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="Optional" step="0.01" min="0" v-bind="componentField" />
+                  </FormControl>
+                  <FormDescription v-if="form.values.discountPrice !== '' && Number(form.values.sellingPrice) > 0">
+                    Discount: {{ (((Number(form.values.sellingPrice) - Number(form.values.discountPrice)) / Number(form.values.sellingPrice)) * 100).toFixed(1) }}%
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               </FormField>
@@ -631,6 +665,8 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                 <div class="space-y-1">
                   <div class="flex justify-between"><span class="text-muted-foreground">Selling Price</span><span class="font-medium">KES {{ Number(form.values.sellingPrice).toLocaleString() }}</span></div>
                   <div class="flex justify-between"><span class="text-muted-foreground">Cost Price</span><span class="font-medium">KES {{ Number(form.values.costPrice).toLocaleString() }}</span></div>
+                  <div class="flex justify-between"><span class="text-muted-foreground">Wholesale Price</span><span class="font-medium">{{ form.values.wholesalePrice === '' ? '—' : `KES ${Number(form.values.wholesalePrice).toLocaleString()}` }}</span></div>
+                  <div class="flex justify-between"><span class="text-muted-foreground">Discount Price</span><span class="font-medium">{{ form.values.discountPrice === '' ? '—' : `KES ${Number(form.values.discountPrice).toLocaleString()}` }}</span></div>
                   <div class="flex justify-between"><span class="text-muted-foreground">Stock</span><span>{{ form.values.stockQuantity }}</span></div>
                   <div class="flex justify-between"><span class="text-muted-foreground">Images</span><span>{{ uploadedImages.length }} uploaded</span></div>
                 </div>

@@ -16,6 +16,7 @@ import { brandRoutes } from './modules/brand/index.js';
 import { unitRoutes } from './modules/unit/index.js';
 import { taxRoutes } from './modules/tax/index.js';
 import { productRoutes } from './modules/product/index.js';
+import { productImportRoutes } from './modules/product/routes/product-import.routes.js';
 import { warehouseRoutes } from './modules/warehouse/index.js';
 import { supplierRoutes } from './modules/supplier/index.js';
 import { inventoryRoutes } from './modules/inventory/index.js';
@@ -76,6 +77,7 @@ export async function buildApp() {
   await app.register(unitRoutes, { prefix: '/api/v1/units' });
   await app.register(taxRoutes, { prefix: '/api/v1/taxes' });
   await app.register(productRoutes, { prefix: '/api/v1/products' });
+  await app.register(productImportRoutes, { prefix: '/api/v1/products' });
   await app.register(warehouseRoutes, { prefix: '/api/v1/warehouses' });
   await app.register(supplierRoutes, { prefix: '/api/v1/suppliers' });
   await app.register(inventoryRoutes, { prefix: '/api/v1/inventory' });

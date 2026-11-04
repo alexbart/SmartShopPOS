@@ -21,6 +21,9 @@ export interface CreateProductModel {
   taxId?: string;
   costPrice: number;
   sellingPrice: number;
+  wholesalePrice?: number | null;
+  discountPrice?: number | null;
+  lowStockThreshold?: number;
   createdBy?: string;
 }
 
@@ -38,6 +41,8 @@ export interface UpdateProductModel {
   taxId?: string | null;
   costPrice?: number;
   sellingPrice?: number;
+  wholesalePrice?: number | null;
+  discountPrice?: number | null;
   lowStockThreshold?: number;
   isActive?: boolean;
   updatedBy?: string;
@@ -75,6 +80,8 @@ export interface ProductEntity {
   taxRate?: number;
   costPrice: number;
   sellingPrice: number;
+  wholesalePrice?: number | null;
+  discountPrice?: number | null;
   stockQuantity: number;
   lowStockThreshold?: number;
   isActive: boolean;
