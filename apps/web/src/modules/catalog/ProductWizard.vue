@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import ImageUploader from '@/modules/catalog/components/ImageUploader.vue';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import AdjustStockDialog from '@/modules/catalog/components/AdjustStockDialog.vue';
@@ -364,7 +364,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
         </div>
       </div>
 
-      <Form :form="form">
+      <div>
         <!-- Step 1: Basic Info -->
         <Card v-if="activeStep === 1">
           <CardHeader>
@@ -372,7 +372,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
             <CardDescription>Name, SKU, barcode and description.</CardDescription>
           </CardHeader>
           <CardContent class="space-y-4">
-            <FormField v-slot="{ componentField }" name="name" :form="form">
+            <FormField v-slot="{ componentField }" name="name">
               <FormItem>
                 <FormLabel>Product Name *</FormLabel>
                 <FormControl>
@@ -383,7 +383,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
             </FormField>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField v-slot="{ componentField }" name="code" :form="form">
+              <FormField v-slot="{ componentField }" name="code">
                 <FormItem>
                   <FormLabel>Product Code</FormLabel>
                   <FormControl>
@@ -393,7 +393,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                 </FormItem>
               </FormField>
 
-              <FormField v-slot="{ componentField }" name="sku" :form="form">
+              <FormField v-slot="{ componentField }" name="sku">
                 <FormItem>
                   <FormLabel>SKU</FormLabel>
                   <FormControl>
@@ -404,7 +404,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                 </FormItem>
               </FormField>
 
-              <FormField v-slot="{ componentField }" name="barcode" :form="form">
+              <FormField v-slot="{ componentField }" name="barcode">
                 <FormItem>
                   <FormLabel>Barcode</FormLabel>
                   <FormControl>
@@ -415,7 +415,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
               </FormField>
             </div>
 
-            <FormField v-slot="{ componentField }" name="description" :form="form">
+            <FormField v-slot="{ componentField }" name="description">
               <FormItem>
                 <FormLabel>Description</FormLabel>
                 <FormControl>
@@ -435,7 +435,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
           </CardHeader>
           <CardContent class="space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField v-slot="{ componentField }" name="sellingPrice" :form="form">
+              <FormField v-slot="{ componentField }" name="sellingPrice">
                 <FormItem>
                   <FormLabel>Selling Price (KES) *</FormLabel>
                   <FormControl>
@@ -445,7 +445,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                 </FormItem>
               </FormField>
 
-              <FormField v-slot="{ componentField }" name="costPrice" :form="form">
+              <FormField v-slot="{ componentField }" name="costPrice">
                 <FormItem>
                   <FormLabel>Cost Price (KES) *</FormLabel>
                   <FormControl>
@@ -457,7 +457,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
             </div>
 
             <!-- Tax select — uses value/handleChange pattern for shadcn Select -->
-            <FormField v-slot="{ value, handleChange }" name="taxId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="taxId">
               <FormItem>
                 <FormLabel>Tax</FormLabel>
                 <Select :model-value="value" @update:model-value="handleChange">
@@ -487,7 +487,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
           <CardContent class="space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <!-- Edit mode: Read-only stock with Adjust button -->
-              <FormField v-if="!isEditing" v-slot="{ componentField }" name="stockQuantity" :form="form">
+              <FormField v-if="!isEditing" v-slot="{ componentField }" name="stockQuantity">
                 <FormItem>
                   <FormLabel>Opening Stock Quantity</FormLabel>
                   <FormControl>
@@ -515,7 +515,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                 </div>
               </div>
 
-              <FormField v-slot="{ componentField }" name="lowStockThreshold" :form="form">
+              <FormField v-slot="{ componentField }" name="lowStockThreshold">
                 <FormItem>
                   <FormLabel>Low Stock Threshold</FormLabel>
                   <FormControl>
@@ -526,7 +526,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
               </FormField>
             </div>
 
-            <FormField v-slot="{ value, handleChange }" name="unitId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="unitId">
               <FormItem>
                 <FormLabel>Unit *</FormLabel>
                 <Select :model-value="value" @update:model-value="handleChange">
@@ -545,7 +545,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
               </FormItem>
             </FormField>
 
-            <FormField v-slot="{ value, handleChange }" name="categoryId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="categoryId">
               <FormItem>
                 <FormLabel>Category</FormLabel>
                 <Select :model-value="value" @update:model-value="handleChange">
@@ -563,7 +563,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
               </FormItem>
             </FormField>
 
-            <FormField v-slot="{ value, handleChange }" name="brandId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="brandId">
               <FormItem>
                 <FormLabel>Brand</FormLabel>
                 <Select :model-value="value" @update:model-value="handleChange">
@@ -638,7 +638,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
             </div>
           </CardContent>
         </Card>
-      </Form>
+      </div>
 
       <!-- Navigation -->
       <div class="flex justify-between mt-6">
