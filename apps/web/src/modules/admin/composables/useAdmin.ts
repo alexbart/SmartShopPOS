@@ -54,7 +54,8 @@ export function useUsers() {
     queryKey: ['users'],
     queryFn: async () => {
       const res = await apiClient.get('/users');
-      return (res.data as { data: User[] }).data as User[];
+      const data = (res.data as { data: User[] | { items?: User[] } }).data;
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 60_000,
   });
@@ -66,7 +67,8 @@ export function useUsers() {
       email: string;
       firstName: string;
       lastName: string;
-      role: string;
+      password: string;
+      roleId?: string;
       branchId?: string;
     }) => apiClient.post('/users', payload),
     onSuccess: () => {
@@ -76,8 +78,12 @@ export function useUsers() {
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: (payload: { id: string } & Partial<User>) =>
-      apiClient.patch(`/users/${payload.id}`, payload),
+    mutationFn: (
+      payload: { id: string } & Partial<User> & { roleId?: string; isActive?: boolean },
+    ) => {
+      const { id, ...data } = payload;
+      return apiClient.patch(`/users/${id}`, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       notification.success('User updated');
@@ -85,9 +91,10 @@ export function useUsers() {
   });
 
   const resetPasswordMutation = useMutation({
-    mutationFn: (userId: string) => apiClient.post(`/users/${userId}/reset-password`),
+    mutationFn: (payload: { userId: string; password: string }) =>
+      apiClient.post(`/users/${payload.userId}/reset-password`, { password: payload.password }),
     onSuccess: () => {
-      notification.success('Password reset email sent');
+      notification.success('Password reset');
     },
   });
 
@@ -117,7 +124,8 @@ export function useRoles() {
     queryKey: ['roles'],
     queryFn: async () => {
       const res = await apiClient.get('/roles');
-      return (res.data as { data: Role[] }).data as Role[];
+      const data = (res.data as { data: Role[] | { items?: Role[] } }).data;
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 60_000,
   });
@@ -126,7 +134,8 @@ export function useRoles() {
     queryKey: ['permissions'],
     queryFn: async () => {
       const res = await apiClient.get('/permissions');
-      return (res.data as { data: Permission[] }).data as Permission[];
+      const data = (res.data as { data: Permission[] | { items?: Permission[] } }).data;
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 60_000,
   });
@@ -156,6 +165,14 @@ export function useRoles() {
     },
   });
 
+  const deleteRoleMutation = useMutation({
+    mutationFn: (roleId: string) => apiClient.delete(`/roles/${roleId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      notification.success('Role deleted');
+    },
+  });
+
   const allPermissionsGrouped = computed(() => {
     const groups: Record<string, Permission[]> = {};
     for (const p of permissions.value) {
@@ -173,6 +190,7 @@ export function useRoles() {
     allPermissionsGrouped,
     createRoleMutation,
     updateRoleMutation,
+    deleteRoleMutation,
   };
 }
 

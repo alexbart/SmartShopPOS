@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Shield, Plus, Save, Users } from '@lucide/vue';
+import { Shield, Plus, Save, Users, Trash2, Lock } from '@lucide/vue';
 import { useRoles } from '../composables/useAdmin.js';
 import type { Role } from '../composables/types.js';
 import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
 
-const { roles, allPermissionsGrouped, createRoleMutation, updateRoleMutation } = useRoles();
+const { roles, allPermissionsGrouped, createRoleMutation, updateRoleMutation, deleteRoleMutation } = useRoles();
 
 const editingRole = ref<Role | null>(null);
 const showNewRole = ref(false);
@@ -34,9 +34,9 @@ function togglePermission(id: string) {
   }
 }
 
-function saveRole() {
+async function saveRole() {
   if (editingRole.value) {
-    updateRoleMutation.mutateAsync({
+    await updateRoleMutation.mutateAsync({
       id: editingRole.value.id,
       name: editingRole.value.name,
       description: editingRole.value.description,
@@ -47,9 +47,9 @@ function saveRole() {
   }
 }
 
-function saveNewRole() {
+async function saveNewRole() {
   if (!newRoleName.value) return;
-  createRoleMutation.mutateAsync({
+  await createRoleMutation.mutateAsync({
     name: newRoleName.value,
     description: newRoleDescription.value,
     permissionIds: Array.from(selectedPermissions.value),
@@ -58,6 +58,12 @@ function saveNewRole() {
   newRoleName.value = '';
   newRoleDescription.value = '';
   selectedPermissions.value.clear();
+}
+
+async function deleteRole(role: Role) {
+  if (role.isSystem || (role.userCount ?? 0) > 0) return;
+  if (!window.confirm(`Delete the ${role.name} role?`)) return;
+  await deleteRoleMutation.mutateAsync(role.id);
 }
 </script>
 
@@ -108,6 +114,7 @@ function saveNewRole() {
             <div class="flex items-center gap-2">
               <Shield class="w-4 h-4 text-primary" />
               <h3 class="font-bold">{{ role.name }}</h3>
+              <span v-if="role.isSystem" class="text-xs text-muted-foreground inline-flex items-center gap-1"><Lock class="w-3 h-3" /> System</span>
             </div>
             <span class="text-xs text-muted-foreground">
               {{ (role.permissions || []).length }} permissions
@@ -138,15 +145,21 @@ function saveNewRole() {
           </div>
 
           <div v-else class="flex justify-between">
-            <button
-              @click="startEdit(role)"
-              class="btn btn-outline btn-sm touch-target"
-            >
-              Edit
-            </button>
+            <div class="flex gap-2">
+              <button v-if="!role.isSystem" @click="startEdit(role)" class="btn btn-outline btn-sm touch-target">Edit</button>
+              <button
+                v-if="!role.isSystem"
+                @click="deleteRole(role)"
+                :disabled="(role.userCount ?? 0) > 0 || deleteRoleMutation.isPending.value"
+                :title="(role.userCount ?? 0) > 0 ? 'Remove this role from its users before deleting it' : 'Delete role'"
+                class="btn btn-outline btn-sm touch-target"
+              >
+                <Trash2 class="w-3 h-3 mr-1" /> Delete
+              </button>
+            </div>
             <div class="flex items-center text-xs text-muted-foreground">
               <Users class="w-3 h-3 mr-1" />
-              <span>{{ role._count?.users || 0 }} users</span>
+              <span>{{ role.userCount ?? role._count?.users ?? 0 }} users</span>
             </div>
           </div>
         </div>

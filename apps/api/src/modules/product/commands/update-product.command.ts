@@ -12,6 +12,7 @@ export interface UpdateProductCommand {
   taxId?: string | null;
   costPrice?: number;
   sellingPrice?: number;
+  lowStockThreshold?: number;
   isActive?: boolean;
   updatedBy?: string;
 }

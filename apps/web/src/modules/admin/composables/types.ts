@@ -27,8 +27,9 @@ export interface User {
   phone?: string;
   role?: string;
   branch?: string;
+  branchName?: string;
   branchId?: string;
-  status?: 'active' | 'inactive' | 'pending';
+  status?: 'active' | 'inactive' | 'pending' | 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'SUSPENDED';
   lastLoginAt?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -39,6 +40,8 @@ export interface Role {
   id: string;
   name: string;
   description?: string;
+  isSystem?: boolean;
+  userCount?: number;
   permissions: Permission[];
   _count?: { users: number };
   createdAt?: string;

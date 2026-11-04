@@ -96,17 +96,22 @@ describe('AuthRepository', () => {
   describe('findOrganizationByCode', () => {
     it('should return organization when found', async () => {
       const prisma = createMockPrisma();
-      prisma.organization.findFirst.mockResolvedValue({ id: 'org-123', status: 'ACTIVE' });
+      prisma.organization.findFirst.mockResolvedValue({
+        id: 'org-123',
+        status: 'ACTIVE',
+        code: 'ORG001',
+        name: 'Test Org',
+      });
 
       const repository = createMockRepository(prisma);
       const result = await repository.findOrganizationByCode({
         code: 'ORG001',
       } as FindOrganizationByCodeQuery);
 
-      expect(result).toEqual({ id: 'org-123', status: 'ACTIVE' });
+      expect(result).toEqual({ id: 'org-123', status: 'ACTIVE', code: 'ORG001', name: 'Test Org' });
       expect(prisma.organization.findFirst).toHaveBeenCalledWith({
         where: { code: 'ORG001', deletedAt: null },
-        select: { id: true, status: true },
+        select: { id: true, status: true, code: true, name: true },
       });
     });
   });

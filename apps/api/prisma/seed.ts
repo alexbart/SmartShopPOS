@@ -17,6 +17,8 @@ async function main() {
     { name: 'CASHIER', description: 'POS and sales access' },
     { name: 'INVENTORY', description: 'Inventory management access' },
     { name: 'ACCOUNTANT', description: 'Financial access' },
+    { name: 'ROLE_ADMIN', description: 'Role and permission management' },
+    { name: 'ADMIN', description: 'System administration' },
   ];
 
   const permissions = [
@@ -67,6 +69,97 @@ async function main() {
       module: 'inventory',
       description: 'Transfer stock between warehouses',
     },
+    // Role permissions
+    {
+      name: 'role:read',
+      module: 'ROLE',
+      description: 'View roles',
+    },
+    {
+      name: 'role:create',
+      module: 'ROLE',
+      description: 'Create roles',
+    },
+    {
+      name: 'role:update',
+      module: 'ROLE',
+      description: 'Update roles',
+    },
+    {
+      name: 'role:delete',
+      module: 'ROLE',
+      description: 'Delete roles',
+    },
+    // Permission permissions
+    {
+      name: 'permission:read',
+      module: 'PERMISSION',
+      description: 'View permissions',
+    },
+    {
+      name: 'permission:assign',
+      module: 'PERMISSION',
+      description: 'Assign permissions to roles',
+    },
+    // M-Pesa evidence permissions
+    {
+      name: 'payment.evidence.capture',
+      module: 'PAYMENT',
+      description: 'Capture and view manual M-Pesa SMS evidence',
+    },
+    {
+      name: 'payment.evidence.review',
+      module: 'PAYMENT',
+      description: 'Review or reject manual M-Pesa SMS evidence',
+    },
+    // Category permissions (lowercase to match route requirements)
+    { name: 'categories:read', module: 'category', description: 'View categories' },
+    { name: 'categories:write', module: 'category', description: 'Create and edit categories' },
+    { name: 'categories:delete', module: 'category', description: 'Delete categories' },
+    // Inventory permissions
+    {
+      name: 'inventory:read',
+      module: 'inventory',
+      description: 'View inventory levels and movements',
+    },
+    { name: 'inventory:adjust', module: 'inventory', description: 'Adjust stock quantities' },
+    {
+      name: 'inventory:transfer',
+      module: 'inventory',
+      description: 'Transfer stock between warehouses',
+    },
+    // Role permissions
+    {
+      name: 'role:read',
+      module: 'ROLE',
+      description: 'View roles',
+    },
+    {
+      name: 'role:create',
+      module: 'ROLE',
+      description: 'Create roles',
+    },
+    {
+      name: 'role:update',
+      module: 'ROLE',
+      description: 'Update roles',
+    },
+    {
+      name: 'role:delete',
+      module: 'ROLE',
+      description: 'Delete roles',
+    },
+    // Permission permissions
+    {
+      name: 'permission:read',
+      module: 'PERMISSION',
+      description: 'View permissions',
+    },
+    {
+      name: 'permission:assign',
+      module: 'PERMISSION',
+      description: 'Assign permissions to roles',
+    },
   ];
 
   const rolePermissions: Record<string, string[]> = {
@@ -90,6 +183,12 @@ async function main() {
       'user:create',
       'user:update',
       'user:delete',
+      'role:read',
+      'role:create',
+      'role:update',
+      'role:delete',
+      'permission:read',
+      'permission:assign',
     ],
     CASHIER: [
       'AUTH.LOGIN',
@@ -103,6 +202,15 @@ async function main() {
     ],
     INVENTORY: ['inventory:read', 'inventory:adjust', 'inventory:transfer'],
     ACCOUNTANT: ['inventory:read', 'payment.evidence.capture', 'payment.evidence.review'],
+    ROLE_ADMIN: [
+      'role:read',
+      'role:create',
+      'role:update',
+      'role:delete',
+      'permission:read',
+      'permission:assign',
+    ],
+    ADMIN: permissions.map((p) => p.name),
   };
 
   for (const role of roles) {
@@ -145,22 +253,25 @@ async function main() {
     const roleId = roleMap.get(roleName);
     if (!roleId) continue;
 
-    const existing = await prisma.rolePermission.findMany({
-      where: { roleId },
-      select: { permissionId: true },
-    });
-    const existingPermissionIds = new Set(existing.map((rp) => rp.permissionId));
-
     const desiredPermissionIds = permissionNames
       .map((name) => permissionMap.get(name))
       .filter((id): id is string => Boolean(id));
 
+    // Delete existing role permissions not in the new list
+    await prisma.rolePermission.deleteMany({
+      where: {
+        roleId,
+        permissionId: { notIn: desiredPermissionIds },
+      },
+    });
+
+    // Add new permissions
     for (const permissionId of desiredPermissionIds) {
-      if (!existingPermissionIds.has(permissionId)) {
-        await prisma.rolePermission.create({
-          data: { roleId, permissionId },
-        });
-      }
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId, permissionId } },
+        update: {},
+        create: { roleId, permissionId },
+      });
     }
   }
 

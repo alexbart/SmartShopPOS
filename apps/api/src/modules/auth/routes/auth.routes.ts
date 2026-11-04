@@ -28,6 +28,21 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
   const authController = new AuthController(authService);
 
+  const authenticateHook = createAuthenticateHook(
+    new (await import('../../../shared/services/jwt/jwt.service.js')).JwtService(),
+    new (await import('../repositories/auth.repository.impl.js')).AuthRepositoryImpl(prisma),
+  );
+  const authorizeUserRead = createAuthorizeHook(['user:read']);
+  const authorizeUserCreate = createAuthorizeHook(['user:create']);
+  const authorizeUserUpdate = createAuthorizeHook(['user:update']);
+  const authorizeUserDelete = createAuthorizeHook(['user:delete']);
+  const authorizeRoleRead = createAuthorizeHook(['role:read']);
+  const authorizeRoleCreate = createAuthorizeHook(['role:create', 'permission:assign']);
+  const authorizeRoleUpdate = createAuthorizeHook(['role:update', 'permission:assign']);
+  const authorizeRoleDelete = createAuthorizeHook(['role:delete']);
+  const authorizePermissionRead = createAuthorizeHook(['permission:read']);
+
+  // Register route
   fastify.post('/register', {
     schema: {
       body: {
@@ -80,45 +95,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
                     refreshToken: { type: 'string' },
                   },
                 },
-              },
-            },
-          },
-        },
-        400: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: false },
-            error: {
-              type: 'object',
-              properties: {
-                code: { type: 'string' },
-                message: { type: 'string' },
-              },
-            },
-          },
-        },
-        409: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: false },
-            error: {
-              type: 'object',
-              properties: {
-                code: { type: 'string' },
-                message: { type: 'string' },
-              },
-            },
-          },
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: false },
-            error: {
-              type: 'object',
-              properties: {
-                code: { type: 'string' },
-                message: { type: 'string' },
               },
             },
           },
@@ -371,14 +347,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     handler: async (request, reply) => authController.logout(request, reply),
   });
 
-  // User management routes
-  const authenticateHook = createAuthenticateHook(jwtService, authRepository);
-  const authorizeUserRead = createAuthorizeHook(['user:read']);
-  const authorizeUserCreate = createAuthorizeHook(['user:create']);
-  const authorizeUserUpdate = createAuthorizeHook(['user:update']);
-  const authorizeUserDelete = createAuthorizeHook(['user:delete']);
-
-  fastify.get('/users', {
+  fastify.route({
+    method: 'GET',
+    url: '/users',
     preHandler: [authenticateHook, authorizeUserRead],
     schema: {
       tags: ['users'],
@@ -440,7 +411,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     handler: async (request, reply) => authController.findUsers(request, reply),
   });
 
-  fastify.post('/users', {
+  fastify.route({
+    method: 'POST',
+    url: '/users',
     preHandler: [authenticateHook, authorizeUserCreate],
     schema: {
       tags: ['users'],
@@ -448,7 +421,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       summary: 'Create User',
       body: {
         type: 'object',
-        required: ['firstName', 'lastName', 'email', 'password'],
+        required: ['firstName', 'lastName', 'email', 'password', 'roleId'],
         properties: {
           firstName: { type: 'string', minLength: 2 },
           lastName: { type: 'string', minLength: 2 },
@@ -479,7 +452,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     handler: async (request, reply) => authController.createUser(request, reply),
   });
 
-  fastify.patch('/users/:id', {
+  fastify.route({
+    method: 'PATCH',
+    url: '/users/:id',
     preHandler: [authenticateHook, authorizeUserUpdate],
     schema: {
       tags: ['users'],
@@ -516,7 +491,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     handler: async (request, reply) => authController.updateUser(request, reply),
   });
 
-  fastify.patch('/users/:id/deactivate', {
+  fastify.route({
+    method: 'PATCH',
+    url: '/users/:id/deactivate',
     preHandler: [authenticateHook, authorizeUserDelete],
     schema: {
       tags: ['users'],
@@ -542,7 +519,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     handler: async (request, reply) => authController.deactivateUser(request, reply),
   });
 
-  fastify.post('/users/:id/reset-password', {
+  fastify.route({
+    method: 'POST',
+    url: '/users/:id/reset-password',
     preHandler: [authenticateHook, authorizeUserUpdate],
     schema: {
       tags: ['users'],
@@ -573,5 +552,297 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     handler: async (request, reply) => authController.resetPassword(request, reply),
+  });
+
+  // Roles routes
+  fastify.route({
+    method: 'GET',
+    url: '/roles',
+    preHandler: [authenticateHook, authorizeRoleRead],
+    schema: {
+      tags: ['roles'],
+      description: 'List all roles',
+      summary: 'List Roles',
+      querystring: {
+        type: 'object',
+        properties: {
+          page: { type: 'integer', minimum: 1, default: 1 },
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          search: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Roles retrieved successfully.' },
+            data: {
+              type: 'object',
+              properties: {
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      name: { type: 'string' },
+                      description: { type: 'string', nullable: true },
+                      isSystem: { type: 'boolean' },
+                      userCount: { type: 'integer' },
+                      permissions: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            name: { type: 'string' },
+                            resource: { type: 'string' },
+                            action: { type: 'string' },
+                          },
+                        },
+                      },
+                      createdAt: { type: 'string', format: 'date-time' },
+                      updatedAt: { type: 'string', format: 'date-time' },
+                    },
+                  },
+                },
+                total: { type: 'integer' },
+                page: { type: 'integer' },
+                limit: { type: 'integer' },
+                pages: { type: 'integer' },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.findRoles(request, reply),
+  });
+
+  fastify.route({
+    method: 'POST',
+    url: '/roles',
+    preHandler: [authenticateHook, authorizeRoleCreate],
+    schema: {
+      tags: ['roles'],
+      description: 'Create a new role',
+      summary: 'Create Role',
+      body: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 50 },
+          description: { type: 'string', maxLength: 255 },
+          permissionIds: { type: 'array', items: { type: 'string', format: 'uuid' } },
+        },
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Role created successfully.' },
+            data: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.createRole(request, reply),
+  });
+
+  fastify.route({
+    method: 'GET',
+    url: '/roles/:id',
+    preHandler: [authenticateHook, authorizeRoleRead],
+    schema: {
+      tags: ['roles'],
+      description: 'Get a role by ID',
+      summary: 'Get Role',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Role retrieved successfully.' },
+            data: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                name: { type: 'string' },
+                description: { type: 'string', nullable: true },
+                isSystem: { type: 'boolean' },
+                userCount: { type: 'integer' },
+                permissions: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      name: { type: 'string' },
+                      resource: { type: 'string' },
+                      action: { type: 'string' },
+                    },
+                  },
+                },
+                createdAt: { type: 'string', format: 'date-time' },
+                updatedAt: { type: 'string', format: 'date-time' },
+              },
+            },
+          },
+        },
+        404: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.findRoleById(request, reply),
+  });
+
+  fastify.route({
+    method: 'PATCH',
+    url: '/roles/:id',
+    preHandler: [authenticateHook, authorizeRoleUpdate],
+    schema: {
+      tags: ['roles'],
+      description: 'Update a role',
+      summary: 'Update Role',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+        },
+      },
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 50 },
+          description: { type: 'string', maxLength: 255 },
+          permissionIds: { type: 'array', items: { type: 'string', format: 'uuid' } },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Role updated successfully.' },
+          },
+        },
+        404: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.updateRole(request, reply),
+  });
+
+  fastify.route({
+    method: 'DELETE',
+    url: '/roles/:id',
+    preHandler: [authenticateHook, authorizeRoleDelete],
+    schema: {
+      tags: ['roles'],
+      description: 'Delete a role',
+      summary: 'Delete Role',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Role deleted successfully.' },
+          },
+        },
+        404: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.deleteRole(request, reply),
+  });
+
+  // Permissions routes
+  fastify.route({
+    method: 'GET',
+    url: '/permissions',
+    preHandler: [authenticateHook, authorizePermissionRead],
+    schema: {
+      tags: ['permissions'],
+      description: 'List all permissions',
+      summary: 'List Permissions',
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Permissions retrieved successfully.' },
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  name: { type: 'string' },
+                  resource: { type: 'string' },
+                  action: { type: 'string' },
+                  description: { type: 'string', nullable: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => authController.findPermissions(request, reply),
   });
 };

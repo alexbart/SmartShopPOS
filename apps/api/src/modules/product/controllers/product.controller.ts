@@ -100,6 +100,7 @@ export class ProductController {
       taxId?: string | null;
       costPrice?: number;
       sellingPrice?: number;
+      lowStockThreshold?: number;
       isActive?: boolean;
     };
 
@@ -117,6 +118,7 @@ export class ProductController {
       taxId: body.taxId ?? undefined,
       costPrice: body.costPrice,
       sellingPrice: body.sellingPrice,
+      lowStockThreshold: body.lowStockThreshold,
       isActive: body.isActive,
       updatedBy: request.requestContext.userId,
     });

@@ -263,6 +263,7 @@ async function handleSubmit() {
     description: v.description || undefined,
     sellingPrice: Number(v.sellingPrice),
     costPrice: Number(v.costPrice),
+    lowStockThreshold: Number(v.lowStockThreshold ?? 0),
     unitId: v.unitId,
     categoryId: v.categoryId || undefined,
     brandId: v.brandId || undefined,

@@ -42,6 +42,7 @@ export class ProductRepositoryImpl implements IProductRepository {
     if (_model.taxId !== undefined) data.taxId = _model.taxId;
     if (_model.costPrice !== undefined) data.costPrice = _model.costPrice;
     if (_model.sellingPrice !== undefined) data.sellingPrice = _model.sellingPrice;
+    if (_model.lowStockThreshold !== undefined) data.lowStockThreshold = _model.lowStockThreshold;
     if (_model.isActive !== undefined) data.isActive = _model.isActive;
 
     await this._prisma.product.update({
