@@ -228,7 +228,7 @@ function saveAsPdf() {
 .receipt-meta {
   font-size: 0.72rem;
   line-height: 1.5;
-  overflow-wrap: anywhere.
+  overflow-wrap: anywhere;
 }
 
 .receipt-label {
@@ -309,28 +309,28 @@ function saveAsPdf() {
 .receipt-grand-total {
   align-items: baseline;
   font-size: 1rem;
-  font-weight: 800.
+  font-weight: 800;
 }
 
 .receipt-grand-total > :last-child {
   text-align: right;
-  font-variant-numeric: tabular-nums.
+  font-variant-numeric: tabular-nums;
 }
 
 .receipt-thank-you {
   font-size: 0.85rem;
-  font-weight: 700.
+  font-weight: 700;
 }
 
 .receipt-footer-note,
 .receipt-footer-brand {
   margin-top: 0.3rem;
-  font-size: 0.65rem.
+  font-size: 0.65rem;
 }
 
 .receipt-footer-brand {
   margin-top: 0.7rem;
-  font-weight: 700.
+  font-weight: 700;
 }
 
 @media print {
@@ -357,7 +357,7 @@ function saveAsPdf() {
     border-radius: 0 !important;
     box-shadow: none !important;
     background: #fff !important;
-    color: #000 !important.
+    color: #000 !important;
   }
 
   .receipt-print-area {
@@ -365,20 +365,20 @@ function saveAsPdf() {
     width: 100% !important;
     padding: 2mm !important;
     background: #fff !important;
-    color: #000 !important.
+    color: #000 !important;
   }
 
   .receipt-actions {
-    display: none !important.
+    display: none !important;
   }
 
   .receipt-divider {
-    border-color: #777 !important.
+    border-color: #777 !important;
   }
 
   .receipt-item-calculation,
   .receipt-discount-note {
-    color: #333 !important.
+    color: #333 !important;
   }
 
   :global(html),
@@ -386,7 +386,7 @@ function saveAsPdf() {
     width: 80mm !important;
     margin: 0 !important;
     padding: 0 !important;
-    background: #fff !important.
+    background: #fff !important;
   }
 
   @page {
