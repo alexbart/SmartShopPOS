@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { RouterLink } from 'vue-router';
 import {
   Package,
   Move3D,
   ClipboardList,
   BarChart3,
+  FileSpreadsheet,
 } from '@lucide/vue';
 import CatalogWorkspace from '@/modules/catalog/components/CatalogWorkspace.vue';
 import InventoryOverview from '@/modules/inventory/components/InventoryOverview.vue';
@@ -231,6 +233,13 @@ onMounted(() => {
         @update:warehouse="selectedWarehouse = $event"
         @receive-goods="handleReceiveGoods"
       />
+      <RouterLink
+        to="/admin/data"
+        class="btn btn-outline btn-sm touch-target inline-flex items-center gap-1"
+        title="Import products from Excel or export stock reports"
+      >
+        <FileSpreadsheet class="h-3 w-3" /> Import / Export
+      </RouterLink>
     </template>
 
     <InventoryOverview

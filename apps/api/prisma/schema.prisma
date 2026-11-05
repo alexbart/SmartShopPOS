@@ -1022,6 +1022,8 @@ enum AuditAction {
   SUBMIT
   CANCEL
   RECEIVE_GOODS
+  IMPORT
+  EXPORT
 }
 
 enum StockMovementType {

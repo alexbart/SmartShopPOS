@@ -162,6 +162,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/modules/admin/pages/AuditCenter.vue'),
       },
       {
+        path: 'admin/data',
+        name: 'admin-data',
+        component: () => import('@/modules/admin/pages/DataImportExport.vue'),
+      },
+      {
         path: 'admin/health',
         name: 'admin-health',
         component: () => import('@/modules/admin/pages/HealthCenter.vue'),

@@ -15,6 +15,20 @@ export const productImportRoutes: FastifyPluginAsync = async (fastify) => {
   const authRepository = new AuthRepositoryImpl(prisma);
   const authenticateHook = createAuthenticateHook(jwtService, authRepository);
 
+  fastify.get('/import/template', { preHandler: [authenticateHook] }, async (request, reply) =>
+    productImportController.downloadTemplate(request, reply),
+  );
+
+  fastify.post(
+    '/import/upload',
+    {
+      preHandler: [authenticateHook],
+      // Base64 body of the workbook: 15 MB file + encoding overhead.
+      bodyLimit: 24 * 1024 * 1024,
+    },
+    async (request, reply) => productImportController.uploadWorkbook(request, reply),
+  );
+
   fastify.post('/import', { preHandler: [authenticateHook] }, async (request, reply) =>
     productImportController.createImportJob(request, reply),
   );

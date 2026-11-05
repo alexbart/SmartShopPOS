@@ -257,44 +257,46 @@ npm run db:generate`,
         },
         {
           id: 'product-import-api',
-          title: 'Product import',
+          title: 'Product import and export',
           summary:
-            'Backend only. There is no screen for it yet, so this is how to drive it by hand.',
+            'Driven from Administration > Data. The API is a template download plus a base64 workbook upload.',
           steps: [
             {
-              title: 'Create a job from rows',
-              body: 'Send the rows directly as JSON. Each entry is a rowNumber plus a data object; data needs name, code, unitId, costPrice and sellingPrice. initialStock is optional and is written to the warehouse given on the job.',
+              title: 'Download the template',
+              body: 'GET /products/import/template returns a branded workbook: brand header, document id, timestamp, plus Read me, Products, Reference and a hidden Lists sheet that feeds the dropdowns. The download itself is audited as an EXPORT event.',
+            },
+            {
+              title: 'Upload a filled-in workbook',
+              body: 'POST /products/import/upload with warehouseId, fileName and contentBase64. The server parses the Products sheet, matches headers by name, and stores one job row per spreadsheet row.',
             },
             {
               title: 'Start processing',
-              body: 'Processing is a separate call. It validates each row, inserts the product, opens a stock row and records an ADJUSTMENT movement in one transaction per row.',
+              body: 'POST /products/import/:jobId/process, optionally with limit to pump the job in batches (the UI uses 25). Each row validates, resolves its catalog names, then inserts the product, its stock row and an ADJUSTMENT movement in one transaction.',
             },
             {
               title: 'Read the result',
-              body: 'The job status settles to COMPLETED, PARTIAL or FAILED and each row keeps its own outcome, so a bad row never hides the good ones.',
+              body: 'The job settles to COMPLETED, PARTIAL or FAILED and each row keeps its own outcome. One IMPORT event with the file name and row counts is written when the job reaches a terminal state.',
             },
           ],
           code: {
             label: 'End-to-end',
             language: 'http',
-            code: `POST /api/v1/products/import/rows
+            code: `GET  /api/v1/products/import/template          -> xlsx
+
+POST /api/v1/products/import/upload
 {
   "warehouseId": "<uuid>",
-  "sourceName": "Opening catalogue",
-  "rows": [
-    { "rowNumber": 1,
-      "data": { "name": "Sugar 1kg", "code": "SUG-1", "unitId": "<uuid>",
-                "costPrice": 110, "sellingPrice": 140, "initialStock": 24 } }
-  ]
+  "fileName": "products-import-template-20261105-1030.xlsx",
+  "contentBase64": "UEsDBBQ..."
 }
 
-POST /api/v1/products/import/:jobId/process
+POST /api/v1/products/import/:jobId/process   { "limit": 25 }
 GET  /api/v1/products/import/:jobId`,
           },
           notes: [
-            'unitId is a real uuid; import rows do not accept unit names.',
-            'Duplicate code, name or SKU inside the organization marks the row SKIPPED instead of failing the job.',
-            'The created stock row plus ADJUSTMENT movement is what makes an imported product sellable. Skipping it leaves the product at zero stock.',
+            'Unit, Category, Brand and Tax Rate cells accept the catalog name or code; uuids still work for API clients. An unknown name fails that row with the fix, never the whole job.',
+            'Re-imports are skipped, never upserted, so a second upload cannot change prices behind an owner’s back.',
+            'Both directions carry the organization name, a document id and a timestamp, and land in the Audit Center as EXPORT and IMPORT events.',
           ],
         },
       ],

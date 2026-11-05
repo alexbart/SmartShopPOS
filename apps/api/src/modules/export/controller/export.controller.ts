@@ -1,4 +1,4 @@
-import { ExportService, type ExportFormat } from '../service/export.service.js';
+import { ExportService, type ExportContext, type ExportFormat } from '../service/export.service.js';
 
 export interface ExportRequestQuery {
   report: string;
@@ -12,6 +12,7 @@ export class ExportController {
   async export(
     query: ExportRequestQuery,
     organizationId: string,
+    actor?: { actorId?: string; actorName?: string },
   ): Promise<{
     buffer: Buffer;
     contentType: string;
@@ -46,6 +47,12 @@ export class ExportController {
       ...normalizedFilters,
     };
 
-    return this._exportService.generate(report, normalizedFormat, filters);
+    const context: ExportContext = {
+      organizationId,
+      actorId: actor?.actorId,
+      actorName: actor?.actorName,
+    };
+
+    return this._exportService.generate(report, normalizedFormat, filters, context);
   }
 }

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
-import { useRouter } from 'vue-router';
-import { Plus, Package, Tag, Layers, ChevronLeft, ChevronRight, Download } from '@lucide/vue';
+import { useRouter, RouterLink } from 'vue-router';
+import { Plus, Package, Tag, Layers, ChevronLeft, ChevronRight, Download, FileSpreadsheet } from '@lucide/vue';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
 import type { Product, Category, Brand } from '@/shared/types';
@@ -200,6 +200,13 @@ const bulkActionsList = [
         @filter-change="updateFilter"
         @clear="clearFilters"
       />
+      <RouterLink
+        to="/admin/data"
+        class="btn btn-outline btn-sm touch-target inline-flex items-center gap-1"
+        title="Import products from Excel or export the product list"
+      >
+        <FileSpreadsheet class="h-3 w-3" /> Import / Export
+      </RouterLink>
     </template>
 
     <div class="flex-1 overflow-y-auto">

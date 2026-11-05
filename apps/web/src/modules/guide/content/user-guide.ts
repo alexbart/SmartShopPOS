@@ -137,7 +137,36 @@ export const userGuide: Guide = {
           ],
           notes: [
             'Names, codes and SKUs must be unique within your business. Reusing one is the most common reason a product will not save.',
-            'Adding many products by spreadsheet is supported by the server but does not have a screen yet. Until it does, products are entered one at a time.',
+            'Loading a whole price list at once? Use Administration > Data instead of typing each item.',
+          ],
+        },
+        {
+          id: 'bulk-import',
+          title: 'Load many products from Excel',
+          summary:
+            'Use a spreadsheet when you are opening a shop or moving an existing price list.',
+          path: '/admin/data',
+          steps: [
+            {
+              title: 'Download the template',
+              body: 'Administration > Data has a Download template button. The file is stamped with your business name, a document number and the date, so you can always tell which version a colleague filled in.',
+            },
+            {
+              title: 'Fill in the Products sheet',
+              body: 'One product per row. Unit, Category, Brand and Tax Rate are dropdowns - if something is missing, add it under Catalog first and download a fresh template.',
+            },
+            {
+              title: 'Choose the warehouse',
+              body: 'The Opening Stock column lands in the warehouse you pick on the upload screen, so imported products are sellable straight away.',
+            },
+            {
+              title: 'Upload and read the result',
+              body: 'Rows that pass are created; rows that cannot be imported are listed with the reason and their spreadsheet row number, so you can fix them and try again.',
+            },
+          ],
+          notes: [
+            'Products that already exist are skipped, never overwritten - a second upload cannot change prices by accident.',
+            'Every template download and every import is recorded in the Audit Center, with the file name and the number of rows created.',
           ],
         },
         {

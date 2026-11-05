@@ -1,10 +1,18 @@
 import ExcelJS from 'exceljs';
 import type { ReportColumn } from '../../../shared/report-registry.js';
+import type { WorkbookBrand } from '../branding.js';
+import {
+  attachLogo,
+  writeBrandFooter,
+  writeBrandHeader,
+  writeMergedText,
+} from '../workbook-layout.js';
 
 interface ExportData {
   columns: ReportColumn[];
   rows: unknown[];
   title?: string;
+  brand?: WorkbookBrand;
 }
 
 export class ExcelFormatter {
@@ -14,74 +22,91 @@ export class ExcelFormatter {
 
   // eslint-disable-next-line no-unused-vars
   async export(data: ExportData): Promise<Buffer> {
-    const { columns, rows, title } = data;
+    const { columns, rows, title, brand } = data;
+    const lastColumn = Math.max(columns.length, 1);
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet(this._sheetName);
+    workbook.creator = brand?.organizationName ?? 'SmartShopPOS';
+    workbook.created = brand?.generatedAt ?? new Date();
 
-    if (title) {
-      worksheet.addRow([title]).font = { bold: true, size: 14 };
-      worksheet.addRow([]);
+    const worksheet = workbook.addWorksheet(this._sheetName);
+    let cursor = 1;
+
+    if (brand) {
+      cursor = writeBrandHeader(worksheet, brand, lastColumn);
+    } else if (title) {
+      writeMergedText(worksheet, cursor++, lastColumn, title, { bold: true, size: 14 });
+      cursor += 1;
     }
 
-    worksheet.addRow(columns.map((c) => c.label));
+    const headerRowIndex = cursor;
+    const headerRow = worksheet.getRow(headerRowIndex);
+    columns.forEach((column, index) => {
+      const cell = headerRow.getCell(index + 1);
+      cell.value = column.label;
+      cell.font = { bold: true };
+    });
+    cursor += 1;
+
+    const widths = columns.map((column) => column.label.length);
 
     for (const row of rows) {
-      const values = columns.map((c) => {
-        const val = (row as Record<string, unknown>)?.[c.key];
-        return this._formatValue(val);
+      const rowValues = columns.map((column, index) => {
+        const value = this._formatValue((row as Record<string, unknown>)?.[column.key]);
+        widths[index] = Math.max(widths[index], this._displayLength(value));
+        return value;
       });
-      worksheet.addRow(values);
+
+      const excelRow = worksheet.getRow(cursor);
+      rowValues.forEach((value, index) => {
+        excelRow.getCell(index + 1).value = value;
+      });
+      cursor += 1;
     }
 
-    worksheet.columns?.forEach((col) => {
-      let maxLen = 15; // Minimum column width
+    cursor += 1;
+    if (brand) {
+      writeBrandFooter(worksheet, cursor, lastColumn, brand, rows.length);
+    } else {
+      writeMergedText(
+        worksheet,
+        cursor,
+        lastColumn,
+        `Exported ${new Date().toISOString().slice(0, 16).replace('T', ' ')} · ${rows.length} rows`,
+        { size: 8, italic: true, color: { argb: 'FF9CA3AF' } },
+      );
+    }
 
-      // Fixed line 40 by adding optional chaining directly to eachCell invocation
-      col.eachCell?.({ includeEmpty: false }, (cell) => {
-        if (!cell) return;
-        const value = cell.value;
-        if (value === null || value === undefined) return;
-
-        let v: unknown = value;
-
-        // 1. Handle ExcelJS Formula or Rich Text objects
-        if (v && typeof v === 'object' && !(v instanceof Date)) {
-          if ('result' in v) {
-            v = (v as { result: unknown }).result;
-          } else if ('richText' in v) {
-            v = (v as { richText: { text: string }[] }).richText.map((t) => t.text).join('');
-          } else if ('text' in v) {
-            v = (v as { text: unknown }).text;
-          }
-        }
-
-        // 2. Format Dates cleanly
-        if (v instanceof Date) {
-          v = v.toLocaleDateString();
-        }
-
-        if (v !== null && v !== undefined) {
-          const lines = String(v).split('\n');
-          lines.forEach((line) => {
-            if (line.length > maxLen) {
-              maxLen = line.length;
-            }
-          });
-        }
-      });
-
-      col.width = maxLen + 3;
+    widths.forEach((width, index) => {
+      worksheet.getColumn(index + 1).width = Math.min(Math.max(width + 3, 12), 60);
     });
+
+    worksheet.views = [{ state: 'frozen', ySplit: headerRowIndex }];
+
+    if (rows.length > 0) {
+      worksheet.autoFilter = {
+        from: { row: headerRowIndex, column: 1 },
+        to: { row: headerRowIndex + rows.length, column: lastColumn },
+      };
+    }
+
+    if (brand) attachLogo(workbook, worksheet, brand, lastColumn);
 
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
   }
 
-  private _formatValue(val: unknown): unknown {
+  private _displayLength(value: unknown): number {
+    if (value === null || value === undefined) return 0;
+    if (value instanceof Date) return 10;
+    if (typeof value === 'object') return JSON.stringify(value).length;
+    return String(value).length;
+  }
+
+  private _formatValue(val: unknown): ExcelJS.CellValue {
     if (val === null || val === undefined) return '';
     if (val instanceof Date) return val;
     if (typeof val === 'object') return JSON.stringify(val);
-    return val;
+    return val as ExcelJS.CellValue;
   }
 }

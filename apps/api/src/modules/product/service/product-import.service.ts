@@ -6,10 +6,55 @@ import {
   type ProductImportStatus,
 } from '../dto/product-import.dto.js';
 import { MovementTypes } from '../../../shared/constants/domain-constants.js';
+import { writeHashedAuditEvent } from '../../audit/audit-chain.js';
+import { PRODUCT_IMPORT_COLUMNS } from './product-import-columns.js';
 
 const DEFAULT_CHUNK_SIZE = 50;
 const MAX_ROWS_PER_RUN = 5000;
 const IMPORT_REFERENCE_TYPE = 'PRODUCT_IMPORT';
+
+/** Says how to fix a name that was not in the catalog, in the user's own terms. */
+const REFERENCE_HINTS = {
+  unit: 'Add it under Catalog > Units, then upload again.',
+  category: 'Add it under Catalog > Categories, then upload again.',
+  brand: 'Add it under Catalog > Brands, then upload again.',
+  tax: 'Add it under Catalog > Taxes, then upload again.',
+} as const;
+
+const FIELD_TO_COLUMN_KEY: Record<string, string> = {
+  unitId: 'unit',
+  unitName: 'unit',
+  categoryId: 'category',
+  categoryName: 'category',
+  brandId: 'brand',
+  brandName: 'brand',
+  taxId: 'tax',
+  taxName: 'tax',
+};
+
+const HEADER_BY_COLUMN_KEY = new Map<string, string>(
+  PRODUCT_IMPORT_COLUMNS.map((column) => [column.key, column.header]),
+);
+
+/** Catalog lookups loaded once per job: keyed by id, name and code. */
+export interface ProductImportReferences {
+  units: Map<string, string>;
+  categories: Map<string, string>;
+  brands: Map<string, string>;
+  taxes: Map<string, string>;
+}
+
+function indexReferences(items: Array<{ id: string; name: string; code: string }>) {
+  const index = new Map<string, string>();
+  for (const item of items) {
+    index.set(item.id, item.id);
+    for (const key of [item.name, item.code]) {
+      const normalized = key?.trim().toLowerCase();
+      if (normalized && !index.has(normalized)) index.set(normalized, item.id);
+    }
+  }
+  return index;
+}
 
 export interface ProductImportRowProcessed extends ProductImportRowInput {
   rowNumber: number;
@@ -67,12 +112,16 @@ function normalizeImportRow(sourceData: Record<string, unknown>) {
     name: toTrimmedString(sourceData.name),
     code: toTrimmedString(sourceData.code),
     unitId: toTrimmedString(sourceData.unitId),
+    unitName: toTrimmedString(sourceData.unitName),
     sku: toTrimmedString(sourceData.sku),
     barcode: toTrimmedString(sourceData.barcode),
     description: toTrimmedString(sourceData.description),
     categoryId: toTrimmedString(sourceData.categoryId) ?? null,
+    categoryName: toTrimmedString(sourceData.categoryName) ?? null,
     brandId: toTrimmedString(sourceData.brandId) ?? null,
+    brandName: toTrimmedString(sourceData.brandName) ?? null,
     taxId: toTrimmedString(sourceData.taxId) ?? null,
+    taxName: toTrimmedString(sourceData.taxName) ?? null,
     costPrice: toNumber(sourceData.costPrice),
     sellingPrice: toNumber(sourceData.sellingPrice),
     wholesalePrice: toNumber(sourceData.wholesalePrice) ?? null,
@@ -85,9 +134,13 @@ function normalizeImportRow(sourceData: Record<string, unknown>) {
 
 function formatIssues(issues: ReadonlyArray<{ path: Array<string | number>; message: string }>) {
   return issues
-    .map((issue) =>
-      issue.path.length > 0 ? `${issue.path.join('.')}: ${issue.message}` : issue.message,
-    )
+    .map((issue) => {
+      const field = issue.path.find((part) => typeof part === 'string') as string | undefined;
+      if (!field) return issue.message;
+      // Quote the spreadsheet header rather than the internal field name.
+      const header = HEADER_BY_COLUMN_KEY.get(FIELD_TO_COLUMN_KEY[field] ?? field);
+      return header ? `${header}: ${issue.message}` : `${field}: ${issue.message}`;
+    })
     .join('; ');
 }
 
@@ -262,6 +315,8 @@ export class ProductImportService {
     userId: string,
     options: {
       chunkSize?: number;
+      /** Cap on rows handled by this call, so the UI can show steady progress. */
+      limit?: number;
       onProgress?: (_progress: { processed: number; total: number; currentRow: number }) => void;
     } = {},
   ): Promise<{
@@ -283,6 +338,10 @@ export class ProductImportService {
     };
   }> {
     const chunkSize = Math.max(1, options.chunkSize ?? DEFAULT_CHUNK_SIZE);
+    const rowLimit =
+      options.limit && options.limit > 0
+        ? Math.min(options.limit, MAX_ROWS_PER_RUN)
+        : MAX_ROWS_PER_RUN;
 
     const job = await this._prisma.productImportJob.findFirst({
       where: { id: jobId, organizationId },
@@ -290,7 +349,7 @@ export class ProductImportService {
         rows: {
           where: { status: { in: ['PENDING', 'FAILED'] } },
           orderBy: { rowNumber: 'asc' },
-          take: MAX_ROWS_PER_RUN,
+          take: rowLimit,
         },
       },
     });
@@ -311,6 +370,10 @@ export class ProductImportService {
     if (!warehouse) {
       throw new Error('Import warehouse was not found for this organization');
     }
+
+    // One catalog read for the whole run: resolving names per row would mean
+    // thousands of lookups on a 500-row spreadsheet.
+    const references = await this._loadReferences(organizationId);
 
     await this._prisma.productImportJob.update({
       where: { id: jobId },
@@ -337,6 +400,7 @@ export class ProductImportService {
           job.warehouseId,
           userId,
           job.id,
+          references,
         );
 
         await this._prisma.productImportRow.update({
@@ -406,7 +470,107 @@ export class ProductImportService {
       },
     });
 
+    // Only a transition into a terminal state is audited. Retrying the same
+    // failing file would otherwise bury the audit centre in duplicates.
+    if (pending === 0 && job.status !== status) {
+      await this._recordImportAudit({
+        organizationId,
+        userId,
+        jobId: job.id,
+        sourceName: job.sourceName,
+        warehouseId: job.warehouseId,
+        totalRows: job.totalRows,
+        status,
+        successful,
+        failed,
+        skipped,
+      });
+    }
+
     return this.getJobResult(jobId, organizationId);
+  }
+
+  /** Name and code lookups for every catalog a product row can reference. */
+  private async _loadReferences(organizationId: string): Promise<ProductImportReferences> {
+    const scope = { organizationId, deletedAt: null };
+    const select = { id: true, name: true, code: true } as const;
+
+    const [units, categories, brands, taxes] = await Promise.all([
+      this._prisma.unit.findMany({ where: scope, select }),
+      this._prisma.category.findMany({ where: scope, select }),
+      this._prisma.brand.findMany({ where: scope, select }),
+      this._prisma.tax.findMany({ where: scope, select }),
+    ]);
+
+    return {
+      units: indexReferences(units),
+      categories: indexReferences(categories),
+      brands: indexReferences(brands),
+      taxes: indexReferences(taxes),
+    };
+  }
+
+  /**
+   * Accepts either an id or the name/code typed into the spreadsheet. The
+   * catalog maps are organization-scoped, so a name from another tenant can
+   * never be resolved by accident.
+   */
+  private _resolveReference(
+    index: Map<string, string>,
+    reference: { id?: string | null; name?: string | null },
+    label: string,
+    hint: string,
+  ): string | null {
+    const supplied = reference.id ?? reference.name;
+    if (!supplied) return null;
+
+    const resolved = index.get(supplied) ?? index.get(supplied.trim().toLowerCase());
+    if (!resolved) {
+      throw new Error(`${label} '${supplied}' was not found in this organization. ${hint}`);
+    }
+    return resolved;
+  }
+
+  private async _recordImportAudit(event: {
+    organizationId: string;
+    userId: string;
+    jobId: string;
+    sourceName: string;
+    warehouseId: string;
+    totalRows: number;
+    status: ProductImportStatus;
+    successful: number;
+    failed: number;
+    skipped: number;
+  }) {
+    const parts = [
+      `${event.successful} created`,
+      event.skipped > 0 ? `${event.skipped} skipped` : undefined,
+      event.failed > 0 ? `${event.failed} failed` : undefined,
+    ].filter(Boolean);
+
+    try {
+      await writeHashedAuditEvent(this._prisma, {
+        organizationId: event.organizationId,
+        actorId: event.userId,
+        action: 'IMPORT',
+        entity: 'ProductImportJob',
+        entityId: event.jobId,
+        outcome: event.status === 'FAILED' ? 'FAILED' : 'SUCCESS',
+        summary: `Imported '${event.sourceName}': ${parts.join(', ')}`,
+        newValues: {
+          fileName: event.sourceName,
+          warehouseId: event.warehouseId,
+          status: event.status,
+          totalRows: event.totalRows,
+          successfulRows: event.successful,
+          skippedRows: event.skipped,
+          failedRows: event.failed,
+        },
+      });
+    } catch {
+      // The products are already created; losing an audit row must not fail the import.
+    }
   }
 
   async processRow(
@@ -415,6 +579,7 @@ export class ProductImportService {
     warehouseId: string,
     userId: string,
     jobId: string,
+    references?: ProductImportReferences,
   ): Promise<{
     status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
     productId?: string | null;
@@ -438,6 +603,49 @@ export class ProductImportService {
     const description = input.description?.trim() || undefined;
     const initialStock = input.initialStock ?? 0;
 
+    // Names typed into the spreadsheet are resolved against this organization's
+    // own catalog before anything is written, so a typo fails the row with a fix.
+    let unitId: string | null;
+    let categoryId: string | null;
+    let brandId: string | null;
+    let taxId: string | null;
+    try {
+      const catalogs = references ?? (await this._loadReferences(organizationId));
+      unitId = this._resolveReference(
+        catalogs.units,
+        { id: input.unitId, name: input.unitName },
+        'Unit',
+        REFERENCE_HINTS.unit,
+      );
+      categoryId = this._resolveReference(
+        catalogs.categories,
+        { id: input.categoryId, name: input.categoryName },
+        'Category',
+        REFERENCE_HINTS.category,
+      );
+      brandId = this._resolveReference(
+        catalogs.brands,
+        { id: input.brandId, name: input.brandName },
+        'Brand',
+        REFERENCE_HINTS.brand,
+      );
+      taxId = this._resolveReference(
+        catalogs.taxes,
+        { id: input.taxId, name: input.taxName },
+        'Tax rate',
+        REFERENCE_HINTS.tax,
+      );
+    } catch (error) {
+      return {
+        status: 'FAILED',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+
+    if (!unitId) {
+      return { status: 'FAILED', error: 'Unit is required - fill in the Unit column.' };
+    }
+
     try {
       return await this._prisma.$transaction(async (tx) => {
         const existing = await tx.product.findFirst({
@@ -459,42 +667,6 @@ export class ProductImportService {
           };
         }
 
-        const unit = await tx.unit.findFirst({
-          where: { id: input.unitId, organizationId, deletedAt: null },
-          select: { id: true },
-        });
-        if (!unit) throw new Error(`Unit '${input.unitId}' was not found in this organization`);
-
-        if (input.categoryId) {
-          const category = await tx.category.findFirst({
-            where: { id: input.categoryId, organizationId, deletedAt: null },
-            select: { id: true },
-          });
-          if (!category) {
-            throw new Error(`Category '${input.categoryId}' was not found in this organization`);
-          }
-        }
-
-        if (input.brandId) {
-          const brand = await tx.brand.findFirst({
-            where: { id: input.brandId, organizationId, deletedAt: null },
-            select: { id: true },
-          });
-          if (!brand) {
-            throw new Error(`Brand '${input.brandId}' was not found in this organization`);
-          }
-        }
-
-        if (input.taxId) {
-          const tax = await tx.tax.findFirst({
-            where: { id: input.taxId, organizationId, deletedAt: null },
-            select: { id: true },
-          });
-          if (!tax) {
-            throw new Error(`Tax '${input.taxId}' was not found in this organization`);
-          }
-        }
-
         const product = await tx.product.create({
           data: {
             organizationId,
@@ -503,10 +675,10 @@ export class ProductImportService {
             sku,
             barcode,
             description,
-            categoryId: input.categoryId,
-            brandId: input.brandId,
-            unitId: input.unitId,
-            taxId: input.taxId,
+            categoryId,
+            brandId,
+            unitId,
+            taxId,
             costPrice: input.costPrice,
             sellingPrice: input.sellingPrice,
             wholesalePrice: input.wholesalePrice ?? null,

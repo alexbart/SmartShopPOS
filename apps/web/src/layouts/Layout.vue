@@ -36,6 +36,7 @@ import {
   Plug,
   Activity,
   BookOpen,
+  Database,
 } from '@lucide/vue';
 
 const router = useRouter();
@@ -138,6 +139,7 @@ const workspaces = [
       { name: 'Theme Studio', path: '/admin/theme', icon: Paintbrush },
       { name: 'Integrations', path: '/admin/integrations', icon: Plug },
       { name: 'Audit Center', path: '/admin/audit', icon: BarChart3 },
+      { name: 'Data', path: '/admin/data', icon: Database },
       { name: 'Health Center', path: '/admin/health', icon: Activity },
     ],
   },

@@ -55,6 +55,7 @@ export const exportRoutes: FastifyPluginAsync = async (fastify) => {
             ...filters,
           },
           orgId as string,
+          { actorId: request.requestContext?.userId },
         );
 
         reply.header('Content-Type', result.contentType);

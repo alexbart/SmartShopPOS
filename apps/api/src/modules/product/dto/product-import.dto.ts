@@ -1,19 +1,29 @@
 import { z } from 'zod';
 
+const referenceText = z.string().trim().min(1).max(150).optional().nullable();
+
 export const productImportRowSchema = z
   .object({
     // Required fields
     name: z.string().min(1, 'Product name is required').max(150),
     code: z.string().min(1, 'Code is required').max(50),
-    unitId: z.string().uuid({ message: 'Unit is required' }),
+
+    // Catalog references arrive either as an id (API clients) or as the human
+    // name/code written in the spreadsheet. The importer resolves names against
+    // the organization's own catalog, so a spreadsheet never carries uuids.
+    unitId: z.string().uuid().optional().nullable(),
+    unitName: referenceText,
+    categoryId: z.string().uuid().optional().nullable(),
+    categoryName: referenceText,
+    brandId: z.string().uuid().optional().nullable(),
+    brandName: referenceText,
+    taxId: z.string().uuid().optional().nullable(),
+    taxName: referenceText,
 
     // Optional fields
     sku: z.string().max(100).optional(),
     barcode: z.string().max(100).optional(),
     description: z.string().optional(),
-    categoryId: z.string().uuid().optional().nullable(),
-    brandId: z.string().uuid().optional().nullable(),
-    taxId: z.string().uuid().optional().nullable(),
 
     // Pricing
     costPrice: z.number().min(0, 'Cost price must be >= 0'),
@@ -27,6 +37,10 @@ export const productImportRowSchema = z
 
     // Status
     isActive: z.boolean().default(true),
+  })
+  .refine((product) => Boolean(product.unitId || product.unitName), {
+    message: 'Unit is required - fill in the Unit column',
+    path: ['unitName'],
   })
   .refine(
     (product) => product.discountPrice == null || product.discountPrice <= product.sellingPrice,
@@ -49,6 +63,20 @@ export const productImportJobSchema = z.object({
 });
 
 export type ProductImportJobInput = z.infer<typeof productImportJobSchema>;
+
+/**
+ * The workbook travels as base64 JSON: the API has no multipart parser and the
+ * template download endpoint already speaks xlsx bytes.
+ */
+export const productImportUploadSchema = z.object({
+  warehouseId: z
+    .string()
+    .uuid({ message: 'Choose the warehouse that should receive the opening stock' }),
+  fileName: z.string().trim().max(255).optional(),
+  contentBase64: z.string().min(1, 'Choose a filled-in template to upload'),
+});
+
+export type ProductImportUploadInput = z.infer<typeof productImportUploadSchema>;
 
 export const productImportStatusSchema = z.enum([
   'PENDING',

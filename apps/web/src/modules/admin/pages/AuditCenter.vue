@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { Clock, FileText, Settings, User, Trash2, Edit, Shield, Search, ChevronLeft, ChevronRight, RotateCcw } from '@lucide/vue';
+import { Clock, FileText, Settings, User, Trash2, Edit, Shield, Search, ChevronLeft, ChevronRight, RotateCcw, Eye, AlertTriangle, Send, XCircle, PackageCheck, FileUp, FileDown } from '@lucide/vue';
 import { useAuditLog } from '../composables/useAdmin.js';
 import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
 import { Button } from '@/components/ui/button';
@@ -24,10 +24,17 @@ const actionIcons: Record<string, any> = {
   CREATE: FileText,
   UPDATE: Edit,
   DELETE: Trash2,
+  READ: Eye,
   LOGIN: User,
   LOGOUT: User,
   ACCESS_DENIED: Shield,
   AUTH_FAILURE: Shield,
+  FAILED: AlertTriangle,
+  SUBMIT: Send,
+  CANCEL: XCircle,
+  RECEIVE_GOODS: PackageCheck,
+  IMPORT: FileUp,
+  EXPORT: FileDown,
   SETTINGS: Settings,
 };
 
@@ -169,7 +176,7 @@ function outcomeClass(outcome?: string): string {
           <span class="text-muted-foreground">Action</span>
           <select v-model="filters.action" class="w-full rounded-md border bg-background px-3 py-2">
             <option value="">All actions</option>
-            <option v-for="action in ['CREATE','UPDATE','DELETE','READ','LOGIN','LOGOUT','AUTH_FAILURE','ACCESS_DENIED','FAILED','SUBMIT','CANCEL','RECEIVE_GOODS']" :key="action" :value="action">{{ action.replaceAll('_', ' ') }}</option>
+            <option v-for="action in ['CREATE','UPDATE','DELETE','READ','LOGIN','LOGOUT','AUTH_FAILURE','ACCESS_DENIED','FAILED','SUBMIT','CANCEL','RECEIVE_GOODS','IMPORT','EXPORT']" :key="action" :value="action">{{ action.replaceAll('_', ' ') }}</option>
           </select>
         </label>
         <label class="space-y-1 text-sm">

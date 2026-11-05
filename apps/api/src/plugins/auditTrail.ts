@@ -152,7 +152,12 @@ export const auditTrailPlugin = fp(
     fastify.addHook('onResponse', async (request, reply) => {
       const path = request.url.split('?')[0];
       if (!path.startsWith('/api/v1/') || path.startsWith('/api/v1/audit')) return;
-      if (reply.statusCode < 400 && /^\/api\/v1\/(inventory|purchase-orders)(\/|$)/.test(path))
+      // These write their own domain events (inventory, purchase orders, imports,
+      // exports), so the generic request event would only duplicate them.
+      if (
+        reply.statusCode < 400 &&
+        /^\/api\/v1\/(inventory|purchase-orders|products\/import|export)(\/|$)/.test(path)
+      )
         return;
       if (path.startsWith('/api/v1/health')) return;
       if (path.startsWith('/api/v1/auth/')) {

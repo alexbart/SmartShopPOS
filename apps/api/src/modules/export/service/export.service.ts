@@ -1,11 +1,20 @@
 import type { ReportColumn } from '../../../shared/report-registry.js';
 import { reportRegistry } from '../../../shared/report-registry.js';
+import { getPrisma } from '../../../shared/database/prisma.js';
+import { writeHashedAuditEvent } from '../../audit/audit-chain.js';
+import { buildWorkbookBrand, timestampedFilename, type WorkbookBrand } from '../branding.js';
 import { CsvFormatter } from '../formats/csv.js';
 import { ExcelFormatter } from '../formats/excel.js';
 import { PdfFormatter } from '../formats/pdf.js';
 import { NotFoundError, ValidationError } from '../../../shared/errors/business-error.js';
 
 export type ExportFormat = 'csv' | 'xlsx' | 'pdf';
+
+export interface ExportContext {
+  organizationId: string;
+  actorId?: string;
+  actorName?: string;
+}
 
 interface ExportResult {
   buffer: Buffer;
@@ -17,6 +26,7 @@ interface ExportData {
   columns: ReportColumn[];
   rows: unknown[];
   title: string;
+  brand?: WorkbookBrand;
 }
 
 interface ExportFormatter {
@@ -53,6 +63,7 @@ export class ExportService {
     reportName: string,
     format: ExportFormat,
     filters: Record<string, unknown> = {},
+    context?: ExportContext,
   ): Promise<ExportResult> {
     const report = reportRegistry.get(reportName);
 
@@ -68,17 +79,53 @@ export class ExportService {
     const result = await report.execute(filters);
     const rows = this._extractRows(result);
 
+    const organizationId =
+      context?.organizationId ?? (filters.organizationId as string | undefined);
+    const brand =
+      format === 'xlsx' && organizationId
+        ? await buildWorkbookBrand({
+            organizationId,
+            documentTitle: report.title,
+            documentIdPrefix: 'RPT',
+            generatedBy: context?.actorName,
+          })
+        : undefined;
+
     const exportData: ExportData = {
       columns: report.columns,
       rows,
       title: report.title,
+      brand,
     };
 
     const buffer = await formatter.export(exportData);
 
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const fileExt = format === 'xlsx' ? 'xlsx' : format;
-    const filename = `${reportName.replace(/-/g, '')}-report-${timestamp}.${fileExt}`;
+    const filename = `${timestampedFilename(`${reportName}-report`, brand?.generatedAt ?? new Date())}.${fileExt}`;
+
+    if (organizationId) {
+      try {
+        await writeHashedAuditEvent(getPrisma(), {
+          organizationId,
+          actorId: context?.actorId,
+          actorName: context?.actorName,
+          action: 'EXPORT',
+          entity: 'Report',
+          entityId: reportName,
+          outcome: 'SUCCESS',
+          summary: `Exported ${report.title} as ${format.toUpperCase()} (${rows.length} rows)`,
+          newValues: {
+            report: reportName,
+            format,
+            rowCount: rows.length,
+            filename,
+            documentId: brand?.documentId,
+          },
+        });
+      } catch {
+        // A failed audit write must not cost the user their download.
+      }
+    }
 
     return {
       buffer,
