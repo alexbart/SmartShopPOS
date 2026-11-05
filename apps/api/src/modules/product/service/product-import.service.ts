@@ -1,7 +1,15 @@
 import { createHash } from 'crypto';
-import { PrismaClient } from '@prisma/client';
-import type { ProductImportRowInput } from '../dto/product-import.dto.js';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
+import {
+  productImportRowSchema,
+  type ProductImportRowInput,
+  type ProductImportStatus,
+} from '../dto/product-import.dto.js';
+import { MovementTypes } from '../../../shared/constants/domain-constants.js';
+
+const DEFAULT_CHUNK_SIZE = 50;
+const MAX_ROWS_PER_RUN = 5000;
+const IMPORT_REFERENCE_TYPE = 'PRODUCT_IMPORT';
 
 export interface ProductImportRowProcessed extends ProductImportRowInput {
   rowNumber: number;
@@ -16,8 +24,127 @@ export interface ImportJobContext {
   userId: string;
 }
 
+/**
+ * Import payloads arrive as loosely typed JSON (often straight from a CSV parse), so values are
+ * coerced to the shape the Zod schema expects before validation instead of being cast blindly.
+ */
+function toTrimmedString(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return undefined;
+}
+
+function toNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed === '' ? undefined : Number(trimmed);
+  }
+  return Number.NaN;
+}
+
+function toBoolean(value: unknown): unknown {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === '') return undefined;
+    if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'n'].includes(normalized)) return false;
+  }
+  return value;
+}
+
+function normalizeImportRow(sourceData: Record<string, unknown>) {
+  return {
+    name: toTrimmedString(sourceData.name),
+    code: toTrimmedString(sourceData.code),
+    unitId: toTrimmedString(sourceData.unitId),
+    sku: toTrimmedString(sourceData.sku),
+    barcode: toTrimmedString(sourceData.barcode),
+    description: toTrimmedString(sourceData.description),
+    categoryId: toTrimmedString(sourceData.categoryId) ?? null,
+    brandId: toTrimmedString(sourceData.brandId) ?? null,
+    taxId: toTrimmedString(sourceData.taxId) ?? null,
+    costPrice: toNumber(sourceData.costPrice),
+    sellingPrice: toNumber(sourceData.sellingPrice),
+    wholesalePrice: toNumber(sourceData.wholesalePrice) ?? null,
+    discountPrice: toNumber(sourceData.discountPrice) ?? null,
+    lowStockThreshold: toNumber(sourceData.lowStockThreshold),
+    initialStock: toNumber(sourceData.initialStock),
+    isActive: toBoolean(sourceData.isActive),
+  };
+}
+
+function formatIssues(issues: ReadonlyArray<{ path: Array<string | number>; message: string }>) {
+  return issues
+    .map((issue) =>
+      issue.path.length > 0 ? `${issue.path.join('.')}: ${issue.message}` : issue.message,
+    )
+    .join('; ');
+}
+
+function describeConflict(
+  existing: { code: string; name: string; sku: string | null },
+  incoming: { code: string; name: string; sku?: string },
+) {
+  const conflicts: string[] = [];
+  if (existing.code.toUpperCase() === incoming.code) conflicts.push(`code '${existing.code}'`);
+  if (existing.name.toLowerCase() === incoming.name.toLowerCase()) {
+    conflicts.push(`name '${existing.name}'`);
+  }
+  if (incoming.sku && existing.sku?.toUpperCase() === incoming.sku) {
+    conflicts.push(`SKU '${existing.sku}'`);
+  }
+  return conflicts.length > 0 ? conflicts.join(' or ') : 'code, name, or SKU';
+}
+
 export class ProductImportService {
   constructor(private readonly _prisma: PrismaClient) {}
+
+  /**
+   * A job fingerprint. The row count and timestamp keep it unique per submission, so the
+   * (organizationId, warehouseId, sourceHash) unique index no longer blocks a repeat import of
+   * the same file.
+   */
+  private buildSourceHash(
+    organizationId: string,
+    warehouseId: string,
+    sourceName: string | undefined,
+    rowCount: number,
+  ) {
+    return createHash('sha256')
+      .update(
+        `${organizationId}:${warehouseId}:${sourceName ?? 'Product Import'}:${rowCount}:${Date.now()}`,
+      )
+      .digest('hex');
+  }
+
+  private resolveJobStatus(
+    storedStatus: string,
+    counts: {
+      totalRows: number;
+      pending: number;
+      successful: number;
+      failed: number;
+      skipped: number;
+    },
+  ): ProductImportStatus {
+    if (counts.pending > 0) {
+      return storedStatus === 'PENDING' ? 'PENDING' : 'PROCESSING';
+    }
+    if (counts.totalRows === 0) return 'COMPLETED';
+    if (counts.successful === 0) return 'FAILED';
+    if (counts.failed > 0 || counts.skipped > 0) return 'PARTIAL';
+    return 'COMPLETED';
+  }
 
   async createImportJob(
     organizationId: string,
@@ -25,9 +152,7 @@ export class ProductImportService {
     sourceName: string | undefined,
     _userId: string,
   ) {
-    const sourceHash = createHash('sha256')
-      .update(`${organizationId}:${warehouseId}:${sourceName ?? 'Product Import'}`)
-      .digest('hex');
+    const sourceHash = this.buildSourceHash(organizationId, warehouseId, sourceName, 0);
     const job = await this._prisma.productImportJob.create({
       data: {
         organizationId,
@@ -52,11 +177,12 @@ export class ProductImportService {
     },
     rows: { rowNumber: number; data: Record<string, unknown> }[],
   ) {
-    const sourceHash = createHash('sha256')
-      .update(
-        `${context.organizationId}:${context.warehouseId}:${context.sourceName ?? 'Product Import'}`,
-      )
-      .digest('hex');
+    const sourceHash = this.buildSourceHash(
+      context.organizationId,
+      context.warehouseId,
+      context.sourceName,
+      rows.length,
+    );
     const job = await this._prisma.productImportJob.create({
       data: {
         organizationId: context.organizationId,
@@ -105,15 +231,26 @@ export class ProductImportService {
       return null;
     }
 
+    const pendingRows = job.rows.filter((row) => row.status === 'PENDING').length;
+    const successfulRows = job.rows.filter((row) => row.status === 'SUCCESS').length;
+    const failedRows = job.rows.filter((row) => row.status === 'FAILED').length;
+    const skippedRows = job.rows.filter((row) => row.status === 'SKIPPED').length;
+
     return {
       jobId: job.id,
-      status: job.status as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'PARTIAL',
+      status: this.resolveJobStatus(job.status, {
+        totalRows: job.totalRows,
+        pending: pendingRows,
+        successful: successfulRows,
+        failed: failedRows,
+        skipped: skippedRows,
+      }),
       totalRows: job.totalRows,
-      processedRows: job.completedRows,
-      successfulRows: job.rows.filter((r) => r.status === 'SUCCESS').length,
-      failedRows: job.rows.filter((r) => r.status === 'FAILED').length,
-      skippedRows: job.rows.filter((r) => r.status === 'SKIPPED').length,
-      currentRow: job.rows.find((r) => r.status === 'PENDING')?.rowNumber,
+      processedRows: successfulRows + failedRows + skippedRows,
+      successfulRows,
+      failedRows,
+      skippedRows,
+      currentRow: job.rows.find((row) => row.status === 'PENDING')?.rowNumber,
       startedAt: job.createdAt,
       completedAt: job.completedAt ?? undefined,
     };
@@ -129,7 +266,7 @@ export class ProductImportService {
     } = {},
   ): Promise<{
     jobId: string;
-    status: 'COMPLETED' | 'PARTIAL' | 'FAILED';
+    status: ProductImportStatus;
     results: Array<{
       rowNumber: number;
       status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
@@ -145,7 +282,7 @@ export class ProductImportService {
       skipped: number;
     };
   }> {
-    const chunkSize = options.chunkSize ?? 50;
+    const chunkSize = Math.max(1, options.chunkSize ?? DEFAULT_CHUNK_SIZE);
 
     const job = await this._prisma.productImportJob.findFirst({
       where: { id: jobId, organizationId },
@@ -153,7 +290,7 @@ export class ProductImportService {
         rows: {
           where: { status: { in: ['PENDING', 'FAILED'] } },
           orderBy: { rowNumber: 'asc' },
-          take: 1000,
+          take: MAX_ROWS_PER_RUN,
         },
       },
     });
@@ -162,19 +299,25 @@ export class ProductImportService {
       throw new Error('Import job not found');
     }
 
-    if (job.status === 'COMPLETED') {
-      return this.getJobResult(job.id, job.organizationId);
+    if (job.rows.length === 0) {
+      // Nothing left to work through: either already finished or the job never had rows.
+      return this.getJobResult(jobId, organizationId);
+    }
+
+    const warehouse = await this._prisma.warehouse.findFirst({
+      where: { id: job.warehouseId, organizationId },
+      select: { id: true },
+    });
+    if (!warehouse) {
+      throw new Error('Import warehouse was not found for this organization');
     }
 
     await this._prisma.productImportJob.update({
       where: { id: jobId },
-      data: { status: 'PROCESSING' },
+      data: { status: 'PROCESSING', completedAt: null },
     });
 
-    const pendingRows = job.rows.filter((r) => r.status === 'PENDING' || r.status === 'FAILED');
-    let processedCount = job.completedRows;
-    let successfulCount = 0;
-    let failedCount = 0;
+    const pendingRows = job.rows;
     const results: Array<{
       rowNumber: number;
       status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
@@ -182,213 +325,256 @@ export class ProductImportService {
       error?: string | null;
       data?: { name: string; code: string; sku?: string; barcode?: string };
     }> = [];
+    let processedCount = 0;
 
     for (let i = 0; i < pendingRows.length; i += chunkSize) {
       const chunk = pendingRows.slice(i, i + chunkSize);
 
       for (const row of chunk) {
-        try {
-          const result = await this.processRow(
-            { rowNumber: row.rowNumber, sourceData: row.sourceData as Record<string, unknown> },
-            organizationId,
-            userId,
-          );
+        const outcome = await this.processRow(
+          { rowNumber: row.rowNumber, sourceData: row.sourceData as Record<string, unknown> },
+          organizationId,
+          job.warehouseId,
+          userId,
+          job.id,
+        );
 
-          if (result.status === 'SUCCESS') {
-            successfulCount++;
-          } else if (result.status === 'FAILED') {
-            failedCount++;
-          }
+        await this._prisma.productImportRow.update({
+          where: { id: row.id },
+          data: {
+            status: outcome.status,
+            productId: outcome.productId ?? null,
+            error: outcome.error ?? null,
+          },
+        });
 
-          results.push({
-            rowNumber: row.rowNumber,
-            status: result.status,
-            productId: result.productId,
-            error: result.error,
-            data: result.data,
-          });
+        results.push({
+          rowNumber: row.rowNumber,
+          status: outcome.status,
+          productId: outcome.productId,
+          error: outcome.error,
+          data: outcome.data,
+        });
 
-          processedCount++;
-
-          await this._prisma.productImportJob.update({
-            where: { id: jobId },
-            data: { completedRows: processedCount },
-          });
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-          await this._prisma.productImportRow.update({
-            where: { id: row.id },
-            data: {
-              status: 'FAILED',
-              error: errorMessage,
-            },
-          });
-
-          failedCount++;
-          results.push({
-            rowNumber: row.rowNumber,
-            status: 'FAILED',
-            error: errorMessage,
-          });
-        }
-      }
-
-      let finalStatus: 'COMPLETED' | 'PARTIAL' | 'FAILED';
-      if (failedCount === 0) {
-        finalStatus = 'COMPLETED';
-      } else if (successfulCount === 0) {
-        finalStatus = 'FAILED';
-      } else {
-        finalStatus = 'PARTIAL';
+        processedCount += 1;
+        options.onProgress?.({
+          processed: processedCount,
+          total: pendingRows.length,
+          currentRow: row.rowNumber,
+        });
       }
 
       await this._prisma.productImportJob.update({
         where: { id: jobId },
-        data: {
-          status: finalStatus,
-          completedRows: processedCount,
-          completedAt: new Date(),
-        },
+        data: { completedRows: job.completedRows + processedCount },
       });
-
-      return this.getJobResult(jobId, job.organizationId);
     }
 
-    return this.getJobResult(jobId, job.organizationId);
+    // Row statuses are the source of truth for the job outcome, so recount instead of trusting
+    // per-chunk tallies (which double-counted on retries and ignored persisted rows).
+    const grouped = await this._prisma.productImportRow.groupBy({
+      by: ['status'],
+      where: { jobId },
+      _count: { _all: true },
+    });
+
+    const counts = grouped.reduce<Record<string, number>>((totals, entry) => {
+      totals[entry.status] = entry._count._all;
+      return totals;
+    }, {});
+
+    const pending = counts.PENDING ?? 0;
+    const successful = counts.SUCCESS ?? 0;
+    const failed = counts.FAILED ?? 0;
+    const skipped = counts.SKIPPED ?? 0;
+
+    const status = this.resolveJobStatus('PROCESSING', {
+      totalRows: job.totalRows,
+      pending,
+      successful,
+      failed,
+      skipped,
+    });
+
+    await this._prisma.productImportJob.update({
+      where: { id: jobId },
+      data: {
+        status,
+        completedRows: successful + failed + skipped,
+        failedRows: failed,
+        completedAt: pending === 0 ? new Date() : null,
+      },
+    });
+
+    return this.getJobResult(jobId, organizationId);
   }
 
   async processRow(
     row: { rowNumber: number; sourceData: Record<string, unknown> },
     organizationId: string,
-    _userId: string,
+    warehouseId: string,
+    userId: string,
+    jobId: string,
   ): Promise<{
     status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
     productId?: string | null;
     error?: string | null;
     data?: { name: string; code: string; sku?: string; barcode?: string };
   }> {
-    const sourceData = row.sourceData as Record<string, unknown>;
+    const parsed = productImportRowSchema.safeParse(normalizeImportRow(row.sourceData));
+
+    if (!parsed.success) {
+      return {
+        status: 'FAILED',
+        error: `Validation failed - ${formatIssues(parsed.error.issues)}`,
+      };
+    }
+
+    const input = parsed.data;
+    const name = input.name.trim();
+    const code = input.code.trim().toUpperCase();
+    const sku = input.sku?.trim().toUpperCase() || undefined;
+    const barcode = input.barcode?.trim() || undefined;
+    const description = input.description?.trim() || undefined;
+    const initialStock = input.initialStock ?? 0;
 
     try {
-      const name = sourceData.name as string;
-      const code = sourceData.code as string;
-      const unitId = sourceData.unitId as string;
+      return await this._prisma.$transaction(async (tx) => {
+        const existing = await tx.product.findFirst({
+          where: {
+            organizationId,
+            OR: [
+              { code: { equals: code, mode: 'insensitive' as const } },
+              { name: { equals: name, mode: 'insensitive' as const } },
+              ...(sku ? [{ sku: { equals: sku, mode: 'insensitive' as const } }] : []),
+            ],
+          },
+          select: { code: true, name: true, sku: true },
+        });
 
-      if (!name || !name.trim()) {
-        throw new Error('Product name is required');
-      }
-      if (!code || !code.trim()) {
-        throw new Error('Product code is required');
-      }
-      if (!unitId) {
-        throw new Error('Unit ID is required');
-      }
+        if (existing) {
+          return {
+            status: 'SKIPPED' as const,
+            error: `Already exists with the same ${describeConflict(existing, { code, name, sku })}`,
+          };
+        }
 
-      const nameStr = name.trim();
-      const codeStr = code.trim().toUpperCase();
-      const sku = (sourceData.sku as string)?.trim().toUpperCase() || undefined;
-      const barcode = (sourceData.barcode as string)?.trim() || undefined;
-      const description = (sourceData.description as string)?.trim() || undefined;
-      const categoryId = sourceData.categoryId as string | undefined;
-      const brandId = sourceData.brandId as string | undefined;
-      const taxId = sourceData.taxId as string | undefined;
-      const taxIdStr = taxId?.trim();
+        const unit = await tx.unit.findFirst({
+          where: { id: input.unitId, organizationId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!unit) throw new Error(`Unit '${input.unitId}' was not found in this organization`);
 
-      const costPrice = Number(sourceData.costPrice);
-      const sellingPrice = Number(sourceData.sellingPrice);
-      const wholesalePrice = sourceData.wholesalePrice ? Number(sourceData.wholesalePrice) : null;
-      const discountPrice = sourceData.discountPrice ? Number(sourceData.discountPrice) : null;
-      const lowStockThresholdNum = sourceData.lowStockThreshold
-        ? Number(sourceData.lowStockThreshold)
-        : undefined;
-      const isActive = sourceData.isActive !== undefined ? Boolean(sourceData.isActive) : true;
+        if (input.categoryId) {
+          const category = await tx.category.findFirst({
+            where: { id: input.categoryId, organizationId, deletedAt: null },
+            select: { id: true },
+          });
+          if (!category) {
+            throw new Error(`Category '${input.categoryId}' was not found in this organization`);
+          }
+        }
 
-      if (isNaN(costPrice) || costPrice < 0)
-        throw new Error('Cost price must be a valid number >= 0');
-      if (isNaN(sellingPrice) || sellingPrice < 0)
-        throw new Error('Selling price must be a valid number >= 0');
+        if (input.brandId) {
+          const brand = await tx.brand.findFirst({
+            where: { id: input.brandId, organizationId, deletedAt: null },
+            select: { id: true },
+          });
+          if (!brand) {
+            throw new Error(`Brand '${input.brandId}' was not found in this organization`);
+          }
+        }
 
-      const existingProduct = await this._prisma.product.findFirst({
-        where: {
-          OR: [
-            { code: { equals: codeStr, mode: 'insensitive' as const }, organizationId },
-            ...(sku
-              ? [{ sku: { equals: sku, mode: 'insensitive' as const }, organizationId }]
-              : []),
-          ],
-        },
-      });
+        if (input.taxId) {
+          const tax = await tx.tax.findFirst({
+            where: { id: input.taxId, organizationId, deletedAt: null },
+            select: { id: true },
+          });
+          if (!tax) {
+            throw new Error(`Tax '${input.taxId}' was not found in this organization`);
+          }
+        }
 
-      if (existingProduct) {
+        const product = await tx.product.create({
+          data: {
+            organizationId,
+            name,
+            code,
+            sku,
+            barcode,
+            description,
+            categoryId: input.categoryId,
+            brandId: input.brandId,
+            unitId: input.unitId,
+            taxId: input.taxId,
+            costPrice: input.costPrice,
+            sellingPrice: input.sellingPrice,
+            wholesalePrice: input.wholesalePrice ?? null,
+            discountPrice: input.discountPrice ?? null,
+            lowStockThreshold: input.lowStockThreshold ?? 0,
+            isActive: input.isActive,
+          },
+        });
+
+        // The job's warehouse drives where opening stock lands, so an imported product is
+        // immediately sellable instead of existing with no inventory behind it.
+        const stock = await tx.stock.upsert({
+          where: {
+            organizationId_warehouseId_productId: {
+              organizationId,
+              warehouseId,
+              productId: product.id,
+            },
+          },
+          update: {},
+          create: { organizationId, warehouseId, productId: product.id },
+          select: { id: true, quantity: true },
+        });
+
+        if (initialStock > 0) {
+          await tx.stockMovement.create({
+            data: {
+              organizationId,
+              warehouseId,
+              productId: product.id,
+              stockId: stock.id,
+              type: MovementTypes.ADJUSTMENT,
+              quantity: initialStock,
+              referenceType: IMPORT_REFERENCE_TYPE,
+              referenceId: jobId,
+              performedBy: userId,
+              remarks: 'Opening stock recorded by product import.',
+            },
+          });
+
+          await tx.stock.update({
+            where: { id: stock.id },
+            data: { quantity: Number(stock.quantity) + initialStock },
+          });
+        }
+
         return {
-          status: 'SKIPPED',
-          error: `Product with code '${codeStr}'${sku ? ` or SKU '${sku}'` : ''} already exists`,
+          status: 'SUCCESS' as const,
+          productId: product.id,
+          data: {
+            name,
+            code,
+            sku,
+            barcode,
+          },
         };
-      }
-
-      const unit = await this._prisma.unit.findUnique({ where: { id: unitId } });
-      if (!unit) throw new Error(`Unit with ID ${unitId} not found`);
-
-      if (categoryId) {
-        const category = await this._prisma.category.findFirst({ where: { id: categoryId } });
-        if (!category) throw new Error(`Category with ID ${categoryId} not found`);
-      }
-
-      if (brandId) {
-        const brand = await this._prisma.brand.findUnique({ where: { id: brandId } });
-        if (!brand) throw new Error(`Brand with ID ${brandId} not found`);
-      }
-
-      if (taxIdStr) {
-        const tax = await this._prisma.tax.findUnique({ where: { id: taxIdStr } });
-        if (!tax) throw new Error(`Tax with ID ${taxIdStr} not found`);
-      }
-
-      const product = await this._prisma.product.create({
-        data: {
-          organizationId,
-          name: nameStr,
-          code: codeStr,
-          sku,
-          barcode,
-          description,
-          categoryId,
-          brandId,
-          unitId,
-          taxId: taxIdStr,
-          costPrice,
-          sellingPrice,
-          wholesalePrice,
-          discountPrice,
-          lowStockThreshold: lowStockThresholdNum ?? 0,
-          isActive,
-        },
       });
-
-      return {
-        status: 'SUCCESS',
-        productId: product.id,
-        data: {
-          name: nameStr,
-          code: codeStr,
-          sku,
-          barcode,
-        },
-      };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-      if (errorMessage.includes('Unique constraint') || errorMessage.includes('P2002')) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         return {
           status: 'SKIPPED',
-          error: `Product with this code or SKU already exists`,
+          error: 'A product with the same code, name, or SKU already exists',
         };
       }
 
       return {
         status: 'FAILED',
-        error: errorMessage,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -414,22 +600,22 @@ export class ProductImportService {
       throw new Error('Import job not found');
     }
 
+    const pendingRows = job.rows.filter((r) => r.status === 'PENDING').length;
     const successfulRows = job.rows.filter((r) => r.status === 'SUCCESS').length;
     const failedRows = job.rows.filter((r) => r.status === 'FAILED').length;
     const skippedRows = job.rows.filter((r) => r.status === 'SKIPPED').length;
 
-    let status: 'COMPLETED' | 'PARTIAL' | 'FAILED';
-    if (job.status === 'COMPLETED') {
-      status = 'COMPLETED';
-    } else if (job.status === 'FAILED') {
-      status = 'FAILED';
-    } else {
-      status = 'PARTIAL';
-    }
+    const status = this.resolveJobStatus(job.status, {
+      totalRows: job.totalRows,
+      pending: pendingRows,
+      successful: successfulRows,
+      failed: failedRows,
+      skipped: skippedRows,
+    });
 
     const summary = {
       total: job.totalRows,
-      processed: job.completedRows,
+      processed: successfulRows + failedRows + skippedRows,
       successful: successfulRows,
       failed: failedRows,
       skipped: skippedRows,
@@ -439,10 +625,10 @@ export class ProductImportService {
       jobId: job.id,
       status,
       totalRows: job.totalRows,
-      processedRows: job.completedRows,
+      processedRows: successfulRows + failedRows + skippedRows,
       successfulRows,
-      failedRows: job.rows.filter((r) => r.status === 'FAILED').length,
-      skippedRows: job.rows.filter((r) => r.status === 'SKIPPED').length,
+      failedRows,
+      skippedRows,
       results: job.rows.map((row) => ({
         rowNumber: row.rowNumber,
         status: row.status as 'SUCCESS' | 'FAILED' | 'SKIPPED',
