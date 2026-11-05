@@ -79,6 +79,22 @@ export interface ReceiptData {
   cashier: string;
 }
 
+// Organization identity printed on receipts. Sourced from GET /organization/branding
+// so the receipt never hardcodes the shop name, currency or footer.
+export interface ReceiptBranding {
+  businessName?: string | null;
+  name?: string | null;
+  tagline?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  kraPin?: string | null;
+  vatNumber?: string | null;
+  logoUrl?: string | null;
+  receiptFooter?: string | null;
+  currency?: string | null;
+}
+
 export interface OfflineQueueItem {
   id: string;
   sale: PosSale;

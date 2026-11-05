@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import type { ReceiptData } from '@/modules/sales/composables/types';
+import { computed } from 'vue';
+import type { ReceiptBranding, ReceiptData } from '@/modules/sales/composables/types';
 import { Printer, Mail, Send, Download, X } from '@lucide/vue';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
-defineProps<{
+const props = defineProps<{
   receipt: ReceiptData;
+  branding?: ReceiptBranding | null;
 }>();
 
 const emit = defineEmits<{
@@ -16,6 +18,25 @@ const emit = defineEmits<{
   (e: 'download'): void;
   (e: 'done'): void;
 }>();
+
+// Every cosmetic value falls back to a sane default so a receipt can always print,
+// even before the organization branding request resolves.
+const businessName = computed(
+  () => props.branding?.businessName?.trim() || props.branding?.name?.trim() || 'SMARTSHOP POS',
+);
+const tagline = computed(() => props.branding?.tagline?.trim() || '');
+const logoUrl = computed(() => props.branding?.logoUrl?.trim() || '');
+const currency = computed(() => props.branding?.currency?.trim() || 'KES');
+const footerText = computed(() => props.branding?.receiptFooter?.trim() || '');
+const contactLine = computed(() => {
+  const parts = [props.branding?.phone?.trim(), props.branding?.website?.trim()].filter(Boolean);
+  return parts.join(' · ');
+});
+const taxLine = computed(() => {
+  const pin = props.branding?.kraPin?.trim();
+  const vat = props.branding?.vatNumber?.trim();
+  return [pin ? `PIN: ${pin}` : '', vat ? `VAT: ${vat}` : ''].filter(Boolean).join('   ');
+});
 
 // Keep currency formatting consistent throughout the receipt.
 function formatMoney(value: number): string {
@@ -42,8 +63,18 @@ function saveAsPdf() {
     <!-- This section alone should appear on the printed receipt. -->
     <CardContent class="receipt-print-area px-5 py-6">
       <header class="receipt-header text-center">
-        <h1 class="receipt-business-name">SMARTSHOP POS</h1>
-        <p class="receipt-tagline">Smart and Simple POS for everyone</p>
+        <!-- Logo sits above the business name; it is skipped entirely when unset. -->
+        <img
+          v-if="logoUrl"
+          :src="logoUrl"
+          :alt="businessName"
+          class="receipt-logo"
+        />
+
+        <h1 class="receipt-business-name">{{ businessName }}</h1>
+        <p v-if="tagline" class="receipt-tagline">{{ tagline }}</p>
+        <p v-if="contactLine" class="receipt-meta receipt-contact">{{ contactLine }}</p>
+        <p v-if="taxLine" class="receipt-meta receipt-tax">{{ taxLine }}</p>
 
         <Separator class="receipt-divider my-3" />
 
@@ -65,7 +96,7 @@ function saveAsPdf() {
       <section aria-label="Purchased items">
         <div class="receipt-items-heading">
           <span>ITEM</span>
-          <span class="text-right">TOTAL (KES)</span>
+          <span class="text-right">TOTAL ({{ currency }})</span>
         </div>
 
         <div
@@ -76,7 +107,7 @@ function saveAsPdf() {
           <div class="receipt-item-description">
             <p class="receipt-item-name">{{ item.name }}</p>
             <p class="receipt-item-calculation">
-              {{ item.quantity }} × KES {{ formatMoney(item.price) }}
+              {{ item.quantity }} × {{ currency }} {{ formatMoney(item.price) }}
             </p>
           </div>
 
@@ -91,12 +122,12 @@ function saveAsPdf() {
       <section aria-label="Receipt totals" class="receipt-totals">
         <div class="receipt-total-row">
           <span>Subtotal</span>
-          <span>KES {{ formatMoney(receipt.subtotal) }}</span>
+          <span>{{ currency }} {{ formatMoney(receipt.subtotal) }}</span>
         </div>
 
         <div class="receipt-total-row">
           <span>Tax</span>
-          <span>KES {{ formatMoney(receipt.tax) }}</span>
+          <span>{{ currency }} {{ formatMoney(receipt.tax) }}</span>
         </div>
 
         <div
@@ -104,7 +135,7 @@ function saveAsPdf() {
           class="receipt-total-row"
         >
           <span>Discount applied</span>
-          <span>-KES {{ formatMoney(receipt.discount) }}</span>
+          <span>-{{ currency }} {{ formatMoney(receipt.discount) }}</span>
         </div>
 
         <p
@@ -118,7 +149,7 @@ function saveAsPdf() {
 
         <div class="receipt-grand-total">
           <span>TOTAL</span>
-          <span>KES {{ formatMoney(receipt.total) }}</span>
+          <span>{{ currency }} {{ formatMoney(receipt.total) }}</span>
         </div>
       </section>
 
@@ -138,7 +169,8 @@ function saveAsPdf() {
 
       <footer class="receipt-footer mt-5 text-center">
         <p class="receipt-thank-you">Thank you for your purchase!</p>
-        <p class="receipt-footer-note">Please keep this receipt for your records.</p>
+        <p v-if="footerText" class="receipt-footer-note">{{ footerText }}</p>
+        <p v-else class="receipt-footer-note">Please keep this receipt for your records.</p>
         <p class="receipt-footer-brand">Powered by SmartShop POS</p>
       </footer>
     </CardContent>
@@ -205,6 +237,20 @@ function saveAsPdf() {
 
 .receipt-header {
   overflow-wrap: anywhere;
+}
+
+/* Kept inside ~16mm so the header still fits a 58mm/80mm thermal roll. */
+.receipt-logo {
+  display: block;
+  max-width: 42%;
+  max-height: 16mm;
+  margin: 0 auto 0.4rem;
+  object-fit: contain;
+}
+
+.receipt-contact,
+.receipt-tax {
+  margin-top: 0.15rem;
 }
 
 .receipt-business-name {

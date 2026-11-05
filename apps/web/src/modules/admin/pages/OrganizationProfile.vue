@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue';
 import {
-  Upload,
   Save,
   Globe,
   MapPin,
@@ -10,9 +9,13 @@ import {
   CreditCard,
 } from '@lucide/vue';
 import { useOrganization } from '../composables/useAdmin.js';
+import { useOrganizationStore } from '@/stores/organization';
 import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
 
 const { organization, organizationLoading, organizationError, updateMutation } = useOrganization();
+
+// The POS caches branding for the session, so invalidate it after a profile save.
+const organizationStore = useOrganizationStore();
 
 const editing = ref(false);
 
@@ -57,7 +60,9 @@ async function handleSave() {
       timezone: form.timezone,
       website: form.website,
       receiptFooter: form.receiptFooter,
+      logoUrl: form.logoUrl.trim(),
     });
+    organizationStore.reset();
     editing.value = false;
   } catch {
     // The API interceptor reports the error; retain the form for corrections.
@@ -87,7 +92,7 @@ async function handleSave() {
                 v-if="form.logoUrl"
                 :src="form.logoUrl"
                 alt="Logo"
-                class="w-full h-full object-cover"
+                class="w-full h-full object-contain"
               />
               <FileText v-else class="w-6 h-6 text-muted-foreground" />
             </div>
@@ -187,15 +192,17 @@ async function handleSave() {
         </div>
 
         <div class="card p-4">
-          <label class="block text-sm font-medium mb-2">Logo Upload</label>
-          <div class="border-2 border-dashed border-border rounded-lg p-6 text-center">
-            <Upload class="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-            <p class="text-sm text-muted-foreground">
-              Drag & drop your logo or click to upload
-            </p>
-            <input type="file" class="hidden" id="logo-upload" accept="image/*" />
-            <label for="logo-upload" class="text-primary text-sm cursor-pointer">Browse files</label>
-          </div>
+          <label class="block text-sm font-medium mb-2">Brand Logo</label>
+          <input
+            v-model="form.logoUrl"
+            type="url"
+            class="input w-full"
+            placeholder="https://example.com/logo.png"
+          />
+          <p class="text-xs text-muted-foreground mt-1">
+            Printed at the top of every receipt. Use a square PNG with a transparent background
+            (at least 400 × 400 px). Leave blank to print no logo.
+          </p>
         </div>
       </div>
     </div>

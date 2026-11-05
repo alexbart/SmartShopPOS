@@ -29,6 +29,32 @@ export const organizationRoutes: FastifyPluginAsync = async (fastify) => {
   const authorizeRead = createAuthorizeHook(['organization:read']);
   const authorizeUpdate = createAuthorizeHook(['organization:update']);
 
+  // Cashiers print receipts but do not hold organization:read, so receipt branding
+  // is exposed to any authenticated session. It carries no sensitive profile data.
+  fastify.get('/branding', { preHandler: [authenticate] }, async (request, reply) => {
+    const branding = await prisma.organization.findFirst({
+      where: { id: request.requestContext.organizationId, deletedAt: null },
+      select: {
+        name: true,
+        tagline: true,
+        email: true,
+        phone: true,
+        website: true,
+        kraPin: true,
+        vatNumber: true,
+        logoUrl: true,
+        receiptFooter: true,
+        currency: true,
+      },
+    });
+    if (!branding)
+      return reply.status(404).send({ success: false, message: 'Organization not found.' });
+    return reply.send({
+      success: true,
+      data: { ...branding, businessName: branding.name },
+    });
+  });
+
   fastify.get('/', { preHandler: [authenticate, authorizeRead] }, async (request, reply) => {
     const organization = await prisma.organization.findFirst({
       where: { id: request.requestContext.organizationId, deletedAt: null },
@@ -67,6 +93,7 @@ export const organizationRoutes: FastifyPluginAsync = async (fastify) => {
             timezone: { type: 'string', maxLength: 100 },
             website: { type: 'string', maxLength: 255 },
             receiptFooter: { type: 'string', maxLength: 2000 },
+            logoUrl: { type: 'string', maxLength: 2048 },
           },
         },
       },
@@ -90,6 +117,7 @@ export const organizationRoutes: FastifyPluginAsync = async (fastify) => {
         ...(body.timezone !== undefined ? { timezone: body.timezone } : {}),
         ...(body.website !== undefined ? { website: body.website } : {}),
         ...(body.receiptFooter !== undefined ? { receiptFooter: body.receiptFooter } : {}),
+        ...(body.logoUrl !== undefined ? { logoUrl: body.logoUrl.trim() || null } : {}),
       };
       if (!Object.keys(data).length) {
         return reply

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
 import { useAuthStore } from '@/stores/auth';
+import { useOrganizationStore } from '@/stores/organization';
 import { useCart } from '@/modules/sales/composables/useCart';
 import { useSale } from '@/modules/sales/composables/useSale';
 import { useShiftStore } from '@/modules/shift/stores/shiftStore';
@@ -41,6 +42,7 @@ const localTime = computed(() =>
 
 const queryClient = useQueryClient();
 const auth = useAuthStore();
+const organizationStore = useOrganizationStore();
 const shiftStore = useShiftStore();
 const { isOnline } = useNetworkStatus();
 const {
@@ -266,6 +268,9 @@ const customerLookupRef = ref<any>(null);
 
 onMounted(() => {
   clockTimer = setInterval(() => { now.value = new Date(); }, 1000);
+
+  // Branding is cached for the session so printing never waits on a request.
+  void organizationStore.ensureLoaded();
 
   const hasSavedCart = localStorage.getItem('pos-cart');
   if (hasSavedCart && items.value.length > 0) {
@@ -562,6 +567,7 @@ onMounted(() => {
       <div class="max-w-md w-full max-h-[80vh] overflow-y-auto">
         <ReceiptPreview
           :receipt="receiptData"
+          :branding="organizationStore.branding"
           @print="handlePrintReceipt"
           @download="handlePrintReceipt"
           @email="handleEmailReceipt"
