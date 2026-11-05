@@ -121,7 +121,7 @@ const workspaces = [
       { name: 'End of Day', path: '/finance/closing', icon: CheckCircle },
     ],
   },
-  { name: 'Reports', path: '/reports/sales', icon: BarChart3 },
+  { name: 'Reports', path: '/reports', icon: BarChart3 },
   {
     name: 'Administration',
     icon: Settings,

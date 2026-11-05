@@ -79,6 +79,123 @@ describe('Auth auth lifecycle', () => {
     expect(body.data.branch).toBeDefined();
   });
 
+  it('lists system roles and enforces a read-only inventory role for its assigned user', async () => {
+    const owner = await registerAndLogin();
+    const ownerHeaders = { authorization: `Bearer ${owner.accessToken}` };
+
+    const rolesResponse = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/roles',
+      headers: ownerHeaders,
+    });
+    expect(rolesResponse.statusCode).toBe(200);
+    const roles = JSON.parse(rolesResponse.body).data.items;
+    const cashierRole = roles.find((role: { name: string }) => role.name === 'CASHIER');
+    expect(cashierRole?.isSystem).toBe(true);
+    expect(
+      cashierRole?.permissions
+        .filter((p: { name: string }) => p.name.startsWith('inventory:'))
+        .map((p: { name: string }) => p.name),
+    ).toEqual(['inventory:read']);
+    const systemRoleUpdate = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/auth/roles/${cashierRole.id}`,
+      headers: ownerHeaders,
+      payload: { description: 'Should not change system role' },
+    });
+    expect(systemRoleUpdate.statusCode).toBe(403);
+
+    const meResponse = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: ownerHeaders,
+    });
+    const ownerBranchId = JSON.parse(meResponse.body).data.branch.id;
+    const permissionsResponse = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/permissions',
+      headers: ownerHeaders,
+    });
+    const inventoryReadId = JSON.parse(permissionsResponse.body).data.find(
+      (p: { name: string }) => p.name === 'inventory:read',
+    )?.id;
+    expect(inventoryReadId).toBeDefined();
+
+    const roleResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/roles',
+      headers: ownerHeaders,
+      payload: { name: `Read Only ${Date.now()}`, permissionIds: [inventoryReadId] },
+    });
+    expect(roleResponse.statusCode).toBe(201);
+    const roleId = JSON.parse(roleResponse.body).data.id;
+
+    const cashierEmail = `cashier-${Date.now()}@smartshop.test`;
+    const createUserResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/users',
+      headers: ownerHeaders,
+      payload: {
+        firstName: 'Test',
+        lastName: 'Cashier',
+        email: cashierEmail,
+        password: 'CashierPassword123!',
+        roleId,
+        branchId: ownerBranchId,
+      },
+    });
+    expect(createUserResponse.statusCode).toBe(201);
+
+    const assignedRoleDelete = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/auth/roles/${roleId}`,
+      headers: ownerHeaders,
+    });
+    expect(assignedRoleDelete.statusCode).toBe(409);
+
+    const loginResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        organizationCode: owner.organizationCode,
+        email: cashierEmail,
+        password: 'CashierPassword123!',
+      },
+    });
+    expect(loginResponse.statusCode).toBe(200);
+    const cashierToken = JSON.parse(loginResponse.body).data.tokens.accessToken;
+    const cashierHeaders = { authorization: `Bearer ${cashierToken}` };
+
+    const inventoryRead = await app.inject({
+      method: 'GET',
+      url: '/api/v1/inventory/movements',
+      headers: cashierHeaders,
+    });
+    expect(inventoryRead.statusCode).toBe(200);
+
+    const stockAdjustment = await app.inject({
+      method: 'POST',
+      url: '/api/v1/inventory/adjust',
+      headers: cashierHeaders,
+      payload: {
+        warehouseId: '00000000-0000-4000-8000-000000000001',
+        productId: '00000000-0000-4000-8000-000000000002',
+        quantity: 1,
+        type: 'ADJUSTMENT',
+        remarks: 'Authorization check',
+      },
+    });
+    expect(stockAdjustment.statusCode).toBe(403);
+
+    const stockTransfer = await app.inject({
+      method: 'POST',
+      url: '/api/v1/inventory/transfer',
+      headers: cashierHeaders,
+      payload: {},
+    });
+    expect(stockTransfer.statusCode).toBe(403);
+  });
+
   it('refreshes tokens via /refresh', async () => {
     const { refreshToken } = await registerAndLogin();
 

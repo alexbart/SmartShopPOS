@@ -17,13 +17,18 @@ import type {
 export function useOrganization() {
   const queryClient = useQueryClient();
 
-  const { data: orgData, isLoading } = useQuery({
+  const {
+    data: orgData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['organization'],
     queryFn: async () => {
       const res = await apiClient.get('/organization');
       return (res.data as { data: Organization }).data as Organization;
     },
     staleTime: 60_000,
+    retry: false,
   });
 
   const organization = computed(() => orgData.value ?? null);
@@ -39,6 +44,7 @@ export function useOrganization() {
   return {
     organization,
     organizationLoading: isLoading,
+    organizationError: error,
     updateMutation,
   };
 }
@@ -53,8 +59,9 @@ export function useUsers() {
   } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const res = await apiClient.get('/users');
-      return (res.data as { data: User[] }).data as User[];
+      const res = await apiClient.get('/auth/users');
+      const data = (res.data as { data: User[] | { items?: User[] } }).data;
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 60_000,
   });
@@ -66,9 +73,10 @@ export function useUsers() {
       email: string;
       firstName: string;
       lastName: string;
-      role: string;
+      password: string;
+      roleId?: string;
       branchId?: string;
-    }) => apiClient.post('/users', payload),
+    }) => apiClient.post('/auth/users', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       notification.success('User created');
@@ -76,8 +84,12 @@ export function useUsers() {
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: (payload: { id: string } & Partial<User>) =>
-      apiClient.patch(`/users/${payload.id}`, payload),
+    mutationFn: (
+      payload: { id: string } & Partial<User> & { roleId?: string; isActive?: boolean },
+    ) => {
+      const { id, ...data } = payload;
+      return apiClient.patch(`/auth/users/${id}`, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       notification.success('User updated');
@@ -85,14 +97,17 @@ export function useUsers() {
   });
 
   const resetPasswordMutation = useMutation({
-    mutationFn: (userId: string) => apiClient.post(`/users/${userId}/reset-password`),
+    mutationFn: (payload: { userId: string; password: string }) =>
+      apiClient.post(`/auth/users/${payload.userId}/reset-password`, {
+        password: payload.password,
+      }),
     onSuccess: () => {
-      notification.success('Password reset email sent');
+      notification.success('Password reset');
     },
   });
 
   const deactivateUserMutation = useMutation({
-    mutationFn: (userId: string) => apiClient.patch(`/users/${userId}/deactivate`),
+    mutationFn: (userId: string) => apiClient.patch(`/auth/users/${userId}/deactivate`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       notification.success('User deactivated');
@@ -116,8 +131,9 @@ export function useRoles() {
   const { data: rolesData, isLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
-      const res = await apiClient.get('/roles');
-      return (res.data as { data: Role[] }).data as Role[];
+      const res = await apiClient.get('/auth/roles');
+      const data = (res.data as { data: Role[] | { items?: Role[] } }).data;
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 60_000,
   });
@@ -125,8 +141,9 @@ export function useRoles() {
   const { data: permissionsData } = useQuery({
     queryKey: ['permissions'],
     queryFn: async () => {
-      const res = await apiClient.get('/permissions');
-      return (res.data as { data: Permission[] }).data as Permission[];
+      const res = await apiClient.get('/auth/permissions');
+      const data = (res.data as { data: Permission[] | { items?: Permission[] } }).data;
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 60_000,
   });
@@ -136,7 +153,7 @@ export function useRoles() {
 
   const createRoleMutation = useMutation({
     mutationFn: (payload: { name: string; description?: string; permissionIds: string[] }) =>
-      apiClient.post('/roles', payload),
+      apiClient.post('/auth/roles', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       notification.success('Role created');
@@ -149,10 +166,18 @@ export function useRoles() {
       name: string;
       description?: string;
       permissionIds: string[];
-    }) => apiClient.patch(`/roles/${payload.id}`, payload),
+    }) => apiClient.patch(`/auth/roles/${payload.id}`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       notification.success('Role updated');
+    },
+  });
+
+  const deleteRoleMutation = useMutation({
+    mutationFn: (roleId: string) => apiClient.delete(`/auth/roles/${roleId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      notification.success('Role deleted');
     },
   });
 
@@ -173,6 +198,7 @@ export function useRoles() {
     allPermissionsGrouped,
     createRoleMutation,
     updateRoleMutation,
+    deleteRoleMutation,
   };
 }
 
@@ -232,22 +258,36 @@ export function useAuditLog(
   params: () => {
     page?: number;
     limit?: number;
-    resource?: string;
+    search?: string;
+    action?: string;
+    entity?: string;
+    outcome?: string;
+    from?: string;
+    to?: string;
   },
 ) {
   const { data: auditData, isLoading } = useQuery({
-    queryKey: ['audit-log', params],
+    queryKey: computed(() => ['audit-log', params()]),
     queryFn: async () => {
       const p = params();
       const q = new URLSearchParams();
       if (p.page) q.set('page', String(p.page));
       if (p.limit) q.set('limit', String(p.limit));
-      if (p.resource) q.set('resource', p.resource);
+      if (p.search) q.set('search', p.search);
+      if (p.action) q.set('action', p.action);
+      if (p.entity) q.set('entity', p.entity);
+      if (p.outcome) q.set('outcome', p.outcome);
+      if (p.from) q.set('from', p.from);
+      if (p.to) q.set('to', p.to);
 
       const res = await apiClient.get(`/audit?${q.toString()}`);
-      return (res.data as { data: { items: AuditEntry[]; total: number } }).data as {
+      return (
+        res.data as { data: { items: AuditEntry[]; total: number; page: number; pages: number } }
+      ).data as {
         items: AuditEntry[];
         total: number;
+        page: number;
+        pages: number;
       };
     },
     staleTime: 60_000,
@@ -259,25 +299,36 @@ export function useAuditLog(
   return {
     entries,
     total,
+    pages: computed(() => auditData.value?.pages ?? 0),
     auditLoading: isLoading,
   };
 }
 
 export function useHealth() {
-  const { data: healthData, isLoading } = useQuery({
-    queryKey: ['health'],
+  const {
+    data: healthData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['health-details'],
     queryFn: async () => {
-      const res = await apiClient.get('/health');
-      return (res.data as { data: HealthStatus[] }).data as HealthStatus[];
+      const res = await apiClient.get('/health/details');
+      return (res.data as { data: HealthStatus }).data;
     },
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 
-  const services = computed(() => healthData.value ?? []);
-
   return {
-    services,
+    health: computed(() => healthData.value ?? null),
     healthLoading: isLoading,
+    healthRefreshing: isFetching,
+    healthError: error,
+    refreshHealth: refetch,
   };
 }
 

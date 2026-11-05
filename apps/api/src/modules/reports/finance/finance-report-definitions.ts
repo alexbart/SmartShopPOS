@@ -9,7 +9,6 @@ import type { FinanceReportFilters } from './repository/finance-report.repositor
 import type {
   DailyCashSummaryRow,
   ExpenseReportRow,
-  ProfitSummaryRow,
   CashDrawerVarianceRow,
   SalesByPaymentMethodRow,
 } from './repository/finance-report.repository.js';
@@ -67,30 +66,6 @@ export class ExpenseReportDefinition implements ReportDefinition<
   }
 }
 
-export class ProfitSummaryReportDefinition implements ReportDefinition<
-  FinanceReportFilters,
-  ReportPaginatedResponse<ProfitSummaryRow>
-> {
-  name = 'profit-summary';
-  title = 'Profit Summary';
-  columns: ReportColumn[] = [
-    { key: 'date', label: 'Date' },
-    { key: 'revenue', label: 'Revenue' },
-    { key: 'costOfGoodsSold', label: 'COGS' },
-    { key: 'grossProfit', label: 'Gross Profit' },
-    { key: 'expenses', label: 'Expenses' },
-    { key: 'netProfit', label: 'Net Profit' },
-  ];
-
-  constructor(private readonly _repository: FinanceReportRepositoryImpl) {}
-
-  // eslint-disable-next-line no-unused-vars
-  async execute(filters: FinanceReportFilters): Promise<ReportPaginatedResponse<ProfitSummaryRow>> {
-    const data = await this._repository.profitSummary(filters);
-    return { data, total: data.length };
-  }
-}
-
 export class CashDrawerVarianceReportDefinition implements ReportDefinition<
   FinanceReportFilters,
   ReportPaginatedResponse<CashDrawerVarianceRow>
@@ -143,7 +118,6 @@ export class SalesByPaymentMethodReportDefinition implements ReportDefinition<
 export function registerFinanceReports(repository: FinanceReportRepositoryImpl) {
   reportRegistry.register(new DailyCashSummaryReportDefinition(repository));
   reportRegistry.register(new ExpenseReportDefinition(repository));
-  reportRegistry.register(new ProfitSummaryReportDefinition(repository));
   reportRegistry.register(new CashDrawerVarianceReportDefinition(repository));
   reportRegistry.register(new SalesByPaymentMethodReportDefinition(repository));
 }

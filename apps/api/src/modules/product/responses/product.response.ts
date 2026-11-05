@@ -18,6 +18,8 @@ export interface ProductResponse {
   taxRate?: number;
   costPrice: number;
   sellingPrice: number;
+  wholesalePrice?: number | null;
+  discountPrice?: number | null;
   stockQuantity: number;
   lowStockThreshold?: number;
   isActive: boolean;

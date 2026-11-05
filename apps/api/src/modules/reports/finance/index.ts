@@ -40,17 +40,6 @@ export const financeReportRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(200).send({ success: true, message: 'Expense report retrieved.', data });
   });
 
-  fastify.get('/profit-summary', { preHandler }, async (request, reply) => {
-    const query = request.query as Record<string, string | undefined>;
-    const data = await repository.profitSummary({
-      organizationId: request.requestContext.organizationId,
-      from: query.from ? new Date(query.from) : undefined,
-      to: query.to ? new Date(query.to) : undefined,
-      limit: query.limit ? Number(query.limit) : undefined,
-    });
-    return reply.status(200).send({ success: true, message: 'Profit summary retrieved.', data });
-  });
-
   fastify.get('/cash-drawer-variance', { preHandler }, async (request, reply) => {
     const query = request.query as Record<string, string | undefined>;
     const data = await repository.cashDrawerVariance({

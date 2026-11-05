@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
-const props = defineProps<{
+defineProps<{
   receipt: ReceiptData;
 }>();
 
@@ -17,108 +17,381 @@ const emit = defineEmits<{
   (e: 'done'): void;
 }>();
 
-function downloadPdf() {
-  window.print();
+// Keep currency formatting consistent throughout the receipt.
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat('en-KE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+// The parent handles the print dialog so that printing has one entry point.
+function printReceipt() {
+  emit('print');
+}
+
+// The parent opens the browser print dialog.
+// The user can select "Save as PDF" from the destination options.
+function saveAsPdf() {
   emit('download');
 }
 </script>
 
 <template>
-  <Card class="bg-white dark:bg-popover">
-    <CardContent class="pt-6">
-      <div class="text-center mb-4">
-        <h2 class="text-xl font-bold">SmartShop POS</h2>
-        <p class="text-xs text-muted-foreground">
-          Receipt #{{ receipt.number }}
-        </p>
-        <p class="text-xs text-muted-foreground">{{ receipt.timestamp }}</p>
-      </div>
+  <Card class="receipt-shell mx-auto w-full max-w-md bg-white text-black dark:bg-white">
+    <!-- This section alone should appear on the printed receipt. -->
+    <CardContent class="receipt-print-area px-5 py-6">
+      <header class="receipt-header text-center">
+        <h1 class="receipt-business-name">SMARTSHOP POS</h1>
+        <p class="receipt-tagline">Smart and Simple POS for everyone</p>
 
-      <div
+        <Separator class="receipt-divider my-3" />
+
+        <h2 class="receipt-title">SALES RECEIPT</h2>
+        <p class="receipt-meta">Receipt: {{ receipt.number }}</p>
+        <p class="receipt-meta">{{ receipt.timestamp }}</p>
+      </header>
+
+      <section
         v-if="receipt.customerName"
-        class="mb-3 text-sm"
+        class="receipt-customer mt-4 text-sm"
       >
-        <p class="font-medium">Customer:</p>
-        <p>{{ receipt.customerName }}</p>
-      </div>
+        <p class="receipt-label">Customer</p>
+        <p class="break-words">{{ receipt.customerName }}</p>
+      </section>
 
-      <div
-        v-if="receipt.customerId"
-        class="mb-3 text-sm"
-      >
-        <p class="font-medium">Customer ID:</p>
-        <p class="text-xs text-muted-foreground">{{ receipt.customerId }}</p>
-      </div>
+      <Separator class="receipt-divider my-3" />
 
-      <div class="space-y-2 text-sm">
+      <section aria-label="Purchased items">
+        <div class="receipt-items-heading">
+          <span>ITEM</span>
+          <span class="text-right">TOTAL (KES)</span>
+        </div>
+
         <div
-          v-for="(item, i) in receipt.items"
-          :key="i"
-          class="flex justify-between"
+          v-for="(item, index) in receipt.items"
+          :key="`${item.name}-${index}`"
+          class="receipt-item"
         >
-          <span>{{ item.name }} x{{ item.quantity }}</span>
-          <span>KES {{ item.total.toLocaleString() }}</span>
-        </div>
-      </div>
+          <div class="receipt-item-description">
+            <p class="receipt-item-name">{{ item.name }}</p>
+            <p class="receipt-item-calculation">
+              {{ item.quantity }} × KES {{ formatMoney(item.price) }}
+            </p>
+          </div>
 
-      <Separator class="my-3" />
+          <span class="receipt-item-total">
+            {{ formatMoney(item.total) }}
+          </span>
+        </div>
+      </section>
 
-      <div class="space-y-1 text-sm">
-        <div class="flex justify-between">
-          <span class="text-muted-foreground">Subtotal</span>
-          <span>KES {{ receipt.subtotal.toLocaleString() }}</span>
+      <Separator class="receipt-divider my-3" />
+
+      <section aria-label="Receipt totals" class="receipt-totals">
+        <div class="receipt-total-row">
+          <span>Subtotal</span>
+          <span>KES {{ formatMoney(receipt.subtotal) }}</span>
         </div>
-        <div class="flex justify-between">
-          <span class="text-muted-foreground">Tax</span>
-          <span>KES {{ receipt.tax.toLocaleString() }}</span>
+
+        <div class="receipt-total-row">
+          <span>Tax</span>
+          <span>KES {{ formatMoney(receipt.tax) }}</span>
         </div>
+
         <div
           v-if="receipt.discount > 0"
-          class="flex justify-between text-green-600"
+          class="receipt-total-row"
         >
-          <span>Discount</span>
-          <span>-KES {{ receipt.discount.toLocaleString() }}</span>
+          <span>Discount applied</span>
+          <span>-KES {{ formatMoney(receipt.discount) }}</span>
         </div>
-        <div class="flex justify-between font-bold text-lg border-t pt-2">
-          <span>TOTAL</span>
-          <span>KES {{ receipt.total.toLocaleString() }}</span>
-        </div>
-      </div>
 
-      <div class="mt-4 text-center">
-        <p class="text-xs text-muted-foreground">
-          Payment: {{ receipt.paymentMethod }}
+        <p
+          v-if="receipt.discount > 0"
+          class="receipt-discount-note"
+        >
+          Discounts are already reflected in the subtotal where applicable.
         </p>
-        <p class="text-xs text-muted-foreground mt-1">
-          Cashier: {{ receipt.cashier }}
-        </p>
-        <p class="text-xs text-muted-foreground mt-2">
-          Thank you for your purchase!
-        </p>
-      </div>
+
+        <Separator class="receipt-divider my-2" />
+
+        <div class="receipt-grand-total">
+          <span>TOTAL</span>
+          <span>KES {{ formatMoney(receipt.total) }}</span>
+        </div>
+      </section>
+
+      <Separator class="receipt-divider my-3" />
+
+      <section class="receipt-payment text-sm">
+        <div class="receipt-total-row">
+          <span>Payment method</span>
+          <span>{{ receipt.paymentMethod }}</span>
+        </div>
+
+        <div class="receipt-total-row">
+          <span>Cashier</span>
+          <span>{{ receipt.cashier }}</span>
+        </div>
+      </section>
+
+      <footer class="receipt-footer mt-5 text-center">
+        <p class="receipt-thank-you">Thank you for your purchase!</p>
+        <p class="receipt-footer-note">Please keep this receipt for your records.</p>
+        <p class="receipt-footer-brand">Powered by SmartShop POS</p>
+      </footer>
     </CardContent>
 
-    <CardFooter class="flex flex-wrap justify-center gap-2 border-t pt-3">
-      <Button size="sm" @click="$emit('print')" class="touch-target">
-        <Printer class="w-4 h-4 mr-1" />
+    <!-- Actions are available on screen but hidden when printing. -->
+    <CardFooter class="receipt-actions flex flex-wrap justify-center gap-2 border-t pt-3">
+      <Button
+        size="sm"
+        class="touch-target"
+        @click="printReceipt"
+      >
+        <Printer class="mr-1 h-4 w-4" />
         Print
       </Button>
-      <Button variant="outline" size="sm" @click="downloadPdf" class="touch-target">
-        <Download class="w-4 h-4 mr-1" />
-        PDF
+
+      <Button
+        variant="outline"
+        size="sm"
+        class="touch-target"
+        @click="saveAsPdf"
+      >
+        <Download class="mr-1 h-4 w-4" />
+        Save as PDF
       </Button>
-      <Button variant="outline" size="sm" @click="$emit('email')" class="touch-target">
-        <Mail class="w-4 h-4 mr-1" />
+
+      <Button
+        variant="outline"
+        size="sm"
+        class="touch-target"
+        @click="emit('email')"
+      >
+        <Mail class="mr-1 h-4 w-4" />
         Email
       </Button>
-      <Button variant="outline" size="sm" @click="$emit('sms')" class="touch-target">
-        <Send class="w-4 h-4 mr-1" />
+
+      <Button
+        variant="outline"
+        size="sm"
+        class="touch-target"
+        @click="emit('sms')"
+      >
+        <Send class="mr-1 h-4 w-4" />
         SMS
       </Button>
-      <Button variant="ghost" size="sm" @click="$emit('done')" class="touch-target">
-        <X class="w-4 h-4 mr-1" />
+
+      <Button
+        variant="ghost"
+        size="sm"
+        class="touch-target"
+        @click="emit('done')"
+      >
+        <X class="mr-1 h-4 w-4" />
         Done
       </Button>
     </CardFooter>
   </Card>
 </template>
+
+<style scoped>
+.receipt-shell {
+  font-family: Arial, Helvetica, sans-serif;
+  border: 1px solid #e5e7eb;
+}
+
+.receipt-header {
+  overflow-wrap: anywhere;
+}
+
+.receipt-business-name {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.receipt-tagline {
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+}
+
+.receipt-title {
+  margin-bottom: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.receipt-meta {
+  font-size: 0.72rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.receipt-label {
+  margin-bottom: 0.2rem;
+  font-weight: 700;
+}
+
+.receipt-divider {
+  border-color: #9ca3af;
+}
+
+.receipt-items-heading,
+.receipt-item,
+.receipt-total-row,
+.receipt-grand-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.receipt-items-heading {
+  margin-bottom: 0.6rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.receipt-item {
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.receipt-item-description {
+  min-width: 0;
+  flex: 1;
+}
+
+.receipt-item-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.receipt-item-calculation {
+  margin-top: 0.15rem;
+  color: #4b5563;
+  font-size: 0.68rem;
+}
+
+.receipt-item-total {
+  flex-shrink: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-totals,
+.receipt-payment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.receipt-total-row {
+  align-items: flex-start;
+  font-size: 0.78rem;
+}
+
+.receipt-total-row > :last-child {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.receipt-discount-note {
+  color: #4b5563;
+  font-size: 0.65rem;
+  line-height: 1.4;
+}
+
+.receipt-grand-total {
+  align-items: baseline;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.receipt-grand-total > :last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-thank-you {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.receipt-footer-note,
+.receipt-footer-brand {
+  margin-top: 0.3rem;
+  font-size: 0.65rem;
+}
+
+.receipt-footer-brand {
+  margin-top: 0.7rem;
+  font-weight: 700;
+}
+
+@media print {
+  /* Hide the POS workspace, modal controls and every other page element. */
+  :global(body *) {
+    visibility: hidden !important;
+  }
+
+  /* Restore visibility only for this receipt and its contents. */
+  .receipt-print-area,
+  .receipt-print-area * {
+    visibility: visible !important;
+  }
+
+  .receipt-shell {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 76mm !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .receipt-print-area {
+    display: block !important;
+    width: 100% !important;
+    padding: 2mm !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .receipt-actions {
+    display: none !important;
+  }
+
+  .receipt-divider {
+    border-color: #777 !important;
+  }
+
+  .receipt-item-calculation,
+  .receipt-discount-note {
+    color: #333 !important;
+  }
+
+  :global(html),
+  :global(body) {
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  @page {
+    size: 80mm auto;
+    margin: 2mm;
+  }
+}
+</style>

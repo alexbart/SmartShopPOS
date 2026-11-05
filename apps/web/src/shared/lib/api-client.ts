@@ -1,10 +1,12 @@
 import axios, { type AxiosInstance, type AxiosResponse, type AxiosRequestConfig } from 'axios';
 import { notification } from '@/stores/notification';
+import { SESSION_STORAGE_KEYS, clearStoredSession } from './session';
 
 class ApiClient {
   private client: AxiosInstance;
   private isRefreshing = false;
-  private refreshPromise: Promise<string | null> | null = null;
+  private refreshPromise: Promise<{ accessToken: string; refreshToken: string } | null> | null =
+    null;
 
   constructor() {
     this.client = axios.create({
@@ -13,7 +15,7 @@ class ApiClient {
     });
 
     this.client.interceptors.request.use((config) => {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem(SESSION_STORAGE_KEYS.accessToken);
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -27,18 +29,16 @@ class ApiClient {
           const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
           if (originalRequest._retry) {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
+            clearStoredSession();
             if (window.location.pathname !== '/login') {
               window.location.href = '/login';
             }
             return Promise.reject(error);
           }
 
-          const refreshToken = localStorage.getItem('refreshToken');
+          const refreshToken = localStorage.getItem(SESSION_STORAGE_KEYS.refreshToken);
           if (!refreshToken) {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
+            clearStoredSession();
             if (window.location.pathname !== '/login') {
               window.location.href = '/login';
             }
@@ -51,17 +51,22 @@ class ApiClient {
           }
 
           try {
-            const newToken = await this.refreshPromise;
-            if (newToken) {
-              localStorage.setItem('accessToken', newToken);
-              originalRequest.headers = originalRequest.headers || {};
-              originalRequest.headers.Authorization = `Bearer ${newToken}`;
-              originalRequest._retry = true;
-              return this.client(originalRequest);
+            const tokens = await this.refreshPromise;
+            if (!tokens) {
+              clearStoredSession();
+              if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+              }
+              return Promise.reject(error);
             }
+            localStorage.setItem(SESSION_STORAGE_KEYS.accessToken, tokens.accessToken);
+            localStorage.setItem(SESSION_STORAGE_KEYS.refreshToken, tokens.refreshToken);
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
+            originalRequest._retry = true;
+            return this.client(originalRequest);
           } catch {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
+            clearStoredSession();
             if (window.location.pathname !== '/login') {
               window.location.href = '/login';
             }
@@ -82,13 +87,17 @@ class ApiClient {
     );
   }
 
-  private async refreshAccessToken(refreshToken: string): Promise<string | null> {
+  private async refreshAccessToken(
+    refreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string } | null> {
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1'}/auth/refresh`,
         { refreshToken },
       );
-      return response.data?.data?.accessToken ?? null;
+      const data = response.data?.data;
+      if (!data?.accessToken || !data?.refreshToken) return null;
+      return { accessToken: data.accessToken, refreshToken: data.refreshToken };
     } catch {
       return null;
     }

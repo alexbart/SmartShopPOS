@@ -1,4 +1,6 @@
 {
-  "*.{ts,tsx}": ["eslint --fix --max-warnings=0", "prettier --write"],
+  "apps/api/src/**/*.ts": ["eslint --fix --max-warnings=0", "prettier --write"],
+  "apps/api/prisma/**/*.ts": ["prettier --write"],
+  "apps/web/src/**/*.ts": ["prettier --write"],
   "*.{json,md,yml,yaml}": ["prettier --write"]
 }

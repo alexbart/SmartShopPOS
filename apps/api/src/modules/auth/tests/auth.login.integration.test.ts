@@ -11,7 +11,7 @@ process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-key-that-is-long-enough-fo
 
 describe('POST /api/v1/auth/login', () => {
   let app: FastifyInstance;
-  const uniqueName = `SmartShop Test ${Date.now()}`;
+  const uniqueName = `SmartShop Test Login ${Date.now()}`;
 
   beforeAll(async () => {
     app = await buildApp();

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import ImageUploader from '@/modules/catalog/components/ImageUploader.vue';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import AdjustStockDialog from '@/modules/catalog/components/AdjustStockDialog.vue';
@@ -31,7 +31,11 @@ const router = useRouter();
 const route = useRoute();
 const queryClient = useQueryClient();
 const activeStep = ref(1);
-const isEditing = computed(() => !!route.params.id);
+const productId = computed(() => String(route.params.id ?? ''));
+const isEditing = computed(() => !!productId.value);
+const existingProduct = ref<ProductData | null>(null);
+const isLoadingProduct = ref(false);
+const productLoadError = ref<string | null>(null);
 
 const productSchema = toTypedSchema(
   z.object({
@@ -42,6 +46,8 @@ const productSchema = toTypedSchema(
     description: z.string().optional(),
     sellingPrice: z.coerce.number().min(0, 'Selling price is required'),
     costPrice: z.coerce.number().min(0, 'Cost price is required'),
+    wholesalePrice: z.preprocess((value) => value === '' || value == null ? undefined : value, z.coerce.number().min(0).optional()),
+    discountPrice: z.preprocess((value) => value === '' || value == null ? undefined : value, z.coerce.number().min(0).optional()),
     stockQuantity: z.coerce.number().min(0).default(0),
     lowStockThreshold: z.coerce.number().min(0).default(0),
     unitId: z.string().min(1, 'Unit is required'),
@@ -62,6 +68,8 @@ const form = useForm({
     description: '',
     sellingPrice: 0,
     costPrice: 0,
+    wholesalePrice: '',
+    discountPrice: '',
     stockQuantity: 0,
     lowStockThreshold: 0,
     unitId: '',
@@ -81,18 +89,20 @@ interface Warehouse { id: string; name: string; code: string; isDefault: boolean
 interface ProductData {
   id: string;
   name: string;
-  code: string;
-  sku: string;
-  barcode: string;
-  description: string;
-  sellingPrice: number;
-  costPrice: number;
-  stockQuantity: number;
-  lowStockThreshold: number;
+  code?: string | null;
+  sku?: string | null;
+  barcode?: string | null;
+  description?: string | null;
+  sellingPrice: number | string;
+  costPrice: number | string;
+  wholesalePrice?: number | string | null;
+  discountPrice?: number | string | null;
+  stockQuantity?: number | string;
+  lowStockThreshold?: number | string | null;
   unitId: string;
-  categoryId: string;
-  brandId: string;
-  taxId: string;
+  categoryId?: string | null;
+  brandId?: string | null;
+  taxId?: string | null;
   isActive: boolean;
 }
 
@@ -125,40 +135,58 @@ const { data: warehousesData } = useQuery<Warehouse[]>({
   staleTime: 60_000,
 });
 
-// Fetch existing product when editing
-const { data: existingProduct, isLoading: isLoadingProduct } = useQuery<ProductData>({
-  queryKey: ['product', route.params.id],
-  queryFn: async () => {
-    const res = await apiClient.get(`/products/${route.params.id}`);
-    return (res.data as any).data;
-  },
-  enabled: isEditing,
-  staleTime: 0,
-});
+function populateProductForm(product: ProductData) {
+  form.setValues({
+    name: product.name ?? '',
+    code: product.code ?? '',
+    sku: product.sku ?? '',
+    barcode: product.barcode ?? '',
+    description: product.description ?? '',
+    sellingPrice: Number(product.sellingPrice ?? 0),
+    costPrice: Number(product.costPrice ?? 0),
+    wholesalePrice: product.wholesalePrice ?? '',
+    discountPrice: product.discountPrice ?? '',
+    stockQuantity: Number(product.stockQuantity ?? 0),
+    lowStockThreshold: Number(product.lowStockThreshold ?? 0),
+    unitId: product.unitId ?? '',
+    categoryId: product.categoryId ?? '',
+    brandId: product.brandId ?? '',
+    taxId: product.taxId ?? '',
+    isActive: product.isActive ?? true,
+  });
+}
 
-// Populate form when product data arrives — this is the core fix
+async function loadProductForEdit(id: string) {
+  isLoadingProduct.value = true;
+  productLoadError.value = null;
+  existingProduct.value = null;
+
+  try {
+    const response = await apiClient.get<{ data?: ProductData }>(`/products/${id}`);
+    const product = response.data?.data;
+    if (!product?.id) throw new Error('Product response did not contain product data.');
+
+    existingProduct.value = product;
+    await nextTick();
+    populateProductForm(product);
+  } catch (error) {
+    productLoadError.value = 'Could not load this product. Please retry or return to the product list.';
+    notification.error(productLoadError.value);
+  } finally {
+    isLoadingProduct.value = false;
+  }
+}
+
+// Match customer edit: each route ID change fetches the record, then fills the form.
 watch(
-  () => existingProduct.value,
-  (product) => {
-    if (!product) return;
-    nextTick(() => {
-      form.setValues({
-        name: product.name ?? '',
-        code: product.code ?? '',
-        sku: product.sku ?? '',
-        barcode: product.barcode ?? '',
-        description: product.description ?? '',
-        sellingPrice: Number(product.sellingPrice) ?? 0,
-        costPrice: Number(product.costPrice) ?? 0,
-        stockQuantity: Number(product.stockQuantity) ?? 0,
-        lowStockThreshold: Number(product.lowStockThreshold) ?? 0,
-        unitId: product.unitId ?? '',
-        categoryId: product.categoryId ?? '',
-        brandId: product.brandId ?? '',
-        taxId: product.taxId ?? '',
-        isActive: product.isActive ?? true,
-      });
-    });
+  productId,
+  (id) => {
+    if (!id) {
+      existingProduct.value = null;
+      productLoadError.value = null;
+      return;
+    }
+    void loadProductForEdit(id);
   },
   { immediate: true },
 );
@@ -203,8 +231,7 @@ const showAdjustDialog = ref(false);
 async function handleAdjustStock(payload: any) {
   try {
     await adjustStock.mutateAsync(payload);
-    // Refresh product data to get updated stock
-    queryClient.invalidateQueries({ queryKey: ['product', route.params.id] });
+    if (productId.value) await loadProductForEdit(productId.value);
     showAdjustDialog.value = false;
   } catch (error) {
     // Error handled by mutation
@@ -215,11 +242,10 @@ async function handleAdjustStock(payload: any) {
 const saveMutation = useMutation({
   mutationFn: (payload: any) =>
     isEditing.value
-      ? apiClient.put(`/products/${route.params.id}`, payload)
+      ? apiClient.patch(`/products/${productId.value}`, payload)
       : apiClient.post('/products', payload),
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
-    queryClient.invalidateQueries({ queryKey: ['product', route.params.id] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     if (!isEditing.value) localStorage.removeItem(draftKey.value);
     notification.success(isEditing.value ? 'Product updated' : 'Product created');
@@ -263,6 +289,9 @@ async function handleSubmit() {
     description: v.description || undefined,
     sellingPrice: Number(v.sellingPrice),
     costPrice: Number(v.costPrice),
+    wholesalePrice: v.wholesalePrice === '' || v.wholesalePrice == null ? null : Number(v.wholesalePrice),
+    discountPrice: v.discountPrice === '' || v.discountPrice == null ? null : Number(v.discountPrice),
+    lowStockThreshold: Number(v.lowStockThreshold ?? 0),
     unitId: v.unitId,
     categoryId: v.categoryId || undefined,
     brandId: v.brandId || undefined,
@@ -308,6 +337,18 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
       <div v-for="i in 4" :key="i" class="h-12 bg-muted rounded-lg animate-pulse" />
     </div>
 
+    <Card v-else-if="isEditing && productLoadError">
+      <CardContent class="flex flex-col items-start gap-4 py-6">
+        <p class="text-sm text-destructive">{{ productLoadError }}</p>
+        <div class="flex gap-2">
+          <Button type="button" variant="outline" @click="router.push('/products')">
+            <ChevronLeft class="mr-2 h-4 w-4" /> Back to products
+          </Button>
+          <Button type="button" @click="loadProductForEdit(productId)">Retry</Button>
+        </div>
+      </CardContent>
+    </Card>
+
     <template v-else>
       <!-- Step indicators -->
       <div class="flex items-center mb-6 overflow-x-auto gap-0">
@@ -333,7 +374,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
         </div>
       </div>
 
-      <Form :form="form">
+      <div>
         <!-- Step 1: Basic Info -->
         <Card v-if="activeStep === 1">
           <CardHeader>
@@ -341,7 +382,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
             <CardDescription>Name, SKU, barcode and description.</CardDescription>
           </CardHeader>
           <CardContent class="space-y-4">
-            <FormField v-slot="{ componentField }" name="name" :form="form">
+            <FormField v-slot="{ componentField }" name="name">
               <FormItem>
                 <FormLabel>Product Name *</FormLabel>
                 <FormControl>
@@ -352,7 +393,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
             </FormField>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField v-slot="{ componentField }" name="code" :form="form">
+              <FormField v-slot="{ componentField }" name="code">
                 <FormItem>
                   <FormLabel>Product Code</FormLabel>
                   <FormControl>
@@ -362,7 +403,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                 </FormItem>
               </FormField>
 
-              <FormField v-slot="{ componentField }" name="sku" :form="form">
+              <FormField v-slot="{ componentField }" name="sku">
                 <FormItem>
                   <FormLabel>SKU</FormLabel>
                   <FormControl>
@@ -373,7 +414,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                 </FormItem>
               </FormField>
 
-              <FormField v-slot="{ componentField }" name="barcode" :form="form">
+              <FormField v-slot="{ componentField }" name="barcode">
                 <FormItem>
                   <FormLabel>Barcode</FormLabel>
                   <FormControl>
@@ -384,7 +425,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
               </FormField>
             </div>
 
-            <FormField v-slot="{ componentField }" name="description" :form="form">
+            <FormField v-slot="{ componentField }" name="description">
               <FormItem>
                 <FormLabel>Description</FormLabel>
                 <FormControl>
@@ -404,7 +445,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
           </CardHeader>
           <CardContent class="space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField v-slot="{ componentField }" name="sellingPrice" :form="form">
+              <FormField v-slot="{ componentField }" name="sellingPrice">
                 <FormItem>
                   <FormLabel>Selling Price (KES) *</FormLabel>
                   <FormControl>
@@ -414,7 +455,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                 </FormItem>
               </FormField>
 
-              <FormField v-slot="{ componentField }" name="costPrice" :form="form">
+              <FormField v-slot="{ componentField }" name="costPrice">
                 <FormItem>
                   <FormLabel>Cost Price (KES) *</FormLabel>
                   <FormControl>
@@ -423,10 +464,34 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                   <FormMessage />
                 </FormItem>
               </FormField>
+
+              <FormField v-slot="{ componentField }" name="wholesalePrice">
+                <FormItem>
+                  <FormLabel>Wholesale Price (KES)</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="Optional" step="0.01" min="0" v-bind="componentField" />
+                  </FormControl>
+                  <FormDescription>Optional bulk or trade price.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+
+              <FormField v-slot="{ componentField }" name="discountPrice">
+                <FormItem>
+                  <FormLabel>Discount Selling Price (KES)</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="Optional" step="0.01" min="0" v-bind="componentField" />
+                  </FormControl>
+                  <FormDescription v-if="form.values.discountPrice !== '' && Number(form.values.sellingPrice) > 0">
+                    Discount: {{ (((Number(form.values.sellingPrice) - Number(form.values.discountPrice)) / Number(form.values.sellingPrice)) * 100).toFixed(1) }}%
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
             </div>
 
             <!-- Tax select — uses value/handleChange pattern for shadcn Select -->
-            <FormField v-slot="{ value, handleChange }" name="taxId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="taxId">
               <FormItem>
                 <FormLabel>Tax</FormLabel>
                 <Select :model-value="value" @update:model-value="handleChange">
@@ -456,7 +521,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
           <CardContent class="space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <!-- Edit mode: Read-only stock with Adjust button -->
-              <FormField v-if="!isEditing" v-slot="{ componentField }" name="stockQuantity" :form="form">
+              <FormField v-if="!isEditing" v-slot="{ componentField }" name="stockQuantity">
                 <FormItem>
                   <FormLabel>Opening Stock Quantity</FormLabel>
                   <FormControl>
@@ -484,7 +549,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                 </div>
               </div>
 
-              <FormField v-slot="{ componentField }" name="lowStockThreshold" :form="form">
+              <FormField v-slot="{ componentField }" name="lowStockThreshold">
                 <FormItem>
                   <FormLabel>Low Stock Threshold</FormLabel>
                   <FormControl>
@@ -495,7 +560,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
               </FormField>
             </div>
 
-            <FormField v-slot="{ value, handleChange }" name="unitId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="unitId">
               <FormItem>
                 <FormLabel>Unit *</FormLabel>
                 <Select :model-value="value" @update:model-value="handleChange">
@@ -514,7 +579,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
               </FormItem>
             </FormField>
 
-            <FormField v-slot="{ value, handleChange }" name="categoryId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="categoryId">
               <FormItem>
                 <FormLabel>Category</FormLabel>
                 <Select :model-value="value" @update:model-value="handleChange">
@@ -532,7 +597,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
               </FormItem>
             </FormField>
 
-            <FormField v-slot="{ value, handleChange }" name="brandId" :form="form">
+            <FormField v-slot="{ value, handleChange }" name="brandId">
               <FormItem>
                 <FormLabel>Brand</FormLabel>
                 <Select :model-value="value" @update:model-value="handleChange">
@@ -600,6 +665,8 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
                 <div class="space-y-1">
                   <div class="flex justify-between"><span class="text-muted-foreground">Selling Price</span><span class="font-medium">KES {{ Number(form.values.sellingPrice).toLocaleString() }}</span></div>
                   <div class="flex justify-between"><span class="text-muted-foreground">Cost Price</span><span class="font-medium">KES {{ Number(form.values.costPrice).toLocaleString() }}</span></div>
+                  <div class="flex justify-between"><span class="text-muted-foreground">Wholesale Price</span><span class="font-medium">{{ form.values.wholesalePrice === '' ? '—' : `KES ${Number(form.values.wholesalePrice).toLocaleString()}` }}</span></div>
+                  <div class="flex justify-between"><span class="text-muted-foreground">Discount Price</span><span class="font-medium">{{ form.values.discountPrice === '' ? '—' : `KES ${Number(form.values.discountPrice).toLocaleString()}` }}</span></div>
                   <div class="flex justify-between"><span class="text-muted-foreground">Stock</span><span>{{ form.values.stockQuantity }}</span></div>
                   <div class="flex justify-between"><span class="text-muted-foreground">Images</span><span>{{ uploadedImages.length }} uploaded</span></div>
                 </div>
@@ -607,7 +674,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
             </div>
           </CardContent>
         </Card>
-      </Form>
+      </div>
 
       <!-- Navigation -->
       <div class="flex justify-between mt-6">
@@ -633,7 +700,7 @@ function prevStep() { activeStep.value = Math.max(activeStep.value - 1, 1); }
       <!-- Adjust Stock Dialog -->
       <AdjustStockDialog
         v-model:open="showAdjustDialog"
-        :product-id="route.params.id as string"
+        :product-id="productId"
         :current-stock="form.values.stockQuantity ?? 0"
         :warehouses="warehousesData as any"
         @success="(payload) => handleAdjustStock(payload)"

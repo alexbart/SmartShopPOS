@@ -11,5 +11,8 @@ export interface CreateProductCommand {
   taxId?: string;
   costPrice: number;
   sellingPrice: number;
+  wholesalePrice?: number | null;
+  discountPrice?: number | null;
+  lowStockThreshold?: number;
   createdBy?: string;
 }

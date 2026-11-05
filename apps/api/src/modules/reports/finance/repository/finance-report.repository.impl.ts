@@ -5,7 +5,6 @@ import type {
   FinanceReportFilters,
   DailyCashSummaryRow,
   ExpenseReportRow,
-  ProfitSummaryRow,
   CashDrawerVarianceRow,
   SalesByPaymentMethodRow,
 } from './finance-report.repository.js';
@@ -104,20 +103,6 @@ export class FinanceReportRepositoryImpl implements IFinanceReportRepository {
       description: e.description ?? '',
       paymentReference: e.paymentReference ?? '',
     }));
-  }
-
-  // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
-  async profitSummary(_filters: FinanceReportFilters): Promise<ProfitSummaryRow[]> {
-    return [
-      {
-        date: new Date().toISOString().split('T')[0],
-        revenue: 0,
-        costOfGoodsSold: 0,
-        grossProfit: 0,
-        expenses: 0,
-        netProfit: 0,
-      },
-    ];
   }
 
   async cashDrawerVariance(filters: FinanceReportFilters): Promise<CashDrawerVarianceRow[]> {

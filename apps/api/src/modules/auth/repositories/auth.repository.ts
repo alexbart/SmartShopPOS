@@ -9,8 +9,13 @@ import type { FindOrganizationByCodeQuery } from './models/find-organization-by-
 import type { FindUserByEmailQuery } from './models/find-user-by-email.query.js';
 import type { FindRoleByNameQuery } from './models/find-role-by-name.query.js';
 import type { FindUsersQuery } from './models/find-users.query.js';
+import type { FindRolesQuery } from './models/find-roles.query.js';
+import type { CreateRoleModel } from './models/create-role.model.js';
+import type { UpdateRoleModel } from './models/update-role.model.js';
 import type { UpdateUserModel } from './models/update-user.model.js';
 import type { ResetPasswordModel } from './models/reset-password.model.js';
+import type { AssignPermissionToRoleModel } from './models/assign-permission-to-role.model.js';
+import type { SyncRolePermissionsModel } from './models/sync-role-permissions.model.js';
 
 export interface IAuthRepository {
   findOrganizationByName(
@@ -31,7 +36,14 @@ export interface IAuthRepository {
   findUserByOrganizationAndEmail(
     _organizationId: string,
     _email: string,
-  ): Promise<{ id: string; passwordHash: string; status: string; branchId: string } | null>;
+  ): Promise<{
+    id: string;
+    passwordHash: string;
+    status: string;
+    branchId: string;
+    firstName: string;
+    lastName: string;
+  } | null>;
   findSessionById(_sessionId: string): Promise<{
     id: string;
     userId: string;
@@ -54,6 +66,18 @@ export interface IAuthRepository {
   findUserWithRolesById(
     _userId: string,
   ): Promise<{ id: string; email: string; roles: string[]; permissions: string[] } | null>;
+  findUserAuditSnapshot(
+    _userId: string,
+    _organizationId: string,
+  ): Promise<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    branchId: string;
+    status: string;
+    roles: string[];
+  } | null>;
   findUsers(_query: FindUsersQuery): Promise<{
     items: Array<{
       id: string;
@@ -86,4 +110,47 @@ export interface IAuthRepository {
   findUserWithRolesById(
     _userId: string,
   ): Promise<{ id: string; email: string; roles: string[]; permissions: string[] } | null>;
+  findRoles(_query: FindRolesQuery): Promise<{
+    items: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      isSystem: boolean;
+      userCount: number;
+      permissions: Array<{ id: string; name: string; resource: string; action: string }>;
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  }>;
+  createRole(_model: CreateRoleModel): Promise<string>;
+  findRoleById(
+    _id: string,
+    _organizationId: string,
+  ): Promise<{
+    id: string;
+    name: string;
+    description: string | null;
+    isSystem: boolean;
+    userCount: number;
+    permissions: Array<{ id: string; name: string; resource: string; action: string }>;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null>;
+  updateRole(_model: UpdateRoleModel): Promise<void>;
+  deleteRole(_id: string, _organizationId: string, _deactivatedBy: string): Promise<void>;
+  findPermissions(_organizationId: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      resource: string;
+      action: string;
+      description: string | null;
+    }>
+  >;
+  assignPermissionToRole(_model: AssignPermissionToRoleModel): Promise<void>;
+  syncRolePermissions(_model: SyncRolePermissionsModel): Promise<void>;
 }

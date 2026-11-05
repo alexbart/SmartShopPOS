@@ -14,6 +14,11 @@ model Organization {
   email                String?                @db.VarChar(255)
   phone                String?                @db.VarChar(50)
   kraPin               String?                @db.VarChar(50)
+  tagline              String?
+  businessType         String?                @db.VarChar(100)
+  vatNumber            String?                @db.VarChar(50)
+  website              String?                @db.VarChar(255)
+  receiptFooter         String?
   currency             String                 @default("KES") @db.VarChar(3)
   timezone             String                 @default("Africa/Nairobi") @db.VarChar(100)
   logoUrl              String?
@@ -41,6 +46,7 @@ model Organization {
   numberSequences      NumberSequence[]
   payments             Payment[]
   products             Product[]
+  productImportJobs    ProductImportJob[]
   purchaseOrders       PurchaseOrder[]
   receipts             Receipt[]
   roles                Role[]
@@ -229,16 +235,26 @@ model AuditLog {
   createdAt      DateTime     @default(now()) @db.Timestamp(6)
   branchId       String?      @db.Uuid
   roleId         String?      @db.Uuid
-  actor          User?        @relation(fields: [actorId], references: [id])
-  branch         Branch?      @relation(fields: [branchId], references: [id])
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  role           Role?        @relation(fields: [roleId], references: [id])
+  actorName      String?      @db.VarChar(255)
+  roles          Json?
+  outcome        String       @default("SUCCESS") @db.VarChar(20)
+  route          String?      @db.VarChar(500)
+  method         String?      @db.VarChar(10)
+  summary        String?      @db.VarChar(500)
+  previousHash   String?      @db.VarChar(64)
+  eventHash      String?      @db.VarChar(64)
+  chainSequence  BigInt?
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  branch         Branch?      @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  role           Role?        @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
   @@index([organizationId], map: "audit_logs_org_id_idx")
   @@index([actorId], map: "audit_logs_actor_id_idx")
   @@index([entity, entityId], map: "audit_logs_entity_idx")
   @@index([action])
   @@index([createdAt], map: "audit_logs_created_at_idx")
+  @@unique([organizationId, chainSequence], map: "audit_logs_org_chain_sequence_key")
   @@map("audit_logs")
 }
 
@@ -342,6 +358,8 @@ model Product {
   taxId              String?             @db.Uuid
   costPrice          Decimal             @db.Decimal(10, 2)
   sellingPrice       Decimal             @db.Decimal(10, 2)
+  wholesalePrice     Decimal?            @db.Decimal(10, 2)
+  discountPrice      Decimal?            @db.Decimal(10, 2)
   isActive           Boolean             @default(true)
   createdAt          DateTime            @default(now()) @db.Timestamp(6)
   updatedAt          DateTime            @updatedAt @db.Timestamp(6)
@@ -367,6 +385,45 @@ model Product {
   @@map("products")
 }
 
+model ProductImportJob {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @db.Uuid
+  warehouseId    String             @db.Uuid
+  sourceHash     String             @db.Char(64)
+  sourceName     String             @db.VarChar(255)
+  status         String             @default("RUNNING") @db.VarChar(30)
+  totalRows      Int
+  completedRows  Int                @default(0)
+  failedRows     Int                @default(0)
+  createdAt      DateTime           @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime           @updatedAt @db.Timestamp(6)
+  completedAt    DateTime?          @db.Timestamp(6)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  warehouse      Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  rows           ProductImportRow[]
+
+  @@unique([organizationId, warehouseId, sourceHash], map: "product_import_job_source_key")
+  @@index([organizationId, status])
+  @@map("product_import_jobs")
+}
+
+model ProductImportRow {
+  id         String           @id @default(uuid()) @db.Uuid
+  jobId      String           @db.Uuid
+  rowNumber  Int
+  status     String           @default("PENDING") @db.VarChar(20)
+  sourceData Json
+  productId  String?          @db.Uuid
+  error      String?
+  createdAt  DateTime         @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime         @updatedAt @db.Timestamp(6)
+  job        ProductImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, rowNumber], map: "product_import_row_job_number_key")
+  @@index([jobId, status])
+  @@map("product_import_rows")
+}
+
 model Warehouse {
   id             String          @id @default(uuid()) @db.Uuid
   organizationId String          @db.Uuid
@@ -385,6 +442,7 @@ model Warehouse {
   sales          Sale[]
   stockMovements StockMovement[]
   stocks         Stock[]
+  productImportJobs ProductImportJob[]
   branch         Branch          @relation(fields: [branchId], references: [id])
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -955,8 +1013,12 @@ enum AuditAction {
   CREATE
   UPDATE
   DELETE
+  READ
   LOGIN
   LOGOUT
+  AUTH_FAILURE
+  ACCESS_DENIED
+  FAILED
   SUBMIT
   CANCEL
   RECEIVE_GOODS

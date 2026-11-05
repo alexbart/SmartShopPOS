@@ -6,6 +6,9 @@ import type { RegisterDto } from '../dto/register.dto.js';
 import type { RegisterResponse } from '../responses/register.response.js';
 import type { LoginDto } from '../dto/login.dto.js';
 import type { FindUsersQuery } from '../repositories/models/find-users.query.js';
+import type { FindRolesQuery } from '../repositories/models/find-roles.query.js';
+import type { CreateRoleModel } from '../repositories/models/create-role.model.js';
+import type { UpdateRoleModel } from '../repositories/models/update-role.model.js';
 
 export class AuthController {
   constructor(private readonly _authService: IAuthService) {}
@@ -82,14 +85,14 @@ export class AuthController {
       email: string;
       phone?: string;
       password: string;
-      roleId?: string;
+      roleId: string;
       branchId?: string;
       isActive?: boolean;
     };
 
     const result = await this._authService.createUser({
       organizationId: request.requestContext.organizationId,
-      branchId: body.branchId ?? '',
+      branchId: body.branchId ?? request.requestContext.branchId,
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
@@ -160,6 +163,102 @@ export class AuthController {
     return reply.status(200).send({
       success: true,
       message: 'Password reset successfully.',
+    });
+  }
+
+  async findRoles(request: FastifyRequest, reply: FastifyReply) {
+    const query = request.query as FindRolesQuery;
+    query.organizationId = request.requestContext.organizationId;
+
+    const result = await this._authService.findRoles(query);
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Roles retrieved successfully.',
+      data: result,
+    });
+  }
+
+  async createRole(request: FastifyRequest, reply: FastifyReply) {
+    const body = request.body as CreateRoleModel;
+
+    const role = await this._authService.createRole({
+      organizationId: request.requestContext.organizationId,
+      name: body.name,
+      description: body.description,
+      permissionIds: body.permissionIds,
+      createdBy: request.requestContext.userId,
+    });
+
+    return reply.status(201).send({
+      success: true,
+      message: 'Role created successfully.',
+      data: role,
+    });
+  }
+
+  async findRoleById(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+
+    const role = await this._authService.findRoleById(id, request.requestContext.organizationId);
+
+    if (!role) {
+      return reply.status(404).send({
+        success: false,
+        message: 'Role not found.',
+      });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Role retrieved successfully.',
+      data: role,
+    });
+  }
+
+  async updateRole(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+    const body = request.body as UpdateRoleModel;
+
+    await this._authService.updateRole({
+      id,
+      organizationId: request.requestContext.organizationId,
+      name: body.name,
+      description: body.description,
+      permissionIds: body.permissionIds,
+      updatedBy: request.requestContext.userId,
+    });
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Role updated successfully.',
+    });
+  }
+
+  async deleteRole(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+
+    await this._authService.deleteRole(
+      id,
+      request.requestContext.organizationId,
+      request.requestContext.userId,
+    );
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Role deleted successfully.',
+    });
+  }
+
+  async findPermissions(request: FastifyRequest, reply: FastifyReply) {
+    const permissions = await this._authService.findPermissions(
+      request.requestContext.organizationId,
+    );
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Permissions retrieved successfully.',
+      data: permissions,
     });
   }
 }

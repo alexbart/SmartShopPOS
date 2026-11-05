@@ -29,9 +29,21 @@ export class ExportController {
 
     const normalizedFormat = format as ExportFormat;
 
+    const normalizedFilters = Object.fromEntries(
+      Object.entries(rest).map(([key, value]) => {
+        if ((key === 'from' || key === 'to' || key === 'date') && typeof value === 'string') {
+          return [key, new Date(value)];
+        }
+        if ((key === 'page' || key === 'limit') && typeof value === 'string') {
+          return [key, Number(value)];
+        }
+        return [key, value];
+      }),
+    );
+
     const filters = {
       organizationId,
-      ...rest,
+      ...normalizedFilters,
     };
 
     return this._exportService.generate(report, normalizedFormat, filters);

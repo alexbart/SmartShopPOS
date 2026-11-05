@@ -10,4 +10,7 @@ export interface CreateProductDto {
   taxId?: string;
   costPrice: number;
   sellingPrice: number;
+  wholesalePrice?: number | null;
+  discountPrice?: number | null;
+  lowStockThreshold?: number;
 }
