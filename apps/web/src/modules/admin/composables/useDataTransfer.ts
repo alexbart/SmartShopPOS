@@ -91,7 +91,7 @@ export function useDataTransfer() {
     downloading.value = report;
     try {
       const fileName = await saveBlob(
-        `/export?report=${encodeURIComponent(report)}&format=xlsx`,
+        `/reports/export?report=${encodeURIComponent(report)}&format=xlsx`,
         `${report}-report.xlsx`,
       );
       notification.success(`${label} exported as ${fileName}`);

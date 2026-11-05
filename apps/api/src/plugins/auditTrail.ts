@@ -156,7 +156,9 @@ export const auditTrailPlugin = fp(
       // exports), so the generic request event would only duplicate them.
       if (
         reply.statusCode < 400 &&
-        /^\/api\/v1\/(inventory|purchase-orders|products\/import|export)(\/|$)/.test(path)
+        /^\/api\/v1\/(inventory|purchase-orders|products\/import|reports\/export|export)(\/|$)/.test(
+          path,
+        )
       )
         return;
       if (path.startsWith('/api/v1/health')) return;

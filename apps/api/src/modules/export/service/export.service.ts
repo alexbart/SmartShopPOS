@@ -10,6 +10,9 @@ import { NotFoundError, ValidationError } from '../../../shared/errors/business-
 
 export type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 
+/** Ceiling on rows in one file; a report is a shop-sized dataset, not a data dump. */
+const MAX_EXPORT_ROWS = 5000;
+
 export interface ExportContext {
   organizationId: string;
   actorId?: string;
@@ -58,6 +61,15 @@ export class ExportService {
     return [];
   }
 
+  /**
+   * A file export wants every row, so pagination must be explicit. The report
+   * repositories offset by `(page - 1) * limit`, which turns into NaN - and a
+   * Prisma 500 - when an export call leaves both unset.
+   */
+  private _withPagination(filters: Record<string, unknown>): Record<string, unknown> {
+    return { ...filters, page: 1, limit: MAX_EXPORT_ROWS };
+  }
+
   // eslint-disable-next-line no-unused-vars
   async generate(
     reportName: string,
@@ -76,7 +88,7 @@ export class ExportService {
       throw new ValidationError(`Unsupported format: ${format}`);
     }
 
-    const result = await report.execute(filters);
+    const result = await report.execute(this._withPagination(filters));
     const rows = this._extractRows(result);
 
     const organizationId =
@@ -101,7 +113,9 @@ export class ExportService {
     const buffer = await formatter.export(exportData);
 
     const fileExt = format === 'xlsx' ? 'xlsx' : format;
-    const filename = `${timestampedFilename(`${reportName}-report`, brand?.generatedAt ?? new Date())}.${fileExt}`;
+    // 'expense-report' should not become 'expense-report-report-...'.
+    const baseName = reportName.endsWith('report') ? reportName : `${reportName}-report`;
+    const filename = `${timestampedFilename(baseName, brand?.generatedAt ?? new Date())}.${fileExt}`;
 
     if (organizationId) {
       try {
