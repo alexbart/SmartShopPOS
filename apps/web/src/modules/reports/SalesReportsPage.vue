@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
 import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
 import { exportReportPdf } from './report-export';
+import ChartGrid from './components/charts/ChartGrid.vue';
+import {
+  bucketByDay,
+  formatCurrency,
+  groupSum,
+  topWithOther,
+  type ChartSpec,
+} from './components/charts/chart-utils';
 
 const from = ref(''); const to = ref(''); const status = ref('');
 const report = ref<any>(null); const loading = ref(false);
@@ -29,6 +37,57 @@ function exportCsv() {
   const link = document.createElement('a'); link.href = url; link.download = 'sales-report.csv'; link.click(); URL.revokeObjectURL(url);
 }
 const currency = (value: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(value ?? 0);
+
+// Load the default (unfiltered) view immediately so the page opens with charts.
+onMounted(() => {
+  void runReport();
+});
+
+const charts = computed<ChartSpec[]>(() => {
+  const paymentItems = Object.entries(report.value?.payments ?? {}).map(([label, amount]) => ({
+    label,
+    value: Number(amount ?? 0),
+  }));
+  const paymentTotal = paymentItems.reduce((sum, item) => sum + item.value, 0);
+  const cashierItems = topWithOther(
+    groupSum(rows.value, (row) => row.cashier, (row) => Number(row.total ?? 0)),
+    8,
+  );
+  const dailyItems = bucketByDay(
+    rows.value,
+    (row) => row.createdAt,
+    (row) => Number(row.total ?? 0),
+  );
+
+  return [
+    {
+      key: 'payments',
+      title: 'Payment mix',
+      description: 'Tendered value by payment method',
+      meta: `Total ${formatCurrency(paymentTotal)}`,
+      kind: 'donut',
+      items: paymentItems,
+      formatter: (value) => formatCurrency(value),
+      centerLabel: 'Collected',
+    },
+    {
+      key: 'daily',
+      title: 'Sales by day',
+      description: 'Revenue trend across the selected period',
+      kind: 'line',
+      items: dailyItems,
+      formatter: (value) => formatCurrency(value),
+    },
+    {
+      key: 'cashiers',
+      title: 'Revenue by cashier',
+      description: 'Top performers by value sold',
+      kind: 'hbar',
+      items: cashierItems,
+      formatter: (value) => formatCurrency(value),
+    },
+  ];
+});
 </script>
 
 <template>
@@ -45,7 +104,7 @@ const currency = (value: number) => new Intl.NumberFormat('en-KE', { style: 'cur
       <div class="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div v-for="card in [{ label: 'Sales', value: report.summary?.sales ?? 0 }, { label: 'Gross revenue', value: currency(report.summary?.grossRevenue) }, { label: 'Discounts', value: currency(report.summary?.discounts) }, { label: 'Tax', value: currency(report.summary?.tax) }]" :key="card.label" class="rounded-lg border bg-card p-4"><p class="text-sm text-muted-foreground">{{ card.label }}</p><p class="mt-1 text-xl font-semibold">{{ card.value }}</p></div>
       </div>
-      <div class="mb-5 flex flex-wrap gap-3 text-sm"><span v-for="(amount, method) in report.payments" :key="method" class="rounded-full border px-3 py-1">{{ method }}: {{ currency(amount) }}</span></div>
+      <ChartGrid :specs="charts" />
       <div v-if="rows.length" class="overflow-auto rounded-lg border bg-card"><table class="w-full text-left text-sm"><thead class="bg-muted/50"><tr><th v-for="key in Object.keys(rows[0])" :key="key" class="whitespace-nowrap px-3 py-2">{{ key }}</th></tr></thead><tbody><tr v-for="(row, index) in rows" :key="index" class="border-t"><td v-for="key in Object.keys(rows[0])" :key="key" class="whitespace-nowrap px-3 py-2">{{ key === 'total' ? currency(row[key]) : row[key] }}</td></tr></tbody></table></div>
       <p v-else class="rounded-lg border bg-card p-10 text-center text-muted-foreground">No sales match these filters.</p>
       <p class="mt-2 text-xs text-muted-foreground">Showing {{ rows.length }} of {{ report.pagination?.total ?? rows.length }} records. Export includes the rows currently loaded.</p>

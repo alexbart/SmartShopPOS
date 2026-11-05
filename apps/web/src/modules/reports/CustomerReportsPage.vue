@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
 import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
 import { exportReportPdf } from './report-export';
+import ChartGrid from './components/charts/ChartGrid.vue';
+import {
+  formatCount,
+  formatCurrency,
+  topWithOther,
+  type ChartDatum,
+  type ChartSpec,
+} from './components/charts/chart-utils';
 
 const types = [
   { value: 'customers', label: 'Customer summary', endpoint: '/reports/customers' },
@@ -24,7 +32,68 @@ function exportCsv() {
   const csv = [headers.map(cell).join(','), ...rows.value.map((row) => headers.map((key) => cell(row[key])).join(','))].join('\r\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = `customers-${type.value}.csv`; link.click(); URL.revokeObjectURL(url);
 }
-watch(type, () => { result.value = null; });
+// Reload as soon as a different report is picked so the charts and table stay in sync.
+watch(type, () => {
+  result.value = null;
+  void runReport();
+});
+onMounted(() => {
+  void runReport();
+});
+
+const charts = computed<ChartSpec[]>(() => {
+  const spend: ChartDatum[] = topWithOther(
+    rows.value.map((row) => ({ label: row.name, value: Number(row.totalSpent ?? 0) })),
+    8,
+  );
+  const transactions: ChartDatum[] = topWithOther(
+    rows.value.map((row) => ({ label: row.name, value: Number(row.transactions ?? 0) })),
+    8,
+  );
+  const spendTotal = rows.value.reduce((sum, row) => sum + Number(row.totalSpent ?? 0), 0);
+  const basketAverage = rows.value.length ? spendTotal / rows.value.length : 0;
+
+  const specs: ChartSpec[] = [
+    {
+      key: 'spend',
+      title: 'Lifetime value by customer',
+      description: 'Top customers ranked by total spend',
+      meta: `Total ${formatCurrency(spendTotal)}`,
+      kind: 'hbar',
+      items: spend,
+      formatter: (value) => formatCurrency(value),
+    },
+    {
+      key: 'transactions',
+      title: 'Transactions by customer',
+      description: 'Purchase frequency across the same customers',
+      kind: 'hbar',
+      items: transactions,
+      formatter: (value) => formatCount(value),
+    },
+  ];
+
+  // The "top customers" endpoint omits the per-sale average, so only chart it when present.
+  if (rows.value.some((row) => row.averageSale !== undefined)) {
+    specs.push({
+      key: 'average',
+      title: 'Average spend by customer',
+      description: `Average basket of ${formatCurrency(basketAverage)}`,
+      kind: 'bar',
+      items: topWithOther(
+        rows.value.map((row) => ({
+          label: row.name,
+          value: Number(row.averageSale ?? 0),
+        })),
+        10,
+      ),
+      formatter: (value) => formatCurrency(value),
+    });
+  }
+
+  return specs;
+});
+
 </script>
 <template>
   <WorkspaceShell workspace-title="Customer Reports" workspace-description="Customer purchasing and engagement summaries">
@@ -33,6 +102,7 @@ watch(type, () => { result.value = null; });
       <label v-if="type === 'customers'" class="min-w-48 flex-1 space-y-1 text-sm"><span class="text-muted-foreground">Search customers</span><input v-model="search" class="w-full rounded-md border bg-background px-3 py-2" placeholder="Name or code"></label>
       <button class="btn btn-primary" :disabled="loading" @click="runReport">{{ loading ? 'Loading…' : 'Run report' }}</button><button v-if="rows.length" class="btn btn-secondary" @click="exportCsv">Export CSV</button><button v-if="result" class="btn btn-secondary" @click="exportReportPdf(type === 'top' ? 'top-customers' : 'customers', { search: search || undefined, page: 1, limit: 100 }, `customers-${type}.pdf`)">Export PDF</button>
     </div>
+    <ChartGrid v-if="result" :specs="charts" />
     <div v-if="result && rows.length" class="overflow-auto rounded-lg border bg-card"><table class="w-full text-left text-sm"><thead class="bg-muted/50"><tr><th v-for="key in Object.keys(rows[0])" :key="key" class="whitespace-nowrap px-3 py-2">{{ key.replaceAll(/([A-Z])/g, ' $1') }}</th></tr></thead><tbody><tr v-for="(row, index) in rows" :key="row.customerId || index" class="border-t"><td v-for="key in Object.keys(rows[0])" :key="key" class="whitespace-nowrap px-3 py-2">{{ row[key] }}</td></tr></tbody></table></div>
     <div v-else-if="result" class="rounded-lg border bg-card p-10 text-center text-muted-foreground">No records found for this report.</div>
   </WorkspaceShell>
