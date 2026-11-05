@@ -21,6 +21,10 @@ build/
 out/
 coverage/
 
+# Local generated artifacts
+outputs/
+receipt-sample.jpeg
+
 # Testing
 coverage/
 .nyc_output/
