@@ -35,6 +35,7 @@ import {
   Paintbrush,
   Plug,
   Activity,
+  BookOpen,
 } from '@lucide/vue';
 
 const router = useRouter();
@@ -141,6 +142,7 @@ const workspaces = [
     ],
   },
   { name: 'Approvals', path: '/workflow/pending', icon: Clock },
+  { name: 'Help & Guide', path: '/guide', icon: BookOpen },
   { name: 'Theme', path: '/theme-settings', icon: Settings },
 ];
 

@@ -166,6 +166,11 @@ const routes: RouteRecordRaw[] = [
         name: 'admin-health',
         component: () => import('@/modules/admin/pages/HealthCenter.vue'),
       },
+      {
+        path: 'guide',
+        name: 'guide',
+        component: () => import('@/modules/guide/GuidePage.vue'),
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },
