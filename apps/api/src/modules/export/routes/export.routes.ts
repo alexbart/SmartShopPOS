@@ -49,7 +49,11 @@ export const exportRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const result = await exportController.export(
-          { report: report as string, format: format as string, ...filters },
+          {
+            report: report as string,
+            format: format as import('../service/export.service.js').ExportFormat,
+            ...filters,
+          },
           orgId as string,
         );
 

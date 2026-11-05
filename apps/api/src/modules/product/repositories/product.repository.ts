@@ -21,6 +21,9 @@ export interface CreateProductModel {
   taxId?: string;
   costPrice: number;
   sellingPrice: number;
+  wholesalePrice?: number | null;
+  discountPrice?: number | null;
+  lowStockThreshold?: number;
   createdBy?: string;
 }
 
@@ -38,6 +41,9 @@ export interface UpdateProductModel {
   taxId?: string | null;
   costPrice?: number;
   sellingPrice?: number;
+  wholesalePrice?: number | null;
+  discountPrice?: number | null;
+  lowStockThreshold?: number;
   isActive?: boolean;
   updatedBy?: string;
 }
@@ -59,21 +65,23 @@ export interface ProductEntity {
   organizationId: string;
   name: string;
   code: string;
-  description?: string;
-  sku?: string;
-  barcode?: string;
-  categoryId?: string;
-  categoryName?: string;
-  brandId?: string;
-  brandName?: string;
+  description?: string | null;
+  sku?: string | null;
+  barcode?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  brandId?: string | null;
+  brandName?: string | null;
   unitId: string;
-  unitName?: string;
-  unitAbbreviation?: string;
-  taxId?: string;
-  taxName?: string;
+  unitName?: string | null;
+  unitAbbreviation?: string | null;
+  taxId?: string | null;
+  taxName?: string | null;
   taxRate?: number;
   costPrice: number;
   sellingPrice: number;
+  wholesalePrice?: number | null;
+  discountPrice?: number | null;
   stockQuantity: number;
   lowStockThreshold?: number;
   isActive: boolean;

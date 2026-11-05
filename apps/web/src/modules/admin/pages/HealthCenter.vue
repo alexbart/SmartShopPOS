@@ -1,88 +1,169 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { CheckCircle, XCircle, Wifi, Database, Mail, Cloud, RefreshCw } from '@lucide/vue';
+import { Activity, AlertTriangle, CheckCircle, Database, RefreshCw, Server, XCircle } from '@lucide/vue';
 import { useHealth } from '../composables/useAdmin.js';
 import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
+import { Button } from '@/components/ui/button';
 
-const { services, healthLoading } = useHealth();
+const { health, healthLoading, healthRefreshing, healthError, refreshHealth } = useHealth();
 
-const serviceIcons: Record<string, any> = {
-  api: CheckCircle,
-  database: Database,
-  redis: Database,
-  email: Mail,
-  storage: Cloud,
+const statusStyles: Record<string, string> = {
+  healthy: 'bg-success/10 text-success border-success/20',
+  degraded: 'bg-warning/10 text-warning border-warning/20',
+  down: 'bg-destructive/10 text-destructive border-destructive/20',
+  disabled: 'bg-muted/40 text-muted-foreground border-border',
 };
 
-const statusClasses: Record<string, string> = {
-  healthy: 'bg-success/10 text-success',
-  degraded: 'bg-warning/10 text-warning',
-  down: 'bg-destructive/10 text-destructive',
-  disabled: 'bg-muted/30 text-muted-foreground',
-};
+const statusIcon = computed(() => {
+  if (health.value?.status === 'down') return XCircle;
+  if (health.value?.status === 'degraded') return AlertTriangle;
+  return CheckCircle;
+});
 
-function getServiceIcon(name: string): any {
-  return serviceIcons[name.toLowerCase()] || CheckCircle;
+const statusLabel = computed(() => {
+  if (!health.value) return 'Status unavailable';
+  return health.value.status === 'healthy'
+    ? 'All monitored services are healthy'
+    : health.value.status === 'degraded'
+      ? 'Some optional services need attention'
+      : 'A core service is unavailable';
+});
+
+const memoryUsedPercent = computed(() => {
+  const memory = health.value?.system.memory;
+  if (!memory?.heapTotalBytes) return 0;
+  return Math.min(100, Math.round((memory.heapUsedBytes / memory.heapTotalBytes) * 100));
+});
+
+function getServiceIcon(name: string) {
+  const normalized = name.toLowerCase();
+  if (normalized.includes('database') || normalized.includes('postgres')) return Database;
+  if (normalized.includes('api')) return Server;
+  return Activity;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatUptime(seconds: number): string {
+  const days = Math.floor(seconds / 86_400);
+  const hours = Math.floor((seconds % 86_400) / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  return [days ? `${days}d` : '', hours ? `${hours}h` : '', `${minutes}m`].filter(Boolean).join(' ');
+}
+
+function formatTimestamp(timestamp?: string): string {
+  if (!timestamp) return 'Not checked yet';
+  return new Date(timestamp).toLocaleString('en-KE', {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+  });
 }
 </script>
 
 <template>
-  <WorkspaceShell
-    workspace-title="Health Center"
-    workspace-description="System health and service status"
-  >
+  <WorkspaceShell workspace-title="Health Center" workspace-description="Live service checks and API runtime diagnostics">
     <div class="space-y-6">
-      <div v-if="healthLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div v-for="i in 4" :key="i" class="card p-4 h-24 animate-pulse">
-          <div class="h-4 bg-muted/30 rounded w-3/4"></div>
+      <div v-if="healthLoading && !health" class="space-y-4">
+        <div class="h-28 animate-pulse rounded-xl bg-muted/40" />
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div v-for="i in 3" :key="i" class="h-36 animate-pulse rounded-xl bg-muted/40" />
         </div>
       </div>
 
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div
-          v-for="service in services"
-          :key="service.service"
-          class="card p-4 text-center"
-        >
-          <div
-            class="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2"
-            :class="statusClasses[service.status] || 'bg-muted/30'"
-          >
-            <component :is="getServiceIcon(service.service)" class="w-5 h-5" />
-          </div>
-          <h3 class="font-medium">{{ service.service }}</h3>
-          <p
-            class="text-xs mt-1 capitalize"
-            :class="statusClasses[service.status] || 'text-muted-foreground'"
-          >
-            {{ service.status }}
-          </p>
-          <p v-if="service.details" class="text-xs text-muted-foreground mt-1">
-            {{ service.details }}
-          </p>
-        </div>
+      <div v-else-if="healthError && !health" class="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
+        <h2 class="font-semibold text-destructive">Health diagnostics are unavailable</h2>
+        <p class="mt-1 text-sm text-muted-foreground">Check your access and API connection, then try again.</p>
+        <Button class="mt-4" variant="outline" :disabled="healthRefreshing" @click="refreshHealth()">
+          <RefreshCw class="mr-2 h-4 w-4" :class="healthRefreshing && 'animate-spin'" />Retry
+        </Button>
       </div>
 
-      <div class="card p-4">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-medium">Overall Status</h3>
-          <button class="btn btn-outline btn-sm touch-target">
-            <RefreshCw class="w-3 h-3 mr-1" />
-            Refresh
-          </button>
-        </div>
-        <div class="space-y-2">
-          <div v-for="service in services" :key="service.service" class="flex items-center justify-between">
-            <span class="text-sm">{{ service.service }}</span>
-            <span
-              class="px-2 py-0.5 rounded-full text-xs capitalize"
-              :class="statusClasses[service.status] || 'bg-muted/30'"
-            >
-              {{ service.status }}
-            </span>
+      <template v-else-if="health">
+        <section class="flex flex-wrap items-center justify-between gap-4 rounded-xl border p-5" :class="statusStyles[health.status]">
+          <div class="flex items-center gap-4">
+            <component :is="statusIcon" class="h-8 w-8 shrink-0" />
+            <div>
+              <p class="text-lg font-semibold capitalize">{{ health.status }}</p>
+              <p class="text-sm opacity-80">{{ statusLabel }}</p>
+              <p class="mt-1 text-xs opacity-70">Last checked {{ formatTimestamp(health.checkedAt) }}</p>
+            </div>
           </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs opacity-75">Checks refresh every 30 seconds</span>
+            <Button variant="outline" :disabled="healthRefreshing" @click="refreshHealth()">
+              <RefreshCw class="mr-2 h-4 w-4" :class="healthRefreshing && 'animate-spin'" />
+              Refresh now
+            </Button>
+          </div>
+        </section>
+
+        <div v-if="healthError" class="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning">
+          The latest refresh failed. Showing the last successful health check.
         </div>
-      </div>
+
+        <section>
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="font-semibold">Service checks</h2>
+            <span class="text-xs text-muted-foreground">{{ health.services.length }} monitored</span>
+          </div>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <article v-for="service in health.services" :key="service.name" class="rounded-xl border bg-card p-5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/50">
+                    <component :is="getServiceIcon(service.name)" class="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 class="font-medium">{{ service.name }}</h3>
+                    <p class="text-xs text-muted-foreground">{{ service.latencyMs === undefined ? '—' : `${service.latencyMs} ms` }}</p>
+                  </div>
+                </div>
+                <span class="rounded-full border px-2.5 py-1 text-xs capitalize" :class="statusStyles[service.status]">
+                  {{ service.status }}
+                </span>
+              </div>
+              <p v-if="service.details" class="mt-4 text-sm text-muted-foreground">{{ service.details }}</p>
+              <p class="mt-3 text-xs text-muted-foreground">Checked {{ formatTimestamp(service.checkedAt) }}</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="rounded-xl border bg-card p-5">
+          <div class="mb-4 flex items-center gap-2">
+            <Activity class="h-4 w-4 text-primary" />
+            <h2 class="font-semibold">API runtime</h2>
+            <span class="ml-auto text-xs text-muted-foreground">Version {{ health.build.version }}</span>
+          </div>
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <p class="text-sm text-muted-foreground">Uptime</p>
+              <p class="mt-1 text-lg font-semibold">{{ formatUptime(health.system.uptimeSeconds) }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-muted-foreground">Heap used</p>
+              <p class="mt-1 text-lg font-semibold">{{ formatBytes(health.system.memory.heapUsedBytes) }} / {{ formatBytes(health.system.memory.heapTotalBytes) }}</p>
+              <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${memoryUsedPercent}%` }" />
+              </div>
+            </div>
+            <div>
+              <p class="text-sm text-muted-foreground">Process memory</p>
+              <p class="mt-1 text-lg font-semibold">{{ formatBytes(health.system.memory.rssBytes) }}</p>
+              <p class="text-xs text-muted-foreground">Resident set size</p>
+            </div>
+            <div>
+              <p class="text-sm text-muted-foreground">CPU load average</p>
+              <p v-if="health.system.cpu.supported && health.system.cpu.loadAverage" class="mt-1 text-lg font-semibold">
+                {{ health.system.cpu.loadAverage.map((value) => value.toFixed(2)).join(' / ') }}
+              </p>
+              <p v-else class="mt-1 text-sm text-muted-foreground">Not available on this platform</p>
+            </div>
+          </div>
+        </section>
+      </template>
     </div>
   </WorkspaceShell>
 </template>

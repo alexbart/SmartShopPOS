@@ -3,6 +3,11 @@ export interface ReportColumn {
   label: string;
 }
 
+export interface ReportPaginatedResponse<T> {
+  data: T[];
+  total: number;
+}
+
 export interface ReportDefinition<TFilter, TResult> {
   name: string;
   title: string;

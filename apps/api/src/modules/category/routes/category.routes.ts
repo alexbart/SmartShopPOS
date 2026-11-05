@@ -2,7 +2,10 @@ import { FastifyPluginAsync } from 'fastify';
 import { CategoryController } from '../controllers/category.controller.js';
 import { CategoryService } from '../service/category.service.js';
 import { CategoryRepositoryImpl } from '../repositories/category.repository.impl.js';
-import { createAuthenticateHook, createAuthorizeHook } from '../../auth/middleware/auth.middleware.js';
+import {
+  createAuthenticateHook,
+  createAuthorizeHook,
+} from '../../auth/middleware/auth.middleware.js';
 import { getPrisma } from '../../../shared/database/prisma.js';
 import { JwtService } from '../../../shared/services/jwt/jwt.service.js';
 import { AuthRepositoryImpl } from '../../auth/repositories/auth.repository.impl.js';

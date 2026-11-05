@@ -40,7 +40,7 @@ const { data: taxesResponse, isLoading, isError, refetch } = useQuery({
     params.page = String(currentPage.value);
     params.limit = '20';
     const response = await apiClient.get('/taxes', { params });
-    return response.data.data;
+    return (response.data as { data: { items: Tax[]; total: number; pages: number } }).data;
   },
 });
 

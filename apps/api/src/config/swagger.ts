@@ -44,7 +44,7 @@ export const swaggerConfig = {
           scheme: 'bearer',
           bearerFormat: 'JWT',
         },
-      },
+      } as const,
     },
   },
 };

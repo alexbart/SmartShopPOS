@@ -46,9 +46,9 @@ export interface StockMovementEntity {
   stockId: string;
   type: StockMovementType;
   quantity: number;
-  referenceType?: string;
-  referenceId?: string;
-  performedBy?: string;
-  remarks?: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  performedBy?: string | null;
+  remarks?: string | null;
   createdAt: Date;
 }

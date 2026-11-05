@@ -40,7 +40,7 @@ const { data: categoriesResponse, isLoading, isError, refetch } = useQuery({
     params.page = String(currentPage.value);
     params.limit = '20';
     const response = await apiClient.get('/categories', { params });
-    return response.data.data;
+    return (response.data as { data: { items: any[]; total: number; pages: number } }).data;
   },
 });
 

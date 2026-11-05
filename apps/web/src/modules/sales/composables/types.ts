@@ -73,7 +73,8 @@ export interface ReceiptData {
   discount: number;
   total: number;
   paymentMethod: string;
-  customerName?: string;
+  customerId?: string;
+  customerName?: string | null;
   timestamp: string;
   cashier: string;
 }

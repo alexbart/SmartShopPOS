@@ -5,4 +5,5 @@ export interface RequestContext {
   roles: string[];
   permissions: string[];
   requestId: string;
+  roleId?: string;
 }

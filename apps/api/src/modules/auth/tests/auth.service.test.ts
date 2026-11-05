@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { IAuthRepository } from '../repositories/auth.repository.js';
 import type { RegisterCommand } from '../commands/register.command.js';
 import type { IPasswordService } from '../../../shared/services/password/password.interface.js';
@@ -7,26 +7,37 @@ import type { IOrganizationCodeService } from '../../../shared/services/organiza
 import type { IUnitOfWork } from '../../../shared/database/unit-of-work.js';
 import { AuthService } from '../services/auth.service.js';
 
-const createMockRepository = (overrides: Partial<IAuthRepository> = {}): IAuthRepository => ({
-  findOrganizationByName: vi.fn(),
-  findOrganizationByCode: vi.fn(),
-  findUserByEmail: vi.fn(),
-  findRoleByName: vi.fn(),
-  createOrganization: vi.fn(),
-  createBranch: vi.fn(),
-  createUser: vi.fn(),
-  assignRole: vi.fn(),
-  createSession: vi.fn(),
-  createAuditLog: vi.fn(),
-  updateLastLogin: vi.fn(),
-  findUserByOrganizationAndEmail: vi.fn(),
-  findSessionById: vi.fn(),
-  updateSessionRefreshToken: vi.fn(),
-  revokeSession: vi.fn(),
-  findUserById: vi.fn(),
-  findUserWithRolesById: vi.fn(),
-  ...overrides,
-});
+type MockedAuthRepository = {
+  [K in keyof IAuthRepository]: MockInstance;
+};
+
+const createMockRepository = (
+  overrides: Partial<IAuthRepository> = {},
+): IAuthRepository & MockInstance =>
+  ({
+    findOrganizationByName: vi.fn(),
+    findOrganizationByCode: vi.fn(),
+    findUserByEmail: vi.fn(),
+    findRoleByName: vi.fn(),
+    createOrganization: vi.fn(),
+    createBranch: vi.fn(),
+    createUser: vi.fn(),
+    assignRole: vi.fn(),
+    createSession: vi.fn(),
+    createAuditLog: vi.fn(),
+    updateLastLogin: vi.fn(),
+    findUserByOrganizationAndEmail: vi.fn(),
+    findSessionById: vi.fn(),
+    updateSessionRefreshToken: vi.fn(),
+    revokeSession: vi.fn(),
+    findUserById: vi.fn(),
+    findUserWithRolesById: vi.fn(),
+    findUsers: vi.fn(),
+    updateUser: vi.fn(),
+    deactivateUser: vi.fn(),
+    resetPassword: vi.fn(),
+    ...overrides,
+  }) as unknown as IAuthRepository & MockInstance;
 
 const createMockPasswordService = (): IPasswordService => ({
   hash: vi.fn().mockResolvedValue('hashed-password'),

@@ -27,8 +27,9 @@ export interface User {
   phone?: string;
   role?: string;
   branch?: string;
+  branchName?: string;
   branchId?: string;
-  status?: 'active' | 'inactive' | 'pending';
+  status?: 'active' | 'inactive' | 'pending' | 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'SUSPENDED';
   lastLoginAt?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -39,7 +40,10 @@ export interface Role {
   id: string;
   name: string;
   description?: string;
+  isSystem?: boolean;
+  userCount?: number;
   permissions: Permission[];
+  _count?: { users: number };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -77,12 +81,27 @@ export interface Tax {
 
 export interface AuditEntry {
   id: string;
-  userId: string;
-  user?: User;
+  actorId?: string | null;
+  actorName?: string | null;
+  user?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'> | null;
   action: string;
   resource: string;
   resourceId?: string;
-  details?: Record<string, any>;
+  details?: {
+    oldValues?: unknown;
+    newValues?: unknown;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    branch?: { id: string; name: string } | null;
+    route?: string | null;
+    method?: string | null;
+    outcome?: string;
+    summary?: string | null;
+    previousHash?: string | null;
+    eventHash?: string | null;
+    roles?: string[];
+  };
+  requestId?: string | null;
   createdAt: string;
 }
 
@@ -95,8 +114,24 @@ export interface Integration {
   config?: Record<string, any>;
 }
 
-export interface HealthStatus {
-  service: string;
-  status: 'healthy' | 'degraded' | 'down' | 'disabled';
+export type HealthCheckStatus = 'healthy' | 'degraded' | 'down' | 'disabled';
+
+export interface HealthServiceCheck {
+  name: string;
+  status: HealthCheckStatus;
+  checkedAt: string;
+  latencyMs?: number;
   details?: string;
+}
+
+export interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'down';
+  checkedAt: string;
+  services: HealthServiceCheck[];
+  system: {
+    uptimeSeconds: number;
+    memory: { rssBytes: number; heapUsedBytes: number; heapTotalBytes: number };
+    cpu: { loadAverage: number[] | null; supported: boolean };
+  };
+  build: { version: string; buildTime?: string };
 }

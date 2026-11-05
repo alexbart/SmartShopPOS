@@ -80,7 +80,7 @@ const totalByCategory = computed(() => {
     .sort((a, b) => b.total - a.total);
 });
 
-const statusIcons = {
+const statusIcons: Record<string, { icon: typeof Check; color: string; bg: string }> = {
   approved: { icon: Check, color: 'text-success', bg: 'bg-success/10' },
   pending: { icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
   rejected: { icon: X, color: 'text-destructive', bg: 'bg-destructive/10' },
@@ -332,10 +332,10 @@ function getExpenseStatusIcon(status: string) {
             <button @click="showNewExpense = false" class="btn btn-outline flex-1">Cancel</button>
             <button
               @click="handleSubmit"
-              :disabled="createMutation.isPending || !expenseForm.categoryId || expenseForm.amount <= 0"
+              :disabled="createMutation.isPending.value || !expenseForm.categoryId || expenseForm.amount <= 0"
               class="btn btn-primary flex-1"
             >
-              {{ createMutation.isPending ? 'Recording...' : 'Record Expense' }}
+              {{ createMutation.isPending.value ? 'Recording...' : 'Record Expense' }}
             </button>
           </div>
         </div>

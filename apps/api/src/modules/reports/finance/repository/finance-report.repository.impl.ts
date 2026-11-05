@@ -5,7 +5,6 @@ import type {
   FinanceReportFilters,
   DailyCashSummaryRow,
   ExpenseReportRow,
-  ProfitSummaryRow,
   CashDrawerVarianceRow,
   SalesByPaymentMethodRow,
 } from './finance-report.repository.js';
@@ -106,20 +105,6 @@ export class FinanceReportRepositoryImpl implements IFinanceReportRepository {
     }));
   }
 
-  // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
-  async profitSummary(_filters: FinanceReportFilters): Promise<ProfitSummaryRow[]> {
-    return [
-      {
-        date: new Date().toISOString().split('T')[0],
-        revenue: 0,
-        costOfGoodsSold: 0,
-        grossProfit: 0,
-        expenses: 0,
-        netProfit: 0,
-      },
-    ];
-  }
-
   async cashDrawerVariance(filters: FinanceReportFilters): Promise<CashDrawerVarianceRow[]> {
     const where: WhereInput = {
       organizationId: filters.organizationId,
@@ -155,7 +140,7 @@ export class FinanceReportRepositoryImpl implements IFinanceReportRepository {
     const payments = await this._prisma.payment.findMany({
       where,
       select: {
-        paymentMethod: true,
+        method: true,
         amount: true,
         createdAt: true,
       },
@@ -164,7 +149,7 @@ export class FinanceReportRepositoryImpl implements IFinanceReportRepository {
     const byMethod: Record<string, { amount: number; count: number; date: string }> = {};
 
     payments.forEach((p) => {
-      const key = `${p.paymentMethod}|${p.createdAt.toISOString().split('T')[0]}`;
+      const key = `${p.method}|${p.createdAt.toISOString().split('T')[0]}`;
       if (!byMethod[key]) {
         byMethod[key] = { amount: 0, count: 0, date: p.createdAt.toISOString().split('T')[0] };
       }

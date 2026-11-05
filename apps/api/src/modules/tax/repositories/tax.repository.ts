@@ -42,7 +42,7 @@ export interface TaxEntity {
   organizationId: string;
   name: string;
   code: string;
-  description?: string;
+  description?: string | null;
   rate: number;
   isActive: boolean;
   createdAt: Date;

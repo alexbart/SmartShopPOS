@@ -1,13 +1,24 @@
 import type { RegisterCommand } from '../commands/register.command.js';
 import type { RegisterResponse } from '../responses/register.response.js';
+import type { RefreshResponse } from '../responses/refresh.response.js';
+import type { MeResponse } from '../responses/me.response.js';
+import type { FindUsersQuery } from '../repositories/models/find-users.query.js';
+import type { UpdateUserModel } from '../repositories/models/update-user.model.js';
+import type { ResetPasswordModel } from '../repositories/models/reset-password.model.js';
+import type { FindRolesQuery } from '../repositories/models/find-roles.query.js';
+import type { CreateRoleModel } from '../repositories/models/create-role.model.js';
+import type { UpdateRoleModel } from '../repositories/models/update-role.model.js';
 import type { IAuthRepository } from '../repositories/auth.repository.js';
 import type { IPasswordService } from '../../../shared/services/password/password.interface.js';
 import type { IJwtService } from '../../../shared/services/jwt/jwt.interface.js';
 import type { IOrganizationCodeService } from '../../../shared/services/organization-code/organization-code.interface.js';
 import type { IUnitOfWork } from '../../../shared/database/unit-of-work.js';
-import type { RefreshResponse } from '../responses/refresh.response.js';
-import type { MeResponse } from '../responses/me.response.js';
 import { generateRequestId } from '../utils/request.js';
+import {
+  ConflictError,
+  NotFoundError,
+  PermissionDeniedError,
+} from '../../../shared/errors/business-error.js';
 
 export class AuthService {
   constructor(
@@ -233,8 +244,8 @@ export class AuthService {
     return {
       user: {
         id: user.id,
-        firstName: user.firstName ?? '',
-        lastName: user.lastName ?? '',
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: command.email,
       },
       organization: {
@@ -358,40 +369,332 @@ export class AuthService {
       email: user.email,
       organization: {
         id: user.organizationId,
-        name: user.organization?.name ?? '',
-        code: user.organization?.code ?? '',
+        name: (user as { organization?: { name: string; code: string } }).organization?.name ?? '',
+        code: (user as { organization?: { name: string; code: string } }).organization?.code ?? '',
       },
       branch: {
         id: user.branchId,
-        name: user.branch?.name ?? '',
-        code: user.branch?.code ?? '',
+        name: (user as { branch?: { name: string; code: string } }).branch?.name ?? '',
+        code: (user as { branch?: { name: string; code: string } }).branch?.code ?? '',
       },
       roles,
     } as const;
   }
 
   async logout(refreshToken: string): Promise<void> {
-    const requestId = generateRequestId();
-
-    let payload: { userId: string; sessionId: string; jti: string };
     try {
-      payload = await this._jwtService.verifyRefreshToken(refreshToken);
-    } catch {
-      return;
-    }
+      const payload = await this._jwtService.verifyRefreshToken(refreshToken);
+      const session = await this._repository.findSessionById(payload.sessionId);
+      if (session) {
+        await this._repository.createAuditLog({
+          organizationId: session.organizationId,
+          actorId: session.userId,
+          action: 'LOGOUT',
+          entity: 'Session',
+          entityId: session.id,
+          requestId: generateRequestId(),
+        });
 
-    const session = await this._repository.findSessionById(payload.sessionId);
-    if (session) {
-      await this._repository.createAuditLog({
-        organizationId: session.organizationId,
-        actorId: session.userId,
-        action: 'LOGOUT',
-        entity: 'Session',
-        entityId: session.id,
-        requestId,
+        await this._repository.revokeSession(session.id);
+      }
+    } catch {
+      // Ignore errors on logout
+    }
+  }
+
+  async findUsers(query: FindUsersQuery): Promise<{
+    items: Array<{
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string | null;
+      status: string;
+      role: string | null;
+      branchName: string | null;
+      lastLoginAt: Date | null;
+      createdAt: Date;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  }> {
+    return this._repository.findUsers(query);
+  }
+
+  async createUser(command: {
+    organizationId: string;
+    branchId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    password: string;
+    roleId: string;
+    isActive?: boolean;
+    createdBy: string;
+  }): Promise<{ userId: string }> {
+    const role = await this._repository.findRoleById(command.roleId, command.organizationId);
+    if (!role) throw new NotFoundError('Role not found.');
+
+    const passwordHash = await this._passwordService.hash(command.password);
+
+    const userId = await this._unitOfWork.execute(async () => {
+      const userId = await this._repository.createUser({
+        organizationId: command.organizationId,
+        branchId: command.branchId,
+        firstName: command.firstName,
+        lastName: command.lastName,
+        email: command.email,
+        phone: command.phone,
+        passwordHash,
+        isActive: command.isActive ?? true,
       });
 
-      await this._repository.revokeSession(session.id);
-    }
+      await this._repository.assignRole({ userId, roleId: command.roleId });
+
+      // Audit log
+      await this._repository.createAuditLog({
+        organizationId: command.organizationId,
+        actorId: command.createdBy,
+        action: 'CREATE',
+        entity: 'User',
+        entityId: userId,
+        newValues: {
+          firstName: command.firstName,
+          lastName: command.lastName,
+          email: command.email,
+        },
+      });
+
+      return userId;
+    });
+
+    return { userId };
+  }
+
+  async updateUser(command: UpdateUserModel): Promise<void> {
+    const requestId = generateRequestId();
+    const previous = await this._repository.findUserAuditSnapshot(
+      command.userId,
+      command.organizationId,
+    );
+
+    await this._unitOfWork.execute(async () => {
+      await this._repository.updateUser(command);
+
+      await this._repository.createAuditLog({
+        organizationId: command.organizationId,
+        actorId: command.updatedBy,
+        action: 'UPDATE',
+        entity: 'User',
+        entityId: command.userId,
+        oldValues: previous ?? undefined,
+        newValues: {
+          ...(command.firstName !== undefined ? { firstName: command.firstName } : {}),
+          ...(command.lastName !== undefined ? { lastName: command.lastName } : {}),
+          ...(command.email !== undefined ? { email: command.email } : {}),
+          ...(command.phone !== undefined ? { phone: command.phone } : {}),
+          ...(command.branchId !== undefined ? { branchId: command.branchId } : {}),
+          ...(command.isActive !== undefined ? { isActive: command.isActive } : {}),
+          ...(command.roleId !== undefined ? { roleId: command.roleId } : {}),
+        },
+        requestId,
+      });
+    });
+  }
+
+  async deactivateUser(
+    userId: string,
+    organizationId: string,
+    deactivatedBy: string,
+  ): Promise<void> {
+    const requestId = generateRequestId();
+
+    await this._unitOfWork.execute(async () => {
+      await this._repository.deactivateUser(userId, deactivatedBy);
+
+      await this._repository.createAuditLog({
+        organizationId,
+        actorId: deactivatedBy,
+        action: 'UPDATE',
+        entity: 'User',
+        entityId: userId,
+        oldValues: { status: 'ACTIVE' },
+        newValues: { status: 'INACTIVE' },
+        requestId,
+      });
+    });
+  }
+
+  async resetPassword(command: ResetPasswordModel): Promise<void> {
+    const requestId = generateRequestId();
+
+    await this._unitOfWork.execute(async () => {
+      await this._repository.resetPassword(command);
+
+      await this._repository.createAuditLog({
+        organizationId: command.organizationId,
+        actorId: command.updatedBy,
+        action: 'UPDATE',
+        entity: 'User',
+        entityId: command.userId,
+        oldValues: { passwordHash: 'REDACTED' },
+        newValues: { passwordHash: 'REDACTED' },
+        requestId,
+      });
+    });
+  }
+
+  async findRoles(query: FindRolesQuery): Promise<{
+    items: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      isSystem: boolean;
+      userCount: number;
+      permissions: Array<{ id: string; name: string; resource: string; action: string }>;
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  }> {
+    return this._repository.findRoles(query);
+  }
+
+  async createRole(command: CreateRoleModel): Promise<{ id: string }> {
+    const roleId = await this._unitOfWork.execute(async () => {
+      const roleId = await this._repository.createRole({
+        organizationId: command.organizationId,
+        name: command.name,
+        description: command.description,
+        createdBy: command.createdBy,
+      });
+
+      if (command.permissionIds && command.permissionIds.length > 0) {
+        for (const permissionId of command.permissionIds) {
+          await this._repository.assignPermissionToRole({
+            roleId,
+            permissionId,
+          });
+        }
+      }
+
+      // Audit log
+      await this._repository.createAuditLog({
+        organizationId: command.organizationId,
+        actorId: command.createdBy,
+        action: 'CREATE',
+        entity: 'Role',
+        entityId: roleId,
+        newValues: {
+          name: command.name,
+          description: command.description,
+          permissionIds: command.permissionIds ?? [],
+        },
+      });
+
+      return roleId;
+    });
+
+    return { id: roleId };
+  }
+
+  async findRoleById(
+    roleId: string,
+    organizationId: string,
+  ): Promise<{
+    id: string;
+    name: string;
+    description: string | null;
+    isSystem: boolean;
+    userCount: number;
+    permissions: Array<{ id: string; name: string; resource: string; action: string }>;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null> {
+    return this._repository.findRoleById(roleId, organizationId);
+  }
+
+  async updateRole(command: UpdateRoleModel): Promise<void> {
+    const requestId = generateRequestId();
+
+    const role = await this._repository.findRoleById(command.id, command.organizationId);
+    if (!role) throw new NotFoundError('Role not found.');
+    if (role.isSystem) throw new PermissionDeniedError('System roles cannot be changed.');
+
+    await this._unitOfWork.execute(async () => {
+      await this._repository.updateRole(command);
+
+      if (command.permissionIds) {
+        await this._repository.syncRolePermissions({
+          roleId: command.id,
+          permissionIds: command.permissionIds,
+        });
+      }
+
+      await this._repository.createAuditLog({
+        organizationId: command.organizationId,
+        actorId: command.updatedBy,
+        action: 'UPDATE',
+        entity: 'Role',
+        entityId: command.id,
+        oldValues: {
+          name: role.name,
+          description: role.description,
+          permissions: role.permissions.map(({ id, name }) => ({ id, name })),
+        },
+        newValues: {
+          name: command.name ?? role.name,
+          description: command.description ?? role.description,
+          permissionIds: command.permissionIds ?? role.permissions.map(({ id }) => id),
+        },
+        requestId,
+      });
+    });
+  }
+
+  async deleteRole(roleId: string, organizationId: string, deletedBy: string): Promise<void> {
+    const requestId = generateRequestId();
+
+    const role = await this._repository.findRoleById(roleId, organizationId);
+    if (!role) throw new NotFoundError('Role not found.');
+    if (role.isSystem) throw new PermissionDeniedError('System roles cannot be deleted.');
+    if (role.userCount > 0)
+      throw new ConflictError('Remove this role from assigned users before deleting it.');
+
+    await this._unitOfWork.execute(async () => {
+      await this._repository.deleteRole(roleId, organizationId, deletedBy);
+
+      await this._repository.createAuditLog({
+        organizationId,
+        actorId: deletedBy,
+        action: 'DELETE',
+        entity: 'Role',
+        entityId: roleId,
+        oldValues: {
+          name: role.name,
+          description: role.description,
+          permissions: role.permissions.map(({ id, name }) => ({ id, name })),
+        },
+        requestId,
+      });
+    });
+  }
+
+  async findPermissions(organizationId: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      resource: string;
+      action: string;
+      description: string | null;
+    }>
+  > {
+    return this._repository.findPermissions(organizationId);
   }
 }

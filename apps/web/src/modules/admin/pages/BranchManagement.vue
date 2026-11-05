@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, unref } from 'vue';
 import { Building, Users, Check, X, Edit3 } from '@lucide/vue';
 import { useBranches } from '../composables/useAdmin.js';
 import type { Branch } from '../composables/types.js';
@@ -16,7 +16,7 @@ const branchCards = computed(() => {
     code: b.code || '',
     address: b.address || '',
     employeeCount: b.employeeCount || 0,
-    status: (b.status || 'OPEN') === 'OPEN' ? 'open' : 'closed',
+    status: b.status,
     phone: b.phone || '',
   }));
 });
@@ -52,7 +52,7 @@ function toggleBranchStatus(branch: Branch) {
             <div class="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
               <Building class="w-4 h-4 text-primary" />
             </div>
-            <StatusBadge :status="branch.status" />
+            <StatusBadge :status="branch.status ?? 'CLOSED'" />
           </div>
 
           <h3 class="font-bold text-lg">{{ branch.name }}</h3>
@@ -71,14 +71,14 @@ function toggleBranchStatus(branch: Branch) {
           <div class="flex gap-2 pt-2 border-t">
             <button
               @click="toggleBranchStatus(branch)"
-              :disabled="updateBranchMutation.isPending"
+              :disabled="unref(updateBranchMutation.isPending)"
               class="btn btn-outline btn-sm flex-1 touch-target"
             >
-              <component
-                :is="branch.status === 'open' ? X : Check"
-                class="w-3 h-3 mr-1"
-              />
-              {{ branch.status === 'open' ? 'Close' : 'Open' }}
+<component
+            :is="branch.status === 'OPEN' ? X : Check"
+            class="w-3 h-3 mr-1"
+          />
+            {{ branch.status === 'OPEN' ? 'Close' : 'Open' }}
             </button>
             <button class="btn btn-outline btn-sm touch-target">
               <Edit3 class="w-3 h-3" />

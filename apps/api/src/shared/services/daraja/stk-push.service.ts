@@ -28,9 +28,9 @@ export async function initiateStkPush(opts: {
     .replace(/[-T:.Z]/g, '')
     .slice(0, 14); // YYYYMMDDHHmmss
 
-  const password = Buffer.from(
-    `${config.shortcode}${config.passkey}${timestamp}`,
-  ).toString('base64');
+  const password = Buffer.from(`${config.shortcode}${config.passkey}${timestamp}`).toString(
+    'base64',
+  );
 
   // Normalize phone: 07XXXXXXXX → 2547XXXXXXXX
   const phone = opts.phone.replace(/^0/, '254').replace(/^\+/, '');
@@ -46,20 +46,17 @@ export async function initiateStkPush(opts: {
     PhoneNumber: phone,
     CallBackURL: config.callbackUrl,
     AccountReference: opts.accountReference.slice(0, 12), // max 12 chars
-    TransactionDesc: opts.transactionDesc.slice(0, 13),   // max 13 chars
+    TransactionDesc: opts.transactionDesc.slice(0, 13), // max 13 chars
   };
 
-  const response = await fetch(
-    `${config.baseUrl}/mpesa/stkpush/v1/processrequest`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
+  const response = await fetch(`${config.baseUrl}/mpesa/stkpush/v1/processrequest`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
-  );
+    body: JSON.stringify(body),
+  });
 
   if (!response.ok) {
     const text = await response.text();

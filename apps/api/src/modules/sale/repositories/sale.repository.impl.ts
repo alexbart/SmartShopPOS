@@ -68,6 +68,7 @@ export class SaleRepositoryImpl implements ISaleRepository {
         status: sale.status,
         createdAt: sale.createdAt,
         updatedAt: sale.updatedAt,
+        items: [],
       })),
       total,
       page: _page,

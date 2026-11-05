@@ -69,6 +69,16 @@ export const createAuthenticateHook = (jwtService: IJwtService, repository: IAut
 export const createAuthorizeHook = (requiredPermissions: string[]) => {
   return async (request: FastifyRequest) => {
     const context = request.requestContext;
+    if (!context) {
+      const error = new Error('Authentication required') as Error & {
+        code: string;
+        statusCode: number;
+      };
+      error.code = 'UNAUTHORIZED';
+      error.statusCode = 401;
+      throw error;
+    }
+
     const missingPermissions = requiredPermissions.filter(
       (permission) => !context.permissions.includes(permission),
     );

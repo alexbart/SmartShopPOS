@@ -19,7 +19,9 @@ export async function getDarajaToken(): Promise<string> {
   }
 
   const config = getDarajaConfig(); // throws ValidationError if unconfigured
-  const credentials = Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString('base64');
+  const credentials = Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString(
+    'base64',
+  );
 
   const response = await fetch(
     `${config.baseUrl}/oauth/v1/generate?grant_type=client_credentials`,

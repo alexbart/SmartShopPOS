@@ -17,6 +17,9 @@ export class ProductController {
       taxId?: string;
       costPrice: number;
       sellingPrice: number;
+      wholesalePrice?: number | null;
+      discountPrice?: number | null;
+      lowStockThreshold?: number;
     };
 
     const product = await this._productService.create({
@@ -32,6 +35,9 @@ export class ProductController {
       taxId: body.taxId,
       costPrice: body.costPrice,
       sellingPrice: body.sellingPrice,
+      wholesalePrice: body.wholesalePrice,
+      discountPrice: body.discountPrice,
+      lowStockThreshold: body.lowStockThreshold,
       createdBy: request.requestContext.userId,
     });
 
@@ -100,6 +106,9 @@ export class ProductController {
       taxId?: string | null;
       costPrice?: number;
       sellingPrice?: number;
+      wholesalePrice?: number | null;
+      discountPrice?: number | null;
+      lowStockThreshold?: number;
       isActive?: boolean;
     };
 
@@ -109,14 +118,17 @@ export class ProductController {
       name: body.name,
       code: body.code,
       description: body.description,
-      sku: body.sku,
-      barcode: body.barcode,
-      categoryId: body.categoryId,
-      brandId: body.brandId,
+      sku: body.sku ?? undefined,
+      barcode: body.barcode ?? undefined,
+      categoryId: body.categoryId ?? undefined,
+      brandId: body.brandId ?? undefined,
       unitId: body.unitId,
-      taxId: body.taxId,
+      taxId: body.taxId ?? undefined,
       costPrice: body.costPrice,
       sellingPrice: body.sellingPrice,
+      wholesalePrice: body.wholesalePrice,
+      discountPrice: body.discountPrice,
+      lowStockThreshold: body.lowStockThreshold,
       isActive: body.isActive,
       updatedBy: request.requestContext.userId,
     });

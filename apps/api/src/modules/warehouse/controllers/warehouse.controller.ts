@@ -12,7 +12,8 @@ export class WarehouseController {
       isDefault?: boolean;
     };
 
-    const branchId = request.params?.branchId ?? request.requestContext.branchId;
+    const branchId =
+      (request.params as Record<string, string>)?.branchId ?? request.requestContext.branchId;
 
     const warehouse = await this._warehouseService.create({
       organizationId: request.requestContext.organizationId,

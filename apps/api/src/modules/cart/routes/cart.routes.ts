@@ -26,10 +26,14 @@ export const cartRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/:cartId/items', { preHandler: [authenticateHook] }, async (request, reply) =>
     cartController.addItem(request, reply),
   );
-  fastify.delete('/:cartId/items/:itemId', { preHandler: [authenticateHook] }, async (request, reply) =>
-    cartController.removeItem(request, reply),
+  fastify.delete(
+    '/:cartId/items/:itemId',
+    { preHandler: [authenticateHook] },
+    async (request, reply) => cartController.removeItem(request, reply),
   );
-  fastify.patch('/:cartId/items/:itemId', { preHandler: [authenticateHook] }, async (request, reply) =>
-    cartController.updateItem(request, reply),
+  fastify.patch(
+    '/:cartId/items/:itemId',
+    { preHandler: [authenticateHook] },
+    async (request, reply) => cartController.updateItem(request, reply),
   );
 };

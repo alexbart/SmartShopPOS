@@ -1,15 +1,20 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type MockInstance } from 'vitest';
 import { SupplierService } from '../service/supplier.service.js';
 import type { ISupplierRepository } from '../repositories/supplier.repository.js';
 
-const createMockRepository = (): ISupplierRepository => ({
-  create: vi.fn(),
-  update: vi.fn(),
-  findById: vi.fn(),
-  findByCode: vi.fn(),
-  findAll: vi.fn(),
-  softDelete: vi.fn(),
-});
+type MockedRepository = {
+  [K in keyof ISupplierRepository]: MockInstance;
+};
+
+const createMockRepository = (): ISupplierRepository & MockedRepository =>
+  ({
+    create: vi.fn(),
+    update: vi.fn(),
+    findById: vi.fn(),
+    findByCode: vi.fn(),
+    findAll: vi.fn(),
+    softDelete: vi.fn(),
+  }) as unknown as ISupplierRepository & MockedRepository;
 
 describe('SupplierService', () => {
   it('should create a supplier', async () => {

@@ -22,16 +22,27 @@ export class DashboardService {
       return cached;
     }
 
-    const [sales, transactions, customers, lowStock, outOfStock, topProducts, recentSales] =
-      await Promise.all([
-        this._repository.getTodaySales(organizationId),
-        this._repository.getTodayTransactionCount(organizationId),
-        this._repository.getTodayCustomerCount(organizationId),
-        this._repository.getLowStockProducts(organizationId),
-        this._repository.getOutOfStockProducts(organizationId),
-        this._repository.getTopSellingProducts(organizationId, 5),
-        this._repository.getRecentSales(organizationId, 10),
-      ]);
+    const [
+      sales,
+      transactions,
+      customers,
+      lowStock,
+      outOfStock,
+      salesTrend,
+      paymentMix,
+      topProducts,
+      recentSales,
+    ] = await Promise.all([
+      this._repository.getTodaySales(organizationId),
+      this._repository.getTodayTransactionCount(organizationId),
+      this._repository.getTodayCustomerCount(organizationId),
+      this._repository.getLowStockProducts(organizationId),
+      this._repository.getOutOfStockProducts(organizationId),
+      this._repository.getSalesTrend(organizationId),
+      this._repository.getPaymentMix(organizationId),
+      this._repository.getTopSellingProducts(organizationId, 5),
+      this._repository.getRecentSales(organizationId, 10),
+    ]);
 
     const dashboard: DashboardResponse = {
       today: {
@@ -43,6 +54,8 @@ export class DashboardService {
         lowStock,
         outOfStock,
       },
+      salesTrend,
+      paymentMix,
       topProducts,
       recentSales: recentSales.map((sale) => ({
         saleNumber: sale.saleNumber,

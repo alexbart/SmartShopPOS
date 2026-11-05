@@ -123,12 +123,9 @@ const expectedFields = computed(() => [
           >
             {{ label }}
           </div>
-          <div
-            v-for="(_, i) in stepLabels"
-            :key="`sep-${i}`"
-            v-if="i < stepLabels.length - 1"
-            class="flex-1 h-px bg-border"
-          ></div>
+          <template v-for="(_, i) in stepLabels" :key="`sep-${i}`">
+            <div v-if="i < stepLabels.length - 1" class="flex-1 h-px bg-border"></div>
+          </template>
         </div>
 
         <div class="card p-6">
@@ -353,10 +350,10 @@ const expectedFields = computed(() => [
                 </button>
                 <button
                   @click="handleSubmit"
-                  :disabled="closeMutation.isPending || countedCash <= 0"
+                  :disabled="closeMutation.isPending.value || countedCash <= 0"
                   class="btn btn-primary touch-target"
                 >
-                  {{ closeMutation.isPending ? 'Submitting...' : 'Submit for Review' }}
+                  {{ closeMutation.isPending.value ? 'Submitting...' : 'Submit for Review' }}
                 </button>
               </div>
             </div>

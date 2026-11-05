@@ -43,7 +43,10 @@ export class ExpenseRepositoryImpl implements IExpenseRepository {
     return this._toEntity(expense);
   }
 
-  async findByOrganization(organizationId: string, filters: ExpenseFilters = {}): Promise<ExpenseEntity[]> {
+  async findByOrganization(
+    organizationId: string,
+    filters: ExpenseFilters = {},
+  ): Promise<ExpenseEntity[]> {
     const where: Record<string, unknown> = { organizationId };
 
     if (filters.categoryId) {
@@ -51,9 +54,10 @@ export class ExpenseRepositoryImpl implements IExpenseRepository {
     }
 
     if (filters.from || filters.to) {
-      where.expenseDate = {};
-      if (filters.from) where.expenseDate.gte = filters.from;
-      if (filters.to) where.expenseDate.lte = filters.to;
+      const dateFilter: Record<string, Date> = {};
+      if (filters.from) dateFilter.gte = filters.from;
+      if (filters.to) dateFilter.lte = filters.to;
+      where.expenseDate = dateFilter;
     }
 
     const expenses = await this._prisma.expense.findMany({
@@ -94,7 +98,10 @@ export class ExpenseRepositoryImpl implements IExpenseRepository {
     return result.id;
   }
 
-  async findCategoryById(id: string, organizationId: string): Promise<ExpenseCategoryEntity | null> {
+  async findCategoryById(
+    id: string,
+    organizationId: string,
+  ): Promise<ExpenseCategoryEntity | null> {
     const category = await this._prisma.expenseCategory_.findFirst({
       where: { id, organizationId },
     });
@@ -138,11 +145,11 @@ export class ExpenseRepositoryImpl implements IExpenseRepository {
     organizationId: string;
     categoryId: string;
     category: { name: string };
-    amount: number;
-    description?: string;
+    amount: number | { toNumber(): number };
+    description?: string | null;
     expenseDate: Date;
-    paidById?: string;
-    paymentReference?: string;
+    paidById?: string | null;
+    paymentReference?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): ExpenseEntity {

@@ -1,15 +1,20 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type MockInstance } from 'vitest';
 import { TaxService } from '../service/tax.service.js';
 import type { ITaxRepository } from '../repositories/tax.repository.js';
 
-const createMockRepository = (): ITaxRepository => ({
-  create: vi.fn(),
-  update: vi.fn(),
-  findById: vi.fn(),
-  findByCode: vi.fn(),
-  findAll: vi.fn(),
-  softDelete: vi.fn(),
-});
+type MockedRepository = {
+  [K in keyof ITaxRepository]: MockInstance;
+};
+
+const createMockRepository = (): ITaxRepository & MockedRepository =>
+  ({
+    create: vi.fn(),
+    update: vi.fn(),
+    findById: vi.fn(),
+    findByCode: vi.fn(),
+    findAll: vi.fn(),
+    softDelete: vi.fn(),
+  }) as unknown as ITaxRepository & MockedRepository;
 
 describe('TaxService', () => {
   it('should create a tax', async () => {

@@ -1,15 +1,20 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type MockInstance } from 'vitest';
 import { CustomerService } from '../service/customer.service.js';
 import type { ICustomerRepository } from '../repositories/customer.repository.js';
 
-const createMockRepository = (): ICustomerRepository => ({
-  create: vi.fn(),
-  update: vi.fn(),
-  findById: vi.fn(),
-  findByCode: vi.fn(),
-  findAll: vi.fn(),
-  softDelete: vi.fn(),
-});
+type MockedRepository = {
+  [K in keyof ICustomerRepository]: MockInstance;
+};
+
+const createMockRepository = (): ICustomerRepository & MockedRepository =>
+  ({
+    create: vi.fn(),
+    update: vi.fn(),
+    findById: vi.fn(),
+    findByCode: vi.fn(),
+    findAll: vi.fn(),
+    softDelete: vi.fn(),
+  }) as unknown as ICustomerRepository & MockedRepository;
 
 describe('CustomerService', () => {
   it('should create a customer', async () => {

@@ -20,7 +20,7 @@ export class PdfFormatter {
       const doc = new PDFDocument({ margin: 30 });
       const buffers: Buffer[] = [];
 
-      doc.on('data', (chunk) => buffers.push(chunk));
+      doc.on('data', (chunk: Buffer) => buffers.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
 
       if (title) {

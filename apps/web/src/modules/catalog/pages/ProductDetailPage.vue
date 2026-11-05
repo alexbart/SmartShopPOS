@@ -44,7 +44,7 @@ const {
   queryKey: ['product', productId],
   queryFn: async () => {
     const res = await apiClient.get(`/products/${productId}`);
-    return res.data.data as Product;
+    return (res.data as { data: Product }).data as Product;
   },
   enabled: !!productId,
   staleTime: 30_000,
@@ -54,7 +54,7 @@ const { data: categoriesData } = useQuery({
   queryKey: ['categories'],
   queryFn: async () => {
     const res = await apiClient.get('/categories');
-    return res.data.data.items as Category[];
+    return (res.data as { data: { items: Category[] } }).data.items as Category[];
   },
   staleTime: 60_000,
 });
@@ -63,7 +63,7 @@ const { data: brandsData } = useQuery({
   queryKey: ['brands'],
   queryFn: async () => {
     const res = await apiClient.get('/brands');
-    return res.data.data.items as Brand[];
+    return (res.data as { data: { items: Brand[] } }).data.items as Brand[];
   },
   staleTime: 60_000,
 });
@@ -72,7 +72,7 @@ const { data: unitsData } = useQuery({
   queryKey: ['units'],
   queryFn: async () => {
     const res = await apiClient.get('/units');
-    return res.data.data.items as Unit[];
+    return (res.data as { data: { items: Unit[] } }).data.items as Unit[];
   },
   staleTime: 60_000,
 });
@@ -81,7 +81,7 @@ const { data: taxesData } = useQuery({
   queryKey: ['taxes'],
   queryFn: async () => {
     const res = await apiClient.get('/taxes');
-    return res.data.data.items as Tax[];
+    return (res.data as { data: { items: Tax[] } }).data.items as Tax[];
   },
   staleTime: 60_000,
 });

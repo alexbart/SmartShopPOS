@@ -1,12 +1,17 @@
 import { PrismaClient } from '@prisma/client';
-import type { ICategoryRepository } from './category.repository.js';
+import type {
+  ICategoryRepository,
+  CreateCategoryModel,
+  UpdateCategoryModel,
+  CategoryQuery,
+} from './category.repository.js';
 import { Prisma } from '@prisma/client';
 import { ConflictError } from '../../../shared/errors/business-error.js';
 
 export class CategoryRepositoryImpl implements ICategoryRepository {
   constructor(private readonly _prisma: PrismaClient) {}
 
-  async create(_model: Parameters<ICategoryRepository['create']>[0]) {
+  async create(_model: CreateCategoryModel) {
     try {
       const category = await this._prisma.category.create({
         data: {
@@ -29,7 +34,7 @@ export class CategoryRepositoryImpl implements ICategoryRepository {
     }
   }
 
-  async update(_model: Parameters<ICategoryRepository['update']>[0]) {
+  async update(_model: UpdateCategoryModel) {
     try {
       const data: Record<string, unknown> = {};
 
@@ -90,7 +95,7 @@ export class CategoryRepositoryImpl implements ICategoryRepository {
     return category;
   }
 
-  async findAll(_query: Parameters<ICategoryRepository['findAll']>[0]) {
+  async findAll(_query: CategoryQuery) {
     const where: Record<string, unknown> = {
       organizationId: _query.organizationId,
       deletedAt: null,

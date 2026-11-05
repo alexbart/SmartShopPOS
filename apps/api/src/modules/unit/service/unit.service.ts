@@ -106,8 +106,8 @@ export class UnitService {
     organizationId: string;
     name: string;
     code: string;
-    description?: string;
-    abbreviation?: string;
+    description?: string | null;
+    abbreviation?: string | null;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -117,8 +117,8 @@ export class UnitService {
       organizationId: unit.organizationId,
       name: unit.name,
       code: unit.code,
-      description: unit.description,
-      abbreviation: unit.abbreviation,
+      description: unit.description ?? undefined,
+      abbreviation: unit.abbreviation ?? undefined,
       isActive: unit.isActive,
       createdAt: unit.createdAt,
       updatedAt: unit.updatedAt,

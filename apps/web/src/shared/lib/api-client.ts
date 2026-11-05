@@ -94,23 +94,23 @@ class ApiClient {
     }
   }
 
-  get<T = unknown>(url: string, config?: AxiosRequestConfig) {
+  get<T = any>(url: string, config?: AxiosRequestConfig) {
     return this.client.get<T>(url, config);
   }
 
-  post<T = unknown>(url: string, data?: unknown) {
+  post<T = any>(url: string, data?: unknown) {
     return this.client.post<T>(url, data);
   }
 
-  patch<T = unknown>(url: string, data?: unknown) {
+  patch<T = any>(url: string, data?: unknown) {
     return this.client.patch<T>(url, data);
   }
 
-  put<T = unknown>(url: string, data?: unknown) {
+  put<T = any>(url: string, data?: unknown) {
     return this.client.put<T>(url, data);
   }
 
-  delete<T = unknown>(url: string) {
+  delete<T = any>(url: string) {
     return this.client.delete<T>(url);
   }
 }

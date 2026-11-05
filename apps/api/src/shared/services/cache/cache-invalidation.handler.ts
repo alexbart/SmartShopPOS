@@ -13,9 +13,15 @@ export class CacheInvalidationHandler {
   ) {}
 
   subscribe(): void {
-    this._eventBus.subscribe(SaleCreatedEvent, (event) => this._onSaleCompleted(event));
-    this._eventBus.subscribe(SaleVoidedEvent, (event) => this._onSaleVoided(event));
-    this._eventBus.subscribe(StockLevelChangedEvent, (event) => this._onStockChanged(event));
+    this._eventBus.subscribe(SaleCreatedEvent.name, (event) =>
+      this._onSaleCompleted(event as SaleCreatedEvent),
+    );
+    this._eventBus.subscribe(SaleVoidedEvent.name, (event) =>
+      this._onSaleVoided(event as SaleVoidedEvent),
+    );
+    this._eventBus.subscribe(StockLevelChangedEvent.name, (event) =>
+      this._onStockChanged(event as StockLevelChangedEvent),
+    );
   }
 
   // eslint-disable-next-line no-unused-vars

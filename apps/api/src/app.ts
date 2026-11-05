@@ -16,6 +16,7 @@ import { brandRoutes } from './modules/brand/index.js';
 import { unitRoutes } from './modules/unit/index.js';
 import { taxRoutes } from './modules/tax/index.js';
 import { productRoutes } from './modules/product/index.js';
+import { productImportRoutes } from './modules/product/routes/product-import.routes.js';
 import { warehouseRoutes } from './modules/warehouse/index.js';
 import { supplierRoutes } from './modules/supplier/index.js';
 import { inventoryRoutes } from './modules/inventory/index.js';
@@ -28,6 +29,7 @@ import { dashboardRoutes } from './modules/dashboard/index.js';
 import { salesReportRoutes } from './modules/reports/index.js';
 import { inventoryReportRoutes } from './modules/reports/inventory/index.js';
 import { customerReportRoutes } from './modules/reports/customer/index.js';
+import { purchaseReportRoutes } from './modules/reports/purchase/purchase-report.routes.js';
 import { exportRoutes } from './modules/export/index.js';
 import { purchaseOrderRoutes } from './modules/purchase-order/index.js';
 import { cashDrawerRoutes } from './modules/cash/index.js';
@@ -38,6 +40,9 @@ import { workflowRoutes } from './modules/workflow/index.js';
 import { themeRoutes } from './modules/theme/routes/theme.routes.js';
 import { featureFlagRoutes } from './routes/featureFlags.js';
 import { getPrisma } from './shared/database/prisma.js';
+import { auditTrailPlugin } from './plugins/auditTrail.js';
+import { auditRoutes } from './modules/audit/audit.routes.js';
+import { organizationRoutes } from './modules/organization/organization.routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -56,6 +61,7 @@ export async function buildApp() {
   await app.register(requestIdPlugin);
   await app.register(requestLoggerPlugin);
   await app.register(errorHandlerPlugin);
+  await app.register(auditTrailPlugin);
 
   await app.register(featureFlagsPlugin);
 
@@ -64,11 +70,14 @@ export async function buildApp() {
 
   await app.register(healthRoute, { prefix: '/api/v1' });
   await app.register(AuthRoutes, { prefix: '/api/v1/auth' });
+  await app.register(auditRoutes, { prefix: '/api/v1/audit' });
+  await app.register(organizationRoutes, { prefix: '/api/v1/organization' });
   await app.register(CategoryRoutes, { prefix: '/api/v1/categories' });
   await app.register(brandRoutes, { prefix: '/api/v1/brands' });
   await app.register(unitRoutes, { prefix: '/api/v1/units' });
   await app.register(taxRoutes, { prefix: '/api/v1/taxes' });
   await app.register(productRoutes, { prefix: '/api/v1/products' });
+  await app.register(productImportRoutes, { prefix: '/api/v1/products' });
   await app.register(warehouseRoutes, { prefix: '/api/v1/warehouses' });
   await app.register(supplierRoutes, { prefix: '/api/v1/suppliers' });
   await app.register(inventoryRoutes, { prefix: '/api/v1/inventory' });
@@ -81,6 +90,7 @@ export async function buildApp() {
   await app.register(salesReportRoutes, { prefix: '/api/v1/reports' });
   await app.register(inventoryReportRoutes, { prefix: '/api/v1/reports' });
   await app.register(customerReportRoutes, { prefix: '/api/v1/reports' });
+  await app.register(purchaseReportRoutes, { prefix: '/api/v1/reports' });
   await app.register(exportRoutes, { prefix: '/api/v1/reports' });
   await app.register(purchaseOrderRoutes, { prefix: '/api/v1/purchase-orders' });
   await app.register(cashDrawerRoutes, { prefix: '/api/v1/cash-drawers' });

@@ -1,4 +1,4 @@
-import type { Logger } from 'pino';
+import type { FastifyBaseLogger } from 'fastify';
 import redis from 'redis';
 
 export interface CacheService {
@@ -36,7 +36,7 @@ export class RedisCacheService implements CacheService {
 
   constructor(
     url: string,
-    private readonly _logger: Logger,
+    private readonly _logger: FastifyBaseLogger,
     private readonly _defaultTtl = 300,
   ) {
     this._client = redis.createClient({ url });

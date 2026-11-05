@@ -47,6 +47,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/modules/customers/CustomersPage.vue'),
       },
       {
+        path: 'customers/:id',
+        name: 'customer-detail',
+        component: () => import('@/modules/customers/components/CustomerDetail.vue'),
+      },
+      {
         path: 'cash-drawer',
         name: 'cash-drawer',
         component: () => import('@/modules/finance/CashDrawerPage.vue'),
@@ -77,6 +82,26 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/modules/finance/BankingPage.vue'),
       },
       {
+        path: 'reports',
+        name: 'reports-home',
+        component: () => import('@/modules/reports/ReportsHome.vue'),
+      },
+      {
+        path: 'reports/inventory',
+        name: 'reports-inventory',
+        component: () => import('@/modules/reports/InventoryReportsPage.vue'),
+      },
+      {
+        path: 'reports/purchasing',
+        name: 'reports-purchasing',
+        component: () => import('@/modules/reports/PurchasingReportsPage.vue'),
+      },
+      {
+        path: 'reports/customers',
+        name: 'reports-customers',
+        component: () => import('@/modules/reports/CustomerReportsPage.vue'),
+      },
+      {
         path: 'reports/finance',
         name: 'reports-finance',
         component: () => import('@/modules/reports/FinanceReportsPage.vue'),
@@ -86,7 +111,7 @@ const routes: RouteRecordRaw[] = [
         name: 'reports-sales',
         component: () => import('@/modules/reports/SalesReportsPage.vue'),
       },
-       {
+      {
         path: 'workflow/pending',
         name: 'workflow-pending',
         component: () => import('@/modules/workflow/PendingApprovals.vue'),

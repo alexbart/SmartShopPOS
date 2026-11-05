@@ -1,5 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import { PrismaClient, type Prisma } from '@prisma/client';
 import type { WorkflowAction } from '../../../shared/constants/domain-constants.js';
 import type {
   IWorkflowRepository,
@@ -9,7 +8,11 @@ import type {
   RequestApprovalCommand,
   ApprovalDecisionCommand,
 } from './workflow.repository.js';
-import { NotFoundError, ConflictError, ForbiddenError } from '../../../shared/errors/business-error.js';
+import {
+  NotFoundError,
+  ConflictError,
+  ForbiddenError,
+} from '../../../shared/errors/business-error.js';
 
 export class WorkflowRepositoryImpl implements IWorkflowRepository {
   constructor(private readonly _prisma: PrismaClient | Prisma.TransactionClient) {}
@@ -36,7 +39,12 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
     action: WorkflowAction,
     branchId?: string,
   ): Promise<ApprovalRuleEntity[]> {
-    const where: { organizationId: string; action: WorkflowAction; isActive: boolean; branchId?: string } = {
+    const where: {
+      organizationId: string;
+      action: WorkflowAction;
+      isActive: boolean;
+      branchId?: string;
+    } = {
       organizationId,
       action,
       isActive: true,
@@ -58,7 +66,32 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
     let matchedRule = await this._findMatchingRule(command);
 
     if (!matchedRule) {
-      return this._prisma.approvalRequest.create({
+      return this._prisma.approvalRequest
+        .create({
+          data: {
+            organizationId: command.organizationId,
+            action: command.action,
+            entityType: command.entityType,
+            entityId: command.entityId,
+            amount: command.amount,
+            branchId: command.branchId,
+            ruleId: null,
+            requestedBy: command.requestedBy,
+            status: 'APPROVED',
+            approvedBy: command.requestedBy,
+            approvedAt: new Date(),
+            comments: 'Auto-approved: no matching rule found.',
+          },
+        })
+        .then((r) => this._toRequestEntity(r));
+    }
+
+    matchedRule = await this._prisma.approvalRule.findUnique({
+      where: { id: matchedRule.id },
+    });
+
+    return this._prisma.approvalRequest
+      .create({
         data: {
           organizationId: command.organizationId,
           action: command.action,
@@ -66,36 +99,18 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
           entityId: command.entityId,
           amount: command.amount,
           branchId: command.branchId,
-          ruleId: null,
+          ruleId: matchedRule!.id,
           requestedBy: command.requestedBy,
-          status: 'APPROVED',
-          approvedBy: command.requestedBy,
-          approvedAt: new Date(),
-          comments: 'Auto-approved: no matching rule found.',
+          status: 'PENDING',
         },
-      }).then((r) => this._toRequestEntity(r));
-    }
-
-    matchedRule = await this._prisma.approvalRule.findUnique({
-      where: { id: matchedRule.id },
-    });
-
-    return this._prisma.approvalRequest.create({
-      data: {
-        organizationId: command.organizationId,
-        action: command.action,
-        entityType: command.entityType,
-        entityId: command.entityId,
-        amount: command.amount,
-        branchId: command.branchId,
-        ruleId: matchedRule!.id,
-        requestedBy: command.requestedBy,
-        status: 'PENDING',
-      },
-    }).then((r) => this._toRequestEntity(r));
+      })
+      .then((r) => this._toRequestEntity(r));
   }
 
-  async findPendingRequests(organizationId: string, approverRole: string): Promise<ApprovalRequestEntity[]> {
+  async findPendingRequests(
+    organizationId: string,
+    approverRole: string,
+  ): Promise<ApprovalRequestEntity[]> {
     const rules = await this._prisma.approvalRule.findMany({
       where: {
         organizationId,
@@ -129,7 +144,7 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
   }
 
   async approveRequest(command: ApprovalDecisionCommand): Promise<ApprovalRequestEntity> {
-    return this._prisma.$transaction(async (tx) => {
+    return (this._prisma as PrismaClient).$transaction(async (tx) => {
       const request = await tx.approvalRequest.findFirst({
         where: {
           id: command.requestId,
@@ -146,7 +161,7 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
         throw new ConflictError('Approval request has already been processed.');
       }
 
-      if (request.rule.approverRole !== command.approverRole) {
+      if (!request.rule || request.rule.approverRole !== command.approverRole) {
         throw new ForbiddenError('You do not have permission to approve this request.');
       }
 
@@ -166,7 +181,7 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
   }
 
   async rejectRequest(command: ApprovalDecisionCommand): Promise<ApprovalRequestEntity> {
-    return this._prisma.$transaction(async (tx) => {
+    return (this._prisma as PrismaClient).$transaction(async (tx) => {
       const request = await tx.approvalRequest.findFirst({
         where: {
           id: command.requestId,
@@ -183,7 +198,7 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
         throw new ConflictError('Approval request has already been processed.');
       }
 
-      if (request.rule.approverRole !== command.approverRole) {
+      if (!request.rule || request.rule.approverRole !== command.approverRole) {
         throw new ForbiddenError('You do not have permission to reject this request.');
       }
 
@@ -258,9 +273,9 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
   private _toRuleEntity(rule: {
     id: string;
     organizationId: string;
-    action: WorkflowAction;
-    minimumAmount: number | null;
-    maximumAmount: number | null;
+    action: string;
+    minimumAmount: number | { toNumber(): number } | null;
+    maximumAmount: number | { toNumber(): number } | null;
     approverRole: string;
     branchId: string | null;
     priority: number;
@@ -271,7 +286,7 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
     return {
       id: rule.id,
       organizationId: rule.organizationId,
-      action: rule.action,
+      action: rule.action as WorkflowAction,
       minimumAmount: rule.minimumAmount ? Number(rule.minimumAmount) : null,
       maximumAmount: rule.maximumAmount ? Number(rule.maximumAmount) : null,
       approverRole: rule.approverRole,
@@ -286,10 +301,10 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
   private _toRequestEntity(request: {
     id: string;
     organizationId: string;
-    action: WorkflowAction;
+    action: string;
     entityType: string;
     entityId: string;
-    amount: number | null;
+    amount: number | { toNumber(): number } | null;
     branchId: string | null;
     ruleId: string | null;
     requestedBy: string;
@@ -303,7 +318,7 @@ export class WorkflowRepositoryImpl implements IWorkflowRepository {
     return {
       id: request.id,
       organizationId: request.organizationId,
-      action: request.action,
+      action: request.action as WorkflowAction,
       entityType: request.entityType,
       entityId: request.entityId,
       amount: request.amount ? Number(request.amount) : null,

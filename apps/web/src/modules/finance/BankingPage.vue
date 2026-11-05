@@ -33,7 +33,7 @@ const totalBankBalance = computed(() =>
   accounts.value.reduce((sum, a) => sum + Number(a.currentBalance), 0),
 );
 
-const depositStatusIcons = {
+const depositStatusIcons: Record<string, { icon: typeof Check; color: string; bg: string }> = {
   completed: { icon: Check, color: 'text-success', bg: 'bg-success/10' },
   pending: { icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
   failed: { icon: AlertCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
@@ -267,10 +267,10 @@ const depositFlow = [
             <button @click="showNewDeposit = false" class="btn btn-outline flex-1">Cancel</button>
             <button
               @click="handleDeposit"
-              :disabled="depositMutation.isPending || !selectedAccount || depositAmount <= 0"
+              :disabled="depositMutation.isPending.value || !selectedAccount || depositAmount <= 0"
               class="btn btn-primary flex-1"
             >
-              {{ depositMutation.isPending ? 'Depositing...' : 'Deposit' }}
+              {{ depositMutation.isPending.value ? 'Depositing...' : 'Deposit' }}
             </button>
           </div>
         </div>

@@ -25,7 +25,7 @@ export class PurchaseOrderRepositoryImpl implements IPurchaseOrderRepository {
         total: model.total,
         notes: model.notes,
         createdBy: model.createdBy,
-        status: model.status,
+        status: model.status as never,
         receivedQuantity: model.receivedQuantity,
         totalQuantity: model.totalQuantity,
         items: {
@@ -125,10 +125,10 @@ export class PurchaseOrderRepositoryImpl implements IPurchaseOrderRepository {
 
       if (!po) return null;
 
-      return await this._prisma.$transaction(async (tx) => {
+      return await (this._prisma as PrismaClient).$transaction(async (tx) => {
         await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } });
 
-        const subtotal = model.items.reduce((sum, item) => sum + item.subtotal, 0);
+        const subtotal = (model.items ?? []).reduce((sum, item) => sum + item.subtotal, 0);
         const discount = model.discount ?? 0;
         const tax = model.tax ?? 0;
         const total = subtotal - discount + tax;
@@ -138,7 +138,7 @@ export class PurchaseOrderRepositoryImpl implements IPurchaseOrderRepository {
           data: {
             ...data,
             items: {
-              create: model.items.map((item) => ({
+              create: (model.items ?? []).map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity,
                 unitCost: item.unitCost,
@@ -177,7 +177,7 @@ export class PurchaseOrderRepositoryImpl implements IPurchaseOrderRepository {
   async updateStatus(id: string, status: string): Promise<void> {
     await this._prisma.purchaseOrder.update({
       where: { id },
-      data: { status },
+      data: { status: status as never },
     });
   }
 
@@ -204,12 +204,12 @@ export class PurchaseOrderRepositoryImpl implements IPurchaseOrderRepository {
     orderNumber: string;
     status: string;
     expectedDeliveryDate: Date | null;
-    receivedQuantity: number;
-    totalQuantity: number;
-    subtotal: number;
-    tax: number;
-    discount: number;
-    total: number;
+    receivedQuantity: number | { toNumber(): number };
+    totalQuantity: number | { toNumber(): number };
+    subtotal: number | { toNumber(): number };
+    tax: number | { toNumber(): number };
+    discount: number | { toNumber(): number };
+    total: number | { toNumber(): number };
     notes: string | null;
     createdBy: string;
     approvedBy: string | null;
@@ -219,11 +219,11 @@ export class PurchaseOrderRepositoryImpl implements IPurchaseOrderRepository {
       id: string;
       purchaseOrderId: string;
       productId: string;
-      quantity: number;
-      unitCost: number;
-      discount: number;
-      tax: number;
-      subtotal: number;
+      quantity: number | { toNumber(): number };
+      unitCost: number | { toNumber(): number };
+      discount: number | { toNumber(): number };
+      tax: number | { toNumber(): number };
+      subtotal: number | { toNumber(): number };
     }>;
     supplier: { name: string; code: string };
   }): PurchaseOrderEntity {

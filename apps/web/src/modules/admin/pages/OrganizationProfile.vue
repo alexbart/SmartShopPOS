@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, reactive, watch } from 'vue';
 import {
   Upload,
   Save,
@@ -12,44 +12,56 @@ import {
 import { useOrganization } from '../composables/useAdmin.js';
 import WorkspaceShell from '@/components/business/WorkspaceShell.vue';
 
-const { organization, organizationLoading, updateMutation } = useOrganization();
+const { organization, organizationLoading, organizationError, updateMutation } = useOrganization();
 
 const editing = ref(false);
 
-const form = computed(() => ({
-  businessName: organization.value?.businessName || organization.value?.name || '',
-  tagline: organization.value?.tagline || '',
-  businessType: organization.value?.businessType || '',
-  email: organization.value?.email || '',
-  phone: organization.value?.phone || '',
-  kraPin: organization.value?.kraPin || '',
-  vatNumber: organization.value?.vatNumber || '',
-  currency: organization.value?.currency || 'KES',
-  timezone: organization.value?.timezone || 'Africa/Nairobi',
-  website: organization.value?.website || '',
-  receiptFooter: organization.value?.receiptFooter || '',
-  logoUrl: organization.value?.logoUrl || '',
-}));
+const form = reactive({
+  businessName: '', tagline: '', businessType: '', email: '', phone: '', kraPin: '',
+  vatNumber: '', currency: 'KES', timezone: 'Africa/Nairobi', website: '', receiptFooter: '', logoUrl: '',
+});
+
+watch(organization, (value) => {
+  if (!value) return;
+  Object.assign(form, {
+    businessName: value.businessName || value.name || '',
+    tagline: value.tagline || '',
+    businessType: value.businessType || '',
+    email: value.email || '',
+    phone: value.phone || '',
+    kraPin: value.kraPin || '',
+    vatNumber: value.vatNumber || '',
+    currency: value.currency || 'KES',
+    timezone: value.timezone || 'Africa/Nairobi',
+    website: value.website || '',
+    receiptFooter: value.receiptFooter || '',
+    logoUrl: value.logoUrl || '',
+  });
+}, { immediate: true });
 
 const currencies = ['KES', 'USD', 'EUR', 'GBP'];
 const timezones = ['Africa/Nairobi', 'Europe/London', 'America/New_York', 'Asia/Dubai'];
 const businessTypes = ['Retail', 'Wholesale', 'Service', 'Manufacturing', 'Hospitality'];
 
-function handleSave() {
-  updateMutation.mutateAsync({
-    businessName: form.value.businessName,
-    tagline: form.value.tagline,
-    businessType: form.value.businessType,
-    email: form.value.email,
-    phone: form.value.phone,
-    kraPin: form.value.kraPin,
-    vatNumber: form.value.vatNumber,
-    currency: form.value.currency,
-    timezone: form.value.timezone,
-    website: form.value.website,
-    receiptFooter: form.value.receiptFooter,
-  });
-  editing.value = false;
+async function handleSave() {
+  try {
+    await updateMutation.mutateAsync({
+      businessName: form.businessName,
+      tagline: form.tagline,
+      businessType: form.businessType,
+      email: form.email,
+      phone: form.phone,
+      kraPin: form.kraPin,
+      vatNumber: form.vatNumber,
+      currency: form.currency,
+      timezone: form.timezone,
+      website: form.website,
+      receiptFooter: form.receiptFooter,
+    });
+    editing.value = false;
+  } catch {
+    // The API interceptor reports the error; retain the form for corrections.
+  }
 }
 </script>
 
@@ -61,6 +73,10 @@ function handleSave() {
     <div class="space-y-6">
       <div v-if="organizationLoading" class="space-y-4">
         <div v-for="i in 8" :key="i" class="h-12 bg-muted/30 rounded animate-pulse"></div>
+      </div>
+
+      <div v-else-if="organizationError" class="rounded-lg border border-destructive/30 bg-destructive/5 p-5 text-sm">
+        Could not load the organization profile. Check your access and API connection, then reload this page.
       </div>
 
       <div v-else class="space-y-6">
@@ -84,9 +100,9 @@ function handleSave() {
             <button v-if="!editing" @click="editing = true" class="btn btn-outline touch-target">
               Edit
             </button>
-            <button v-if="editing" @click="handleSave" :disabled="updateMutation.isPending" class="btn btn-primary touch-target">
+            <button v-if="editing" @click="handleSave" :disabled="updateMutation.isPending.value" class="btn btn-primary touch-target">
               <Save class="w-4 h-4 mr-2" />
-              {{ updateMutation.isPending ? 'Saving...' : 'Save' }}
+              {{ updateMutation.isPending.value ? 'Saving...' : 'Save' }}
             </button>
           </div>
         </div>

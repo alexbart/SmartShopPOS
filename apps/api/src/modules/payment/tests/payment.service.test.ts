@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PaymentService } from '../service/payment.service.js';
-import { ValidationError, NotFoundError, ConflictError } from '../../../shared/errors/business-error.js';
+import {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+} from '../../../shared/errors/business-error.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -33,9 +37,9 @@ function makeMocks({
 } = {}) {
   const mockTx = {
     sale: {
-      findFirst: vi.fn().mockResolvedValue(
-        saleOrgId ? { total: saleTotal, number: 'INV-000001' } : null,
-      ),
+      findFirst: vi
+        .fn()
+        .mockResolvedValue(saleOrgId ? { total: saleTotal, number: 'INV-000001' } : null),
     },
     payment: {
       create: vi.fn().mockResolvedValue({ id: createId }),
@@ -48,7 +52,9 @@ function makeMocks({
   };
 
   const mockUnitOfWork = {
-    execute: vi.fn().mockImplementation(async (fn: (_tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    execute: vi
+      .fn()
+      .mockImplementation(async (fn: (_tx: unknown) => Promise<unknown>) => fn(mockTx)),
   };
 
   const mockEventBus = { publish: vi.fn().mockResolvedValue(undefined) };
@@ -91,7 +97,12 @@ describe('PaymentService.create', () => {
   it('rejects Infinity amount', async () => {
     const { service } = makeMocks();
     await expect(
-      service.create({ organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: Infinity }),
+      service.create({
+        organizationId: 'org-a',
+        saleId: 'sale-1',
+        method: 'CASH',
+        amount: Infinity,
+      }),
     ).rejects.toThrow(ValidationError);
   });
 
@@ -101,7 +112,12 @@ describe('PaymentService.create', () => {
     const { service, mockTx } = makeMocks();
     mockTx.sale.findFirst.mockResolvedValue(null);
     await expect(
-      service.create({ organizationId: 'org-a', saleId: 'unknown-sale', method: 'CASH', amount: 100 }),
+      service.create({
+        organizationId: 'org-a',
+        saleId: 'unknown-sale',
+        method: 'CASH',
+        amount: 100,
+      }),
     ).rejects.toThrow(NotFoundError);
   });
 
@@ -120,7 +136,10 @@ describe('PaymentService.create', () => {
   it('records full payment — sale total 1000, payment 1000', async () => {
     const { service } = makeMocks({ saleTotal: 1000, existingPaid: 0 });
     const result = await service.create({
-      organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 1000,
+      organizationId: 'org-a',
+      saleId: 'sale-1',
+      method: 'CASH',
+      amount: 1000,
     });
     expect(result.id).toBe('payment-1');
     expect(result.status).toBe('PAID');
@@ -129,7 +148,10 @@ describe('PaymentService.create', () => {
   it('records partial payment — sale total 1000, payment 400', async () => {
     const { service } = makeMocks({ saleTotal: 1000, existingPaid: 0 });
     const result = await service.create({
-      organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 400,
+      organizationId: 'org-a',
+      saleId: 'sale-1',
+      method: 'CASH',
+      amount: 400,
     });
     expect(result.id).toBe('payment-1');
   });
@@ -137,7 +159,10 @@ describe('PaymentService.create', () => {
   it('records second partial payment — existing 400, new 600, total = 1000', async () => {
     const { service } = makeMocks({ saleTotal: 1000, existingPaid: 400 });
     const result = await service.create({
-      organizationId: 'org-a', saleId: 'sale-1', method: 'CARD', amount: 600,
+      organizationId: 'org-a',
+      saleId: 'sale-1',
+      method: 'CARD',
+      amount: 600,
     });
     expect(result.id).toBe('payment-1');
   });
@@ -161,12 +186,18 @@ describe('PaymentService.create', () => {
   // ── Idempotency ────────────────────────────────────────────────────────────
 
   it('returns existing payment for duplicate idempotencyKey', async () => {
-    const existingPayment = makePaymentRecord({ id: 'payment-existing', idempotencyKey: 'key-abc' });
+    const existingPayment = makePaymentRecord({
+      id: 'payment-existing',
+      idempotencyKey: 'key-abc',
+    });
     const { service, mockTx } = makeMocks({ existingByKey: existingPayment });
     mockTx.payment.findUnique.mockResolvedValue(existingPayment);
 
     const result = await service.create({
-      organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 1000,
+      organizationId: 'org-a',
+      saleId: 'sale-1',
+      method: 'CASH',
+      amount: 1000,
       idempotencyKey: 'key-abc',
     });
 
@@ -178,16 +209,17 @@ describe('PaymentService.create', () => {
     const winnerRecord = makePaymentRecord({ id: 'payment-winner', idempotencyKey: 'key-race' });
     const { service, mockTx } = makeMocks({ saleTotal: 1000, existingPaid: 0 });
 
-    mockTx.payment.findUnique
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(winnerRecord);
+    mockTx.payment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(winnerRecord);
 
     mockTx.payment.create.mockRejectedValueOnce(
       new Error('Unique constraint failed on the fields: (`idempotencyKey`)'),
     );
 
     const result = await service.create({
-      organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 1000,
+      organizationId: 'org-a',
+      saleId: 'sale-1',
+      method: 'CASH',
+      amount: 1000,
       idempotencyKey: 'key-race',
     });
 
@@ -199,13 +231,27 @@ describe('PaymentService.create', () => {
 
   it('records split payment — CASH 400 then CARD 600, total = 1000', async () => {
     const { service: service1, mockTx: tx1 } = makeMocks({ saleTotal: 1000, existingPaid: 0 });
-    tx1.payment.findFirst.mockResolvedValue(makePaymentRecord({ id: 'p1', method: 'CASH', amount: 400 }));
-    const r1 = await service1.create({ organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 400 });
+    tx1.payment.findFirst.mockResolvedValue(
+      makePaymentRecord({ id: 'p1', method: 'CASH', amount: 400 }),
+    );
+    const r1 = await service1.create({
+      organizationId: 'org-a',
+      saleId: 'sale-1',
+      method: 'CASH',
+      amount: 400,
+    });
     expect(r1.id).toBe('p1');
 
     const { service: service2, mockTx: tx2 } = makeMocks({ saleTotal: 1000, existingPaid: 400 });
-    tx2.payment.findFirst.mockResolvedValue(makePaymentRecord({ id: 'p2', method: 'CARD', amount: 600 }));
-    const r2 = await service2.create({ organizationId: 'org-a', saleId: 'sale-1', method: 'CARD', amount: 600 });
+    tx2.payment.findFirst.mockResolvedValue(
+      makePaymentRecord({ id: 'p2', method: 'CARD', amount: 600 }),
+    );
+    const r2 = await service2.create({
+      organizationId: 'org-a',
+      saleId: 'sale-1',
+      method: 'CARD',
+      amount: 600,
+    });
     expect(r2.id).toBe('p2');
   });
 
@@ -213,7 +259,12 @@ describe('PaymentService.create', () => {
 
   it('publishes PaymentReceivedEvent after successful payment', async () => {
     const { service, mockEventBus } = makeMocks({ saleTotal: 1000, existingPaid: 0 });
-    await service.create({ organizationId: 'org-a', saleId: 'sale-1', method: 'CASH', amount: 1000 });
+    await service.create({
+      organizationId: 'org-a',
+      saleId: 'sale-1',
+      method: 'CASH',
+      amount: 1000,
+    });
     expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
   });
 });
@@ -232,7 +283,10 @@ describe('PaymentService.create — MPESA', () => {
     const { service } = makeMocks({ hasPendingMpesa: true });
     await expect(
       service.create({
-        organizationId: 'org-a', saleId: 'sale-1', method: 'MPESA', amount: 500,
+        organizationId: 'org-a',
+        saleId: 'sale-1',
+        method: 'MPESA',
+        amount: 500,
         phone: '0712345678',
       }),
     ).rejects.toThrow(ConflictError);
@@ -245,10 +299,12 @@ describe('PaymentService.findBySaleId', () => {
   it('returns payments scoped to organization', async () => {
     const mockPrisma = {
       payment: {
-        findMany: vi.fn().mockResolvedValue([
-          makePaymentRecord({ id: 'p1', organizationId: 'org-a' }),
-          makePaymentRecord({ id: 'p2', organizationId: 'org-a' }),
-        ]),
+        findMany: vi
+          .fn()
+          .mockResolvedValue([
+            makePaymentRecord({ id: 'p1', organizationId: 'org-a' }),
+            makePaymentRecord({ id: 'p2', organizationId: 'org-a' }),
+          ]),
       },
     };
     const svc = new PaymentService(
@@ -303,8 +359,10 @@ describe('PaymentService.confirmMpesaPayment', () => {
 
   it('transitions PENDING → PAID and stores MpesaReceiptNumber', async () => {
     const pending = makePaymentRecord({
-      status: 'PENDING', method: 'MPESA',
-      darajaRequestId: 'ws_CO_123', darajaTransactionId: null,
+      status: 'PENDING',
+      method: 'MPESA',
+      darajaRequestId: 'ws_CO_123',
+      darajaTransactionId: null,
     });
     const { svc, mockPrisma, mockBus } = makeCallbackMocks(pending);
 

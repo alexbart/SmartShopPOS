@@ -100,7 +100,7 @@ export class TaxService {
     organizationId: string;
     name: string;
     code: string;
-    description?: string;
+    description?: string | null;
     rate: number;
     isActive: boolean;
     createdAt: Date;
@@ -111,7 +111,7 @@ export class TaxService {
       organizationId: tax.organizationId,
       name: tax.name,
       code: tax.code,
-      description: tax.description,
+      description: tax.description ?? undefined,
       rate: tax.rate,
       isActive: tax.isActive,
       createdAt: tax.createdAt,

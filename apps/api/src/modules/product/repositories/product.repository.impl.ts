@@ -21,6 +21,9 @@ export class ProductRepositoryImpl implements IProductRepository {
         taxId: _model.taxId,
         costPrice: _model.costPrice,
         sellingPrice: _model.sellingPrice,
+        wholesalePrice: _model.wholesalePrice,
+        discountPrice: _model.discountPrice,
+        lowStockThreshold: _model.lowStockThreshold,
       },
       select: { id: true },
     });
@@ -42,6 +45,9 @@ export class ProductRepositoryImpl implements IProductRepository {
     if (_model.taxId !== undefined) data.taxId = _model.taxId;
     if (_model.costPrice !== undefined) data.costPrice = _model.costPrice;
     if (_model.sellingPrice !== undefined) data.sellingPrice = _model.sellingPrice;
+    if (_model.wholesalePrice !== undefined) data.wholesalePrice = _model.wholesalePrice;
+    if (_model.discountPrice !== undefined) data.discountPrice = _model.discountPrice;
+    if (_model.lowStockThreshold !== undefined) data.lowStockThreshold = _model.lowStockThreshold;
     if (_model.isActive !== undefined) data.isActive = _model.isActive;
 
     await this._prisma.product.update({
@@ -65,6 +71,8 @@ export class ProductRepositoryImpl implements IProductRepository {
       taxId: true,
       costPrice: true,
       sellingPrice: true,
+      wholesalePrice: true,
+      discountPrice: true,
       isActive: true,
       createdAt: true,
       updatedAt: true,
@@ -83,7 +91,7 @@ export class ProductRepositoryImpl implements IProductRepository {
     row: Prisma.ProductGetPayload<{ select: ReturnType<ProductRepositoryImpl['select']> }>,
   ): ProductEntity {
     const totalStock =
-      (row.stocks as Array<{ quantity: number }> | undefined)?.reduce(
+      (row.stocks as Array<{ quantity: number | { toNumber(): number } }> | undefined)?.reduce(
         (sum, s) => sum + Number(s.quantity),
         0,
       ) ?? 0;
@@ -108,6 +116,8 @@ export class ProductRepositoryImpl implements IProductRepository {
       taxRate: row.tax?.rate ? Number(row.tax.rate) : undefined,
       costPrice: Number(row.costPrice),
       sellingPrice: Number(row.sellingPrice),
+      wholesalePrice: row.wholesalePrice === null ? null : Number(row.wholesalePrice),
+      discountPrice: row.discountPrice === null ? null : Number(row.discountPrice),
       stockQuantity: totalStock,
       lowStockThreshold: row.lowStockThreshold ? Number(row.lowStockThreshold) : undefined,
       isActive: row.isActive,

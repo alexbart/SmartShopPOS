@@ -5,6 +5,10 @@ import { toLoginCommand } from '../mappers/login.mapper.js';
 import type { RegisterDto } from '../dto/register.dto.js';
 import type { RegisterResponse } from '../responses/register.response.js';
 import type { LoginDto } from '../dto/login.dto.js';
+import type { FindUsersQuery } from '../repositories/models/find-users.query.js';
+import type { FindRolesQuery } from '../repositories/models/find-roles.query.js';
+import type { CreateRoleModel } from '../repositories/models/create-role.model.js';
+import type { UpdateRoleModel } from '../repositories/models/update-role.model.js';
 
 export class AuthController {
   constructor(private readonly _authService: IAuthService) {}
@@ -61,31 +65,200 @@ export class AuthController {
     return reply.status(204).send();
   }
 
-  async forgotPassword(_request: FastifyRequest, reply: FastifyReply) {
-    return reply.send({ success: true, message: 'Not implemented yet' });
+  async findUsers(request: FastifyRequest, reply: FastifyReply) {
+    const query = request.query as FindUsersQuery;
+    query.organizationId = request.requestContext.organizationId;
+
+    const result = await this._authService.findUsers(query);
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Users retrieved successfully.',
+      data: result,
+    });
   }
 
-  async resetPassword(_request: FastifyRequest, reply: FastifyReply) {
-    return reply.send({ success: true, message: 'Not implemented yet' });
+  async createUser(request: FastifyRequest, reply: FastifyReply) {
+    const body = request.body as {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone?: string;
+      password: string;
+      roleId: string;
+      branchId?: string;
+      isActive?: boolean;
+    };
+
+    const result = await this._authService.createUser({
+      organizationId: request.requestContext.organizationId,
+      branchId: body.branchId ?? request.requestContext.branchId,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      email: body.email,
+      phone: body.phone,
+      password: body.password,
+      roleId: body.roleId,
+      isActive: body.isActive,
+      createdBy: request.requestContext.userId,
+    });
+
+    return reply.status(201).send({
+      success: true,
+      message: 'User created successfully.',
+      data: result,
+    });
   }
 
-  async updateProfile(_request: FastifyRequest, reply: FastifyReply) {
-    return reply.send({ success: true, message: 'Not implemented yet' });
+  async updateUser(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+    const body = request.body as Partial<{
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      isActive: boolean;
+      roleId: string;
+    }>;
+
+    await this._authService.updateUser({
+      userId: id,
+      organizationId: request.requestContext.organizationId,
+      updatedBy: request.requestContext.userId,
+      ...body,
+    });
+
+    return reply.status(200).send({
+      success: true,
+      message: 'User updated successfully.',
+    });
   }
 
-  async changePassword(_request: FastifyRequest, reply: FastifyReply) {
-    return reply.send({ success: true, message: 'Not implemented yet' });
+  async deactivateUser(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+
+    await this._authService.deactivateUser(
+      id,
+      request.requestContext.organizationId,
+      request.requestContext.userId,
+    );
+
+    return reply.status(200).send({
+      success: true,
+      message: 'User deactivated successfully.',
+    });
   }
 
-  async getSessions(_request: FastifyRequest, reply: FastifyReply) {
-    return reply.send({ success: true, message: 'Not implemented yet' });
+  async resetPassword(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+    const body = request.body as { password: string };
+
+    await this._authService.resetPassword({
+      userId: id,
+      organizationId: request.requestContext.organizationId,
+      newPassword: body.password,
+      updatedBy: request.requestContext.userId,
+    });
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Password reset successfully.',
+    });
   }
 
-  async deleteSession(_request: FastifyRequest, reply: FastifyReply) {
-    return reply.send({ success: true, message: 'Not implemented yet' });
+  async findRoles(request: FastifyRequest, reply: FastifyReply) {
+    const query = request.query as FindRolesQuery;
+    query.organizationId = request.requestContext.organizationId;
+
+    const result = await this._authService.findRoles(query);
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Roles retrieved successfully.',
+      data: result,
+    });
   }
 
-  async deleteAllSessions(_request: FastifyRequest, reply: FastifyReply) {
-    return reply.send({ success: true, message: 'Not implemented yet' });
+  async createRole(request: FastifyRequest, reply: FastifyReply) {
+    const body = request.body as CreateRoleModel;
+
+    const role = await this._authService.createRole({
+      organizationId: request.requestContext.organizationId,
+      name: body.name,
+      description: body.description,
+      permissionIds: body.permissionIds,
+      createdBy: request.requestContext.userId,
+    });
+
+    return reply.status(201).send({
+      success: true,
+      message: 'Role created successfully.',
+      data: role,
+    });
+  }
+
+  async findRoleById(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+
+    const role = await this._authService.findRoleById(id, request.requestContext.organizationId);
+
+    if (!role) {
+      return reply.status(404).send({
+        success: false,
+        message: 'Role not found.',
+      });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Role retrieved successfully.',
+      data: role,
+    });
+  }
+
+  async updateRole(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+    const body = request.body as UpdateRoleModel;
+
+    await this._authService.updateRole({
+      id,
+      organizationId: request.requestContext.organizationId,
+      name: body.name,
+      description: body.description,
+      permissionIds: body.permissionIds,
+      updatedBy: request.requestContext.userId,
+    });
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Role updated successfully.',
+    });
+  }
+
+  async deleteRole(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+
+    await this._authService.deleteRole(
+      id,
+      request.requestContext.organizationId,
+      request.requestContext.userId,
+    );
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Role deleted successfully.',
+    });
+  }
+
+  async findPermissions(request: FastifyRequest, reply: FastifyReply) {
+    const permissions = await this._authService.findPermissions(
+      request.requestContext.organizationId,
+    );
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Permissions retrieved successfully.',
+      data: permissions,
+    });
   }
 }
