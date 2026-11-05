@@ -17,7 +17,18 @@ export async function writeHashedAuditEvent(
   },
 ) {
   const persist = async (tx: Prisma.TransactionClient) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${event.organizationId}, 0))`;
+    const orgIdHash = Math.abs(
+      event.organizationId.split('-').reduce((acc, part) => {
+        let hash = 0;
+        for (let i = 0; i < part.length; i++) {
+          hash = (hash << 5) - hash + part.charCodeAt(i);
+          hash |= 0;
+        }
+        return acc ^ hash;
+      }, 0) & 0x7fffffff,
+    );
+    // pg_advisory_xact_lock() returns void, which $queryRaw cannot deserialize; cast it to text.
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(${orgIdHash})::text AS locked`;
     const previous = await tx.auditLog.findFirst({
       where: { organizationId: event.organizationId, chainSequence: { not: null } },
       orderBy: { chainSequence: 'desc' },
