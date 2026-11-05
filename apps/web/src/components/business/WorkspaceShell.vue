@@ -89,6 +89,11 @@ function handleTabChange(value: string) {
   emit('update:activeTab', value);
 }
 
+function handleLogout() {
+  auth.logout();
+  router.push('/login');
+}
+
 const searchQuery = ref('');
 </script>
 
@@ -152,7 +157,7 @@ const searchQuery = ref('');
               <DropdownMenuItem @click="router.push('/theme-settings')">
                 Theme Settings
               </DropdownMenuItem>
-              <DropdownMenuItem @click="auth.logout()">
+              <DropdownMenuItem @click="handleLogout()">
                 Logout
               </DropdownMenuItem>
             </DropdownMenuGroup>

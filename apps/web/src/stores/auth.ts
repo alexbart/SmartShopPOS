@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { apiClient } from '@/shared/lib/api-client';
+import { clearStoredSession, saveStoredSession } from '@/shared/lib/session';
 
 interface User {
   id: string;
@@ -61,23 +62,13 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = data.user;
     organization.value = data.organization;
     accessToken.value = data.tokens.accessToken;
-    localStorage.setItem('accessToken', data.tokens.accessToken);
-    localStorage.setItem('refreshToken', data.tokens.refreshToken);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    localStorage.setItem('organization', JSON.stringify(data.organization));
+    saveStoredSession({
+      accessToken: data.tokens.accessToken,
+      refreshToken: data.tokens.refreshToken,
+      user: data.user,
+      organization: data.organization,
+    });
     void fetchMe();
-  }
-
-  function loadFromStorage() {
-    const token = localStorage.getItem('accessToken');
-    const storedUser = localStorage.getItem('user');
-    const storedOrg = localStorage.getItem('organization');
-    if (token && storedUser && storedOrg) {
-      accessToken.value = token;
-      user.value = JSON.parse(storedUser);
-      organization.value = JSON.parse(storedOrg);
-      void fetchMe();
-    }
   }
 
   async function login(email: string, password: string, organizationCode: string) {
@@ -112,9 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null;
     roles.value = [];
     rolesLoaded.value = false;
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('organization');
+    clearStoredSession();
   }
 
   return {
@@ -128,6 +117,5 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
-    loadFromStorage,
   };
 });
