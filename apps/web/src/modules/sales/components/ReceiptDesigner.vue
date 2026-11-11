@@ -24,12 +24,15 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
-import { Copy, FileText, Loader2, Plus, Save, Star, Trash2 } from '@lucide/vue';
+import { useReceiptPrinter } from '@/modules/sales/printing/useReceiptPrinter';
+import { isValidPrinterHost, type PrinterConnection } from '@/stores/printer';
+import { Copy, FileText, Loader2, Plus, Save, Send, Star, Trash2 } from '@lucide/vue';
 
 const route = useRoute();
 const router = useRouter();
 const templateStore = useReceiptTemplateStore();
 const organizationStore = useOrganizationStore();
+const { printer, sending, printReceipt } = useReceiptPrinter();
 
 type SectionKey = keyof ReceiptSectionConfig;
 type NumericStyleKey = 'fontSize' | 'lineHeight' | 'sectionSpacing' | 'logoWidth' | 'logoMaxHeight';
@@ -85,6 +88,11 @@ const alignments: { value: Alignment; label: string }[] = [
   { value: 'right', label: 'Right' },
 ];
 
+const printerConnections: { value: PrinterConnection; label: string }[] = [
+  { value: 'browser', label: 'Browser print' },
+  { value: 'network', label: 'Network printer' },
+];
+
 // Illustrative transaction — real values always come from the completed sale.
 const sampleReceipt: ReceiptData = {
   number: 'INV-000123',
@@ -102,7 +110,7 @@ const sampleReceipt: ReceiptData = {
   cashier: 'Jane Smith',
 };
 
-const activeTab = ref<'design' | 'templates'>('design');
+const activeTab = ref<'design' | 'templates' | 'printer'>('design');
 const loading = ref(false);
 const saving = ref(false);
 const isEditing = ref(false);
@@ -113,6 +121,16 @@ const localSections = ref<ReceiptSectionConfig>({ ...DEFAULT_SECTIONS });
 const localStyles = ref<ReceiptStyleConfig>({ ...DEFAULT_STYLES });
 const localHeaderText = ref('');
 const localFooterText = ref('');
+
+// Device-level printer settings, mirrored into a form so a half-typed address
+// is never persisted to the till profile.
+const printerForm = ref({
+  connection: printer.profile.connection,
+  host: printer.profile.host,
+  port: String(printer.profile.port),
+  cut: printer.profile.cut,
+});
+const testPrintState = ref<'idle' | 'sent' | 'failed'>('idle');
 
 const templateId = computed(() => (route.params.id as string | undefined) || null);
 const branding = computed(() => organizationStore.branding);
@@ -285,6 +303,62 @@ async function makeDefault(template: ReceiptTemplate) {
   notification.success('Default updated', `"${template.name}" now prints at the till.`);
 }
 
+function savePrinterSettings(): boolean {
+  const host = printerForm.value.host.trim();
+  const port = Number(printerForm.value.port);
+
+  if (printerForm.value.connection === 'network' && !isValidPrinterHost(host)) {
+    notification.error('Printer address needed', 'Enter the printer IP, e.g. 192.168.1.50.');
+    return false;
+  }
+
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    notification.error('Invalid port', 'Use the printer raw port, usually 9100.');
+    return false;
+  }
+
+  printer.update({
+    connection: printerForm.value.connection,
+    host,
+    port,
+    cut: printerForm.value.cut,
+  });
+
+  return true;
+}
+
+function savePrinterProfile() {
+  if (savePrinterSettings()) {
+    notification.success('Printer saved', 'This device will print with these settings.');
+  }
+}
+
+async function sendTestPrint() {
+  if (!savePrinterSettings()) return;
+
+  testPrintState.value = 'idle';
+
+  const outcome = await printReceipt({
+    receipt: sampleReceipt,
+    branding: branding.value,
+    template: previewTemplate.value,
+    options: { paperWidth: localStyles.value.paperWidth },
+  });
+
+  if (outcome === 'sent') {
+    testPrintState.value = 'sent';
+    notification.success('Test receipt sent', 'Check the printer for the test receipt.');
+    return;
+  }
+
+  if (outcome === 'failed') {
+    testPrintState.value = 'failed';
+    return;
+  }
+
+  notification.info('Browser printing', 'Switch to a network printer to send a test receipt.');
+}
+
 watch(
   () => templateId.value,
   (id) => {
@@ -325,9 +399,10 @@ onMounted(async () => {
     </div>
 
     <Tabs v-model="activeTab">
-      <TabsList class="grid w-full max-w-md grid-cols-2">
+      <TabsList class="grid w-full max-w-md grid-cols-3">
         <TabsTrigger value="design">Design</TabsTrigger>
         <TabsTrigger value="templates">Saved templates</TabsTrigger>
+        <TabsTrigger value="printer">Till printer</TabsTrigger>
       </TabsList>
 
       <TabsContent value="design">
@@ -595,6 +670,99 @@ onMounted(async () => {
                   </Button>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="printer">
+        <Card class="mt-6">
+          <CardHeader>
+            <CardTitle>Till printer</CardTitle>
+            <CardDescription>
+              These settings belong to this device, not to the organization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent class="space-y-6">
+            <div class="space-y-2">
+              <Label>Connection</Label>
+              <div class="inline-flex rounded-md border p-0.5">
+                <button
+                  v-for="option in printerConnections"
+                  :key="option.value"
+                  type="button"
+                  class="rounded px-3 py-1.5 text-sm transition-colors"
+                  :class="
+                    printerForm.connection === option.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  "
+                  @click="printerForm.connection = option.value"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="printerForm.connection === 'network'" class="grid gap-4 sm:grid-cols-3">
+              <div class="space-y-1.5 sm:col-span-2">
+                <Label for="printer-host">Printer IP address</Label>
+                <Input id="printer-host" v-model="printerForm.host" placeholder="192.168.1.50" />
+              </div>
+              <div class="space-y-1.5">
+                <Label for="printer-port">Port</Label>
+                <Input
+                  id="printer-port"
+                  v-model="printerForm.port"
+                  inputmode="numeric"
+                  placeholder="9100"
+                />
+              </div>
+            </div>
+
+            <label
+              v-if="printerForm.connection === 'network'"
+              class="flex cursor-pointer items-center gap-2 text-sm"
+            >
+              <input
+                v-model="printerForm.cut"
+                type="checkbox"
+                class="h-4 w-4 accent-[var(--primary)]"
+              />
+              Cut the paper after each receipt
+            </label>
+
+            <p class="text-sm text-muted-foreground">
+              <template v-if="printerForm.connection === 'network'">
+                Receipts are rendered as ESC/POS commands and relayed by the SmartShopPOS API on
+                this machine, so the printer must be reachable on the same network. Port 9100 is the
+                standard raw printing port.
+              </template>
+              <template v-else>
+                The receipt opens in the system print dialog at the till. Choose a network printer
+                to send receipt-shaped output straight to the hardware.
+              </template>
+            </p>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <Button variant="outline" @click="savePrinterProfile">
+                <Save class="mr-1 h-4 w-4" />
+                Save printer
+              </Button>
+              <Button
+                :disabled="printerForm.connection !== 'network' || sending"
+                @click="sendTestPrint"
+              >
+                <Loader2 v-if="sending" class="mr-1 h-4 w-4 animate-spin" />
+                <Send v-else class="mr-1 h-4 w-4" />
+                Send test print
+              </Button>
+              <span v-if="testPrintState === 'sent'" class="text-sm text-emerald-600">
+                Test receipt sent.
+              </span>
+              <span v-else-if="testPrintState === 'failed'" class="text-sm text-destructive">
+                Could not reach the printer.
+              </span>
             </div>
           </CardContent>
         </Card>

@@ -6,6 +6,7 @@ import { notification } from '@/stores/notification';
 import { useAuthStore } from '@/stores/auth';
 import { useOrganizationStore } from '@/stores/organization';
 import { useReceiptTemplateStore } from '@/modules/sales/composables/useReceiptTemplate';
+import { useReceiptPrinter } from '@/modules/sales/printing/useReceiptPrinter';
 import { useCart } from '@/modules/sales/composables/useCart';
 import { useSale } from '@/modules/sales/composables/useSale';
 import { useShiftStore } from '@/modules/shift/stores/shiftStore';
@@ -42,6 +43,7 @@ const queryClient = useQueryClient();
 const auth = useAuthStore();
 const organizationStore = useOrganizationStore();
 const receiptTemplateStore = useReceiptTemplateStore();
+const { printReceipt } = useReceiptPrinter();
 const shiftStore = useShiftStore();
 const { isOnline } = useNetworkStatus();
 const {
@@ -182,8 +184,20 @@ function handleCheckout() {
   paymentDrawerOpen.value = true;
 }
 
-function handlePrintReceipt() {
-  window.print();
+async function handlePrintReceipt() {
+  if (!receiptData.value) return;
+
+  const outcome = await printReceipt({
+    receipt: receiptData.value,
+    branding: organizationStore.branding,
+    template: receiptTemplateStore.defaultTemplate,
+  });
+
+  // A till without a network printer — or one that stopped answering — still
+  // needs a receipt, so the browser dialog stays as the fallback.
+  if (outcome !== 'sent') {
+    window.print();
+  }
 }
 
 function handleEmailReceipt() {
