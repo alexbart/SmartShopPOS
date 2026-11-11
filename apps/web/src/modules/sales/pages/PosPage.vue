@@ -5,6 +5,7 @@ import { apiClient } from '@/shared/lib/api-client';
 import { notification } from '@/stores/notification';
 import { useAuthStore } from '@/stores/auth';
 import { useOrganizationStore } from '@/stores/organization';
+import { useReceiptTemplateStore } from '@/modules/sales/composables/useReceiptTemplate';
 import { useCart } from '@/modules/sales/composables/useCart';
 import { useSale } from '@/modules/sales/composables/useSale';
 import { useShiftStore } from '@/modules/shift/stores/shiftStore';
@@ -22,10 +23,7 @@ import QuickActions from '@/modules/sales/components/QuickActions.vue';
 import RecentSales from '@/modules/sales/components/RecentSales.vue';
 import SuspendSaleDialog from '@/modules/sales/components/SuspendSaleDialog.vue';
 import { Button } from '@/components/ui/button';
-import {
-  Wifi, WifiOff, Clock, Grid3X3, LayoutList,
-  Zap, History, X,
-} from '@lucide/vue';
+import { Wifi, WifiOff, Clock, Grid3X3, LayoutList, Zap, History, X } from '@lucide/vue';
 
 // Live Nairobi clock
 const now = ref(new Date());
@@ -43,14 +41,33 @@ const localTime = computed(() =>
 const queryClient = useQueryClient();
 const auth = useAuthStore();
 const organizationStore = useOrganizationStore();
+const receiptTemplateStore = useReceiptTemplateStore();
 const shiftStore = useShiftStore();
 const { isOnline } = useNetworkStatus();
 const {
-  items, addItem, removeItem, updateQuantity, setDiscount, setNote,
-  clearCart, setCustomer, clearCustomer, setPaymentMethod, setTax,
-  selectedPaymentMethod, customerId, customerName,
-  selectedTaxId, taxes,
-  subtotal, tax, totalDiscount, total, itemCount, isEmpty, toReceiptData,
+  items,
+  addItem,
+  removeItem,
+  updateQuantity,
+  setDiscount,
+  setNote,
+  clearCart,
+  setCustomer,
+  clearCustomer,
+  setPaymentMethod,
+  setTax,
+  selectedPaymentMethod,
+  customerId,
+  customerName,
+  selectedTaxId,
+  taxes,
+  subtotal,
+  tax,
+  totalDiscount,
+  total,
+  itemCount,
+  isEmpty,
+  toReceiptData,
 } = useCart();
 
 const { isProcessing, processSale, suspendSale, getSuspendedSales, resumeSale } = useSale();
@@ -170,17 +187,11 @@ function handlePrintReceipt() {
 }
 
 function handleEmailReceipt() {
-  notification.info(
-    'Not configured',
-    'Receipt email delivery has not been connected yet.',
-  );
+  notification.info('Not configured', 'Receipt email delivery has not been connected yet.');
 }
 
 function handleSmsReceipt() {
-  notification.info(
-    'Not configured',
-    'Receipt SMS delivery has not been connected yet.',
-  );
+  notification.info('Not configured', 'Receipt SMS delivery has not been connected yet.');
 }
 
 function handlePayment(payload: PaymentPayload) {
@@ -267,10 +278,14 @@ const searchBarRef = ref<any>(null);
 const customerLookupRef = ref<any>(null);
 
 onMounted(() => {
-  clockTimer = setInterval(() => { now.value = new Date(); }, 1000);
+  clockTimer = setInterval(() => {
+    now.value = new Date();
+  }, 1000);
 
   // Branding is cached for the session so printing never waits on a request.
   void organizationStore.ensureLoaded();
+  // Same for the shop's saved receipt template — print what they designed.
+  void receiptTemplateStore.ensureDefaultLoaded();
 
   const hasSavedCart = localStorage.getItem('pos-cart');
   if (hasSavedCart && items.value.length > 0) {
@@ -279,22 +294,54 @@ onMounted(() => {
 
   const handler = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement;
-    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+    const isInput =
+      target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-    if (e.key === 'F2') { e.preventDefault(); searchBarRef.value?.focus(); }
-    if (e.key === 'F3') { e.preventDefault(); customerLookupRef.value?.focus(); }
-    if (e.key === 'F4') { e.preventDefault(); handleSuspend(); }
-    if (e.key === 'F5') { e.preventDefault(); suspendDialogOpen.value = true; }
-    if (e.key === 'F6') { e.preventDefault(); if (!isEmpty.value) paymentDrawerOpen.value = true; }
-    if (e.key === 'F7') { e.preventDefault(); if (!isEmpty.value) paymentDrawerOpen.value = true; }
-    if (e.key === 'F9') { e.preventDefault(); clearCart(); }
-    if (e.key === 'F10') { e.preventDefault(); if (!isEmpty.value) handleCheckout(); }
-    if (e.key === 'Escape') {
-      if (paymentDrawerOpen.value) { paymentDrawerOpen.value = false; }
-      else if (showReceipt.value) { showReceipt.value = false; }
-      else if (suspendDialogOpen.value) { suspendDialogOpen.value = false; }
+    if (e.key === 'F2') {
+      e.preventDefault();
+      searchBarRef.value?.focus();
     }
-    if (e.key === 'Delete' && e.ctrlKey && !isInput) { e.preventDefault(); clearCart(); }
+    if (e.key === 'F3') {
+      e.preventDefault();
+      customerLookupRef.value?.focus();
+    }
+    if (e.key === 'F4') {
+      e.preventDefault();
+      handleSuspend();
+    }
+    if (e.key === 'F5') {
+      e.preventDefault();
+      suspendDialogOpen.value = true;
+    }
+    if (e.key === 'F6') {
+      e.preventDefault();
+      if (!isEmpty.value) paymentDrawerOpen.value = true;
+    }
+    if (e.key === 'F7') {
+      e.preventDefault();
+      if (!isEmpty.value) paymentDrawerOpen.value = true;
+    }
+    if (e.key === 'F9') {
+      e.preventDefault();
+      clearCart();
+    }
+    if (e.key === 'F10') {
+      e.preventDefault();
+      if (!isEmpty.value) handleCheckout();
+    }
+    if (e.key === 'Escape') {
+      if (paymentDrawerOpen.value) {
+        paymentDrawerOpen.value = false;
+      } else if (showReceipt.value) {
+        showReceipt.value = false;
+      } else if (suspendDialogOpen.value) {
+        suspendDialogOpen.value = false;
+      }
+    }
+    if (e.key === 'Delete' && e.ctrlKey && !isInput) {
+      e.preventDefault();
+      clearCart();
+    }
     if (e.key === 'Enter' && !isInput) {
       if (!paymentDrawerOpen.value && !showReceipt.value && !isEmpty.value) handleCheckout();
     }
@@ -310,7 +357,6 @@ onMounted(() => {
 
 <template>
   <div class="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-
     <!-- Top Bar -->
     <div class="border-b px-4 py-2 flex items-center justify-between bg-card shrink-0">
       <div class="flex items-center gap-4">
@@ -318,7 +364,10 @@ onMounted(() => {
         <span v-if="shiftStore.shift?.branchName" class="text-sm text-muted-foreground">
           {{ shiftStore.shift.branchName }}
         </span>
-        <div v-if="shiftStore.isShiftOpen" class="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div
+          v-if="shiftStore.isShiftOpen"
+          class="flex items-center gap-1.5 text-xs text-muted-foreground"
+        >
           <Clock class="w-3.5 h-3.5" />
           <span>{{ shiftStore.shiftDuration }}</span>
         </div>
@@ -332,7 +381,10 @@ onMounted(() => {
           size="sm"
           :class="showQuickActions ? 'bg-muted' : ''"
           class="gap-1.5 text-xs h-8"
-          @click="showQuickActions = !showQuickActions; showRecentSales = false"
+          @click="
+            showQuickActions = !showQuickActions;
+            showRecentSales = false;
+          "
         >
           <Zap class="w-3.5 h-3.5" />
           Quick Actions
@@ -344,7 +396,10 @@ onMounted(() => {
           size="sm"
           :class="showRecentSales ? 'bg-muted' : ''"
           class="gap-1.5 text-xs h-8"
-          @click="showRecentSales = !showRecentSales; showQuickActions = false"
+          @click="
+            showRecentSales = !showRecentSales;
+            showQuickActions = false;
+          "
         >
           <History class="w-3.5 h-3.5" />
           Recent Sales
@@ -352,7 +407,10 @@ onMounted(() => {
 
         <div class="w-px h-5 bg-border mx-1" />
 
-        <div :class="isOnline ? 'text-green-600' : 'text-red-600'" class="flex items-center gap-1 text-xs">
+        <div
+          :class="isOnline ? 'text-green-600' : 'text-red-600'"
+          class="flex items-center gap-1 text-xs"
+        >
           <Wifi v-if="isOnline" class="w-3.5 h-3.5" />
           <WifiOff v-else class="w-3.5 h-3.5" />
         </div>
@@ -363,9 +421,11 @@ onMounted(() => {
         </div>
         <span
           class="px-2 py-0.5 rounded-full text-xs font-medium"
-          :class="shiftStore.drawerStatus === 'open'
-            ? 'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400'
-            : 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400'"
+          :class="
+            shiftStore.drawerStatus === 'open'
+              ? 'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400'
+              : 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400'
+          "
         >
           {{ shiftStore.drawerStatus === 'open' ? 'Drawer Open' : 'Drawer Closed' }}
         </span>
@@ -388,10 +448,7 @@ onMounted(() => {
 
     <!-- Toggle Panel (Quick Actions or Recent Sales) -->
     <transition name="panel-slide">
-      <div
-        v-if="showQuickActions || showRecentSales"
-        class="border-b bg-card px-4 py-3 shrink-0"
-      >
+      <div v-if="showQuickActions || showRecentSales" class="border-b bg-card px-4 py-3 shrink-0">
         <div class="flex items-start justify-between gap-4">
           <div class="flex-1">
             <QuickActions
@@ -408,7 +465,10 @@ onMounted(() => {
             variant="ghost"
             size="icon"
             class="h-7 w-7 shrink-0 mt-0.5"
-            @click="showQuickActions = false; showRecentSales = false"
+            @click="
+              showQuickActions = false;
+              showRecentSales = false;
+            "
           >
             <X class="w-4 h-4" />
           </Button>
@@ -430,10 +490,8 @@ onMounted(() => {
 
     <!-- Main Content — fills all remaining height -->
     <div class="flex-1 overflow-hidden flex gap-0">
-
       <!-- Left: Products -->
       <div class="flex-1 overflow-hidden flex flex-col p-4 pr-2">
-
         <!-- Pinned shortcuts -->
         <ProductShortcuts
           v-if="pinnedProductIds.length > 0"
@@ -501,7 +559,6 @@ onMounted(() => {
 
       <!-- Right: Cart Panel -->
       <div class="w-[360px] shrink-0 flex flex-col border-l overflow-hidden p-4 pl-2 gap-2">
-
         <!-- Customer -->
         <CustomerLookup
           ref="customerLookupRef"
@@ -568,6 +625,7 @@ onMounted(() => {
         <ReceiptPreview
           :receipt="receiptData"
           :branding="organizationStore.branding"
+          :template="receiptTemplateStore.defaultTemplate"
           @print="handlePrintReceipt"
           @download="handlePrintReceipt"
           @email="handleEmailReceipt"

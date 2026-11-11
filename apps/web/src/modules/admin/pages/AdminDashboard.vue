@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings,
   Receipt,
+  Printer,
   Banknote,
   Calendar,
 } from '@lucide/vue';
@@ -61,6 +62,7 @@ const adminNavItems = [
   { label: 'Users', icon: Users, path: '/admin/users' },
   { label: 'Roles', icon: Shield, path: '/admin/roles' },
   { label: 'Taxes', icon: Receipt, path: '/admin/taxes' },
+  { label: 'Receipt Designer', icon: Printer, path: '/admin/receipt' },
   { label: 'Theme Studio', icon: Settings, path: '/admin/theme' },
   { label: 'Integrations', icon: Banknote, path: '/admin/integrations' },
   { label: 'Audit Center', icon: BarChart3, path: '/admin/audit' },
@@ -82,13 +84,11 @@ const adminNavItems = [
       </div>
 
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <div
-          v-for="card in summaryCards"
-          :key="card.title"
-          class="card p-4"
-        >
+        <div v-for="card in summaryCards" :key="card.title" class="card p-4">
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <div
+              class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"
+            >
               <component :is="card.icon" class="w-4 h-4 text-primary" />
             </div>
             <div>

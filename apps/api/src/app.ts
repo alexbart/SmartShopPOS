@@ -43,6 +43,7 @@ import { getPrisma } from './shared/database/prisma.js';
 import { auditTrailPlugin } from './plugins/auditTrail.js';
 import { auditRoutes } from './modules/audit/audit.routes.js';
 import { organizationRoutes } from './modules/organization/organization.routes.js';
+import { receiptTemplateRoutes } from './modules/receipt-template/index.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -72,6 +73,7 @@ export async function buildApp() {
   await app.register(AuthRoutes, { prefix: '/api/v1/auth' });
   await app.register(auditRoutes, { prefix: '/api/v1/audit' });
   await app.register(organizationRoutes, { prefix: '/api/v1/organization' });
+  await app.register(receiptTemplateRoutes, { prefix: '/api/v1/receipt-templates' });
   await app.register(CategoryRoutes, { prefix: '/api/v1/categories' });
   await app.register(brandRoutes, { prefix: '/api/v1/brands' });
   await app.register(unitRoutes, { prefix: '/api/v1/units' });

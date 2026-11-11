@@ -3,13 +3,16 @@ import { onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import ReceiptPreview from '@/modules/sales/components/ReceiptPreview.vue';
 import { useOrganizationStore } from '@/stores/organization';
+import { useReceiptTemplateStore } from '@/modules/sales/composables/useReceiptTemplate';
 
 const route = useRoute();
 const organizationStore = useOrganizationStore();
+const receiptTemplateStore = useReceiptTemplateStore();
 const receiptId = route.params.id as string;
 
 onMounted(() => {
   void organizationStore.ensureLoaded();
+  void receiptTemplateStore.ensureDefaultLoaded();
 });
 </script>
 
@@ -18,6 +21,7 @@ onMounted(() => {
     <div class="max-w-md mx-auto">
       <ReceiptPreview
         :branding="organizationStore.branding"
+        :template="receiptTemplateStore.defaultTemplate"
         :receipt="{
           number: receiptId || '',
           items: [],

@@ -88,9 +88,7 @@ onUnmounted(() => {
   window.removeEventListener('offline', () => (isOnline.value = false));
 });
 
-const topLevelNavigation = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-];
+const topLevelNavigation = [{ name: 'Dashboard', path: '/', icon: LayoutDashboard }];
 
 const workspaces = [
   {
@@ -136,6 +134,7 @@ const workspaces = [
       { name: 'Users', path: '/admin/users', icon: Users },
       { name: 'Roles', path: '/admin/roles', icon: Shield },
       { name: 'Taxes', path: '/admin/taxes', icon: Receipt },
+      { name: 'Receipt Designer', path: '/admin/receipt', icon: Printer },
       { name: 'Theme Studio', path: '/admin/theme', icon: Paintbrush },
       { name: 'Integrations', path: '/admin/integrations', icon: Plug },
       { name: 'Audit Center', path: '/admin/audit', icon: BarChart3 },
@@ -183,15 +182,10 @@ function handleLogout() {
 
     <nav
       class="fixed md:static z-50 h-full bg-card shadow border-r border-border flex flex-col transition-transform duration-200"
-      :class="
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-      "
+      :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
     >
       <div class="p-4 border-b">
-        <h1
-          class="text-xl font-bold"
-          :style="{ color: 'hsl(var(--color-primary))' }"
-        >
+        <h1 class="text-xl font-bold" :style="{ color: 'hsl(var(--color-primary))' }">
           {{ auth.organization?.name || theme.theme.businessName || 'SmartShopPOS' }}
         </h1>
         <p class="text-sm text-muted-foreground">
@@ -232,15 +226,12 @@ function handleLogout() {
               v-if="expandedWorkspaces[ws.key]"
               class="w-4 h-4 ml-auto transition-transform"
             />
-            <ChevronRight
-              v-else
-              class="w-4 h-4 ml-auto transition-transform"
-            />
+            <ChevronRight v-else class="w-4 h-4 ml-auto transition-transform" />
           </button>
 
           <template v-else>
             <button
-               @click="navigate(ws.path!)"
+              @click="navigate(ws.path!)"
               :class="[
                 'w-full flex items-center gap-3 px-4 py-2.5 text-sm rounded-md mx-2 my-0.5 transition-colors touch-target',
                 isChildActive(ws.path)
@@ -253,10 +244,7 @@ function handleLogout() {
             </button>
           </template>
 
-          <div
-            v-if="ws.hasChildren && expandedWorkspaces[ws.key]"
-            class="ml-8 mt-1 space-y-1"
-          >
+          <div v-if="ws.hasChildren && expandedWorkspaces[ws.key]" class="ml-8 mt-1 space-y-1">
             <button
               v-for="child in ws.children"
               :key="child.path"
@@ -286,8 +274,11 @@ function handleLogout() {
       </div>
     </nav>
 
-     <main class="flex-1 overflow-y-auto">
-      <div v-if="!isOnline" class="bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800 px-4 py-2">
+    <main class="flex-1 overflow-y-auto">
+      <div
+        v-if="!isOnline"
+        class="bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800 px-4 py-2"
+      >
         <div class="flex items-center gap-2 text-sm text-red-800 dark:text-red-200">
           <WifiOff class="w-4 h-4" />
           <span>You're offline. Sales will sync when connection returns.</span>
@@ -305,10 +296,7 @@ function handleLogout() {
           {{ auth.organization?.name || 'SmartShopPOS' }}
         </h1>
         <div class="flex items-center gap-2">
-          <div
-            v-if="shiftStore.isShiftOpen"
-            class="text-xs text-muted-foreground"
-          >
+          <div v-if="shiftStore.isShiftOpen" class="text-xs text-muted-foreground">
             {{ greeting.text }}
           </div>
           <div :class="isOnline ? 'text-green-600' : 'text-red-600'">
@@ -331,7 +319,9 @@ function handleLogout() {
         <div class="flex items-center gap-4 text-sm">
           <div class="flex items-center gap-1">
             <span class="text-muted-foreground">Float</span>
-            <span class="font-medium">KES {{ shiftStore.shift?.openingFloat.toLocaleString() }}</span>
+            <span class="font-medium"
+              >KES {{ shiftStore.shift?.openingFloat.toLocaleString() }}</span
+            >
           </div>
           <div class="flex items-center gap-1">
             <Printer class="w-4 h-4 text-muted-foreground" />

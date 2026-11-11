@@ -152,6 +152,16 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/modules/admin/pages/ThemeStudio.vue'),
       },
       {
+        path: 'admin/receipt',
+        name: 'receipt-designer',
+        component: () => import('@/modules/sales/components/ReceiptDesigner.vue'),
+      },
+      {
+        path: 'admin/receipt/:id',
+        name: 'receipt-designer-edit',
+        component: () => import('@/modules/sales/components/ReceiptDesigner.vue'),
+      },
+      {
         path: 'admin/integrations',
         name: 'admin-integrations',
         component: () => import('@/modules/admin/pages/IntegrationCenter.vue'),

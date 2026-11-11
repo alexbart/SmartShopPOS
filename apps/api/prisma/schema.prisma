@@ -60,6 +60,7 @@ model Organization {
   users                User[]
   warehouses           Warehouse[]
   mpesaMessageEvidence MpesaMessageEvidence[]
+  receiptTemplates ReceiptTemplate[]
 
   @@index([code])
   @@index([status])
@@ -82,6 +83,27 @@ model OrganizationTheme {
   updatedAt      DateTime @updatedAt @db.Timestamp(6)
 
   @@map("organization_themes")
+}
+
+model ReceiptTemplate {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @db.Uuid
+  name            String   @db.VarChar(255)
+  isDefault       Boolean  @default(false)
+  sections        Json
+  styles          Json
+  headerText      String?  @db.Text
+  footerText      String?  @db.Text
+  createdAt       DateTime @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime @updatedAt @db.Timestamp(6)
+  deletedAt       DateTime? @db.Timestamp(6)
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name], map: "receipt_templates_org_name_unique")
+  @@index([organizationId], map: "receipt_templates_org_id_idx")
+  @@index([organizationId, isDefault], map: "receipt_templates_org_default_idx")
+  @@map("receipt_templates")
 }
 
 model Branch {
